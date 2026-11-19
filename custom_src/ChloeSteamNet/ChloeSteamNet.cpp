@@ -39,6 +39,7 @@ static const uint8_t  kTypeData      = 0x43;
 static const uint8_t  kTypeHello     = 0x48;   // host -> lobby members, client -> host while connecting
 static const uint8_t  kTypeHelloAck  = 0x41;   // host -> client (answer to a client hello)
 static const uint8_t  kTypeAIDrivers = 0x44;   // host -> clients: chosen AI drivers (profile ids in order)
+static const uint8_t  kTypeAIDamage  = 0x47;   // client -> host: damage the client dealt to an AI car (srcPort = player index, float)
 static const uint8_t  kTypeName      = 0x4E;   // profile name of the sender (wchar[16]), for the stunt score entries
 static const uint8_t  kTypeStunt     = 0x54;   // stunt round record of the sender (srcPort = level, dstPort = round)
 static const DWORD    kConnectTimeout = 20000; // ms for the Steam connection to the host before joining with ENet
@@ -358,6 +359,7 @@ static void LeaveJoinedLobby();
 static void StoreStuntRecord(uint64_t from, const uint8_t* data, int len);
 static void StoreStuntName(uint64_t from, const uint8_t* data, int len);
 static void StoreHostAIDrivers(uint64_t from, const uint8_t* data, int len);
+static void StoreAIDamage(uint64_t from, const uint8_t* data, int len);
 static void SendAIDriversToLobby();
 static void Pump() {
 	if (!SteamReady()) return;
@@ -387,6 +389,7 @@ static void Pump() {
 			if (from->eType == kIdentitySteamID && len >= 5 && data[0] == kTypeStunt) StoreStuntRecord(from->steamID64, data, len);
 			if (from->eType == kIdentitySteamID && len >= 5 && data[0] == kTypeName) StoreStuntName(from->steamID64, data, len);
 			if (from->eType == kIdentitySteamID && len >= 5 && data[0] == kTypeAIDrivers) StoreHostAIDrivers(from->steamID64, data, len);
+			if (from->eType == kIdentitySteamID && len >= 5 && data[0] == kTypeAIDamage) StoreAIDamage(from->steamID64, data, len);
 			if (from->eType == kIdentitySteamID && len >= 5 && data[0] == kTypeData) {
 				Packet p; p.from = from->steamID64;
 				uint16_t dst; memcpy(&p.srcPort, data + 1, 2); memcpy(&dst, data + 3, 2);
@@ -1040,6 +1043,64 @@ static __declspec(naked) void AICreateStub() {
 	}
 }
 
+// ------------------------------------------------------------------------------------------------------------
+// Damage that a client deals to an AI car. The AI runs on the host. On the client the AI cars are copies whose
+// state (also the damage) comes from the host, and on the host the client's car is only a copy, so the collision
+// usually causes no damage there (test 19.11.2026: AI rammed by the client got no damage, by the host yes).
+// Fouc.exe adds collision damage in FUN_00426d20 (Car +0x7AB8, old value at [esp+0x28]). At 0x428041, after the
+// write, a hook reports increases on real AI cars; the client sends them to the host (kTypeAIDamage), which adds them.
+
+static int gRealAIFirst = -1;          // PlayerInfo index of the first real AI in the current MP race, -1 = none
+static float gAIDamageOut[32] = {};    // client: damage to send (game thread writes, RaceTick sends under gLock)
+static float gAIDamageIn[32] = {};     // host: damage received (network thread, gLock)
+
+static void StoreAIDamage(uint64_t from, const uint8_t* data, int len) {   // caller holds gLock
+	if (!gHostLobby || len != 5 + (int)sizeof(float)) return;
+	int idx = data[1] | (data[2] << 8);
+	float d; memcpy(&d, data + 5, sizeof(d));
+	if (idx < 0 || idx >= 32 || !(d > 0.f) || d > 10.f) return;
+	(void)from;
+	gAIDamageIn[idx] += d;
+}
+
+static void __stdcall OnCarDamage(uint8_t* car, float oldDamage) {
+	if (gRealAIFirst < 0 || !car) return;
+	float d = *(float*)(car + 0x7AB8) - oldDamage;
+	if (!(d > 0.f)) return;
+	auto ply = *(uint8_t**)(car + 0x469C);
+	if (!ply) return;
+	int idx = *(int*)(ply + 0x2C4) - 1;
+	if (idx < gRealAIFirst || idx >= 32) return;
+	if (!gJoinedLobby) return;   // host: own collisions count already
+	gAIDamageOut[idx] += d;
+}
+
+static uintptr_t gDamageHookReturn = 0x428047;
+static __declspec(naked) void DamageHookStub() {
+	__asm {
+		pushad
+		push dword ptr [esp + 0x48]   // old damage ([esp+0x28] before pushad)
+		push esi                      // Car
+		call OnCarDamage
+		popad
+		lea edx, [esi + 0x192C]       // original instruction
+		jmp dword ptr [gDamageHookReturn]
+	}
+}
+
+static void PlaceDamageHook() {
+	auto p = (uint8_t*)0x428041;
+	static const uint8_t expected[6] = { 0x8D, 0x96, 0x2C, 0x19, 0x00, 0x00 };   // lea edx, [esi+0x192C]
+	if (memcmp(p, expected, 6) != 0) { Log("damage hook skipped: unexpected code at 0x428041"); return; }
+	DWORD old;
+	VirtualProtect(p, 6, PAGE_EXECUTE_READWRITE, &old);
+	p[0] = 0xE9;
+	int32_t rel = (int32_t)((uintptr_t)&DamageHookStub - ((uintptr_t)p + 5));
+	memcpy(p + 1, &rel, 4);
+	p[5] = 0x90;
+	VirtualProtect(p, 6, old, &old);
+}
+
 static void PlaceAIDriverHook() {
 	auto p = (uint8_t*)0x46991D;
 	static const uint8_t expected[5] = { 0xE8, 0x9E, 0xF8, 0xF9, 0xFF };   // call 0x4091C0
@@ -1193,31 +1254,42 @@ static void FixStuntStartPositions() {
 // - Diagnostics: lap setting, laps and finish flag of every score entry (ScoreManager 0x846514, entries at +8/+C:
 //   +4 player index, +0x38 bHasFinished, +0x39 second finish flag, +0x44 completed laps = value that Chloe compares
 //   with her lap setting, FUN_628e52e0) and the car damage (Car +0x7AB8) of every player.
-// - Host: AI cars that have finished keep driving (the game's AI never stops). Their horizontal speed is reduced
-//   each frame (like braking), so they stop like the human players. The clients get the position from the host.
+// - The game's AI keeps driving after the finish. Stopping it (braking in this tick) was tried on 19.11.2026: the AI
+//   then resets itself to the track again and again, so it is left as it is.
+// - Host: adds the damage that clients dealt to AI cars (see OnCarDamage); client: sends it.
 
 static void RaceTick() {
 	auto gf = GameFlowPtr();
 	if (!gf) return;
 	static bool active = false;
-	struct State { int lap = -99, fin = -1; float dmg = 0.f; bool stopped = false; };
+	struct State { int lap = -99, fin = -1, plap = -99; float dmg = 0.f; bool flagLogged = false; };
 	static State st[32];
-	static LARGE_INTEGER last = {}, freq = {};
 	int gameState = *(int*)(gf + 0x4A4), level = *(int*)(gf + 0x4CC);
-	if (gameState != 2 || StuntStartForLevel((uint32_t)level)) { active = false; return; }
+	if (gameState != 2 || StuntStartForLevel((uint32_t)level)) { active = false; gRealAIFirst = -1; return; }
 	if (!TryEnterCriticalSection(&gLock)) return;
 	bool mp = !gSocketPort.empty(), isHost = gJoinedLobby == 0;
+	int others = mp ? (int)LobbyPeers().size() : 0;
+	if (mp && !isHost) {   // client: forward damage dealt to AI cars
+		for (int i = 0; i < 32; i++) {
+			if (gAIDamageOut[i] <= 0.f) continue;
+			float d = gAIDamageOut[i];
+			gAIDamageOut[i] = 0.f;
+			if (gJoinHost) SendRaw(gJoinHost, kTypeAIDamage, (uint16_t)i, 0, (const uint8_t*)&d, sizeof(d));
+			Log("race: damage to AI player %d +%.3f on this client, sent to the host", i, d);
+		}
+	}
+	float incoming[32];
+	memcpy(incoming, gAIDamageIn, sizeof(incoming));
+	memset(gAIDamageIn, 0, sizeof(gAIDamageIn));
 	LeaveCriticalSection(&gLock);
-	if (!mp) { active = false; return; }
+	if (!mp) { active = false; gRealAIFirst = -1; return; }
 	auto sm = *(uint8_t**)0x846514, host = *(uint8_t**)(gf + 0x2820);
 	if (!sm || !host) return;
-	LARGE_INTEGER now; QueryPerformanceCounter(&now);
-	if (!freq.QuadPart) QueryPerformanceFrequency(&freq);
-	float dt = last.QuadPart ? (float)(now.QuadPart - last.QuadPart) / (float)freq.QuadPart : 0.f;
-	last = now;
-	if (dt > 0.1f) dt = 0.1f;
 	if (!active) {
 		active = true;
+		int locals = 0;
+		for (int i = 0; i < 32; i++) if (*(int*)(gf + 0xAE8 + i * 0x50 + 0x2C) == 1) locals++;
+		gRealAIFirst = locals + others;   // PlayerInfo index of the first real AI (same on all PCs)
 		for (auto& s : st) s = State();
 		int chloeLaps = -1;
 		if (auto mpMod = (uint8_t*)GetModuleHandleA("FlatOutUCCustomMP_gcp.asi")) chloeLaps = mpMod[0x62D5D0DC - 0x62840000];
@@ -1241,6 +1313,15 @@ static void RaceTick() {
 		State& s = st[idx];
 		int lap = *(int*)(entry + 0x44), fin = entry[0x38] | (entry[0x39] << 1);
 		float dmg = car ? *(float*)(car + 0x7AB8) : 0.f;
+		int plap = *(int*)(ply + 0x3E8), split = *(int*)(ply + 0x3E4);   // Player.nCurrentLap / nCurrentSplit
+		if (plap != s.plap) { Log("race: player %d (type %d) Player.nCurrentLap %d, split %d, score laps %d", idx, type, plap, split, *(int*)(entry + 0x44)); s.plap = plap; }
+		if (!s.flagLogged && car) { s.flagLogged = true; Log("race: player %d (type %d) car no-damage flag %d", idx, type, car[0x7AE8]); }
+		if (isHost && type == 4 && car && incoming[idx] > 0.f) {   // damage a client dealt to this AI car
+			float maxDmg = *(float*)0x6DA518;
+			float nd = *(float*)(car + 0x7AB8) + incoming[idx];
+			*(float*)(car + 0x7AB8) = nd > maxDmg ? maxDmg : nd;
+			Log("race: AI player %d damage +%.3f from a client", idx, incoming[idx]);
+		}
 		if (lap != s.lap || fin != s.fin) {
 			Log("race: player %d (type %d) laps %d, finished %d, damage %.2f", idx, type, lap, fin, dmg);
 			s.lap = lap; s.fin = fin;
@@ -1248,17 +1329,6 @@ static void RaceTick() {
 		if (car && (dmg > s.dmg + 0.05f || dmg < s.dmg - 0.05f)) {
 			Log("race: player %d (type %d) damage %.2f -> %.2f%s", idx, type, s.dmg, dmg, fin ? " (finished)" : "");
 			s.dmg = dmg;
-		}
-		if (isHost && type == 4 && car && (fin & 1) && dt > 0.f) {   // finished AI on the host: brake to a stop
-			if (!s.stopped) { s.stopped = true; Log("race: AI player %d finished, stopping the car", idx); }
-			float* v = (float*)(car + 0x290);
-			float speed = sqrtf(v[0] * v[0] + v[2] * v[2]);
-			if (speed > 0.001f) {
-				float ns = speed - 12.f * dt;                          // ~1.2 g
-				if (ns < 3.f) ns *= 0.85f;
-				if (ns < 0.f) ns = 0.f;
-				v[0] *= ns / speed; v[2] *= ns / speed;
-			}
 		}
 	}
 }
@@ -1558,6 +1628,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
 		LoadAINames();
 		LoadAIDrivers();
 		PlaceAIDriverHook();
+		PlaceDamageHook();
 		if (HMODULE xl = GetModuleHandleA("xlive.dll"))
 			if (!PatchImport(xl, "steam_api.dll", "SteamAPI_Shutdown", (void*)hkSteamShutdown, (void**)&oSteamShutdown))
 				Log("xlive.dll: SteamAPI_Shutdown import not found");
