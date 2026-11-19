@@ -57,8 +57,8 @@ local Layout=
 	OptionArrowIndentTop=4,
 	OptionArrowIndentLeftRight=5,
 	
-	RowHeight=18,
-	RowPadding=2,
+	RowHeight=17, -- ChloeCustom: one more row fits above the description
+	RowPadding=1,
 }
 
 local OptionItems = {
@@ -180,6 +180,26 @@ local OptionItems = {
 		nil,
 		{L"AI drives derby cars", L"AI drives race cars", L"AI drives street cars", L"AI drives the same car as the host"} -- ChloeCustom
 	},
+	{ -- ChloeCustom: AI slot (AI drivers, Steam package)
+		L("AI SLOT"),
+		{L"1", L"2", L"3", L"4", L"5", L"6", L"7", L"8", L"9", L"10", L"11", L"12"},
+		{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12},
+		1,
+		true,
+		function() ChloeCustom_AISlotChanged() end,
+		L"",
+		true
+	},
+	{ -- ChloeCustom: AI driver of the selected slot
+		L("AI DRIVER"),
+		{L"NONE", L"JACK BENTON", L"KATIE JACKSON", L"SOFIA MARTINEZ", L"SALLY TAYLOR", L"JASON WALKER", L"RAY CARTER", L"FRANK MALCOV", L"CURTIS WOLFE", L"LEWIS DURAN", L"LEI BING", L"JILL RICHARDS"},
+		{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11},
+		1,
+		true,
+		function() ChloeCustom_AIDriverChanged() end,
+		L"",
+		true
+	},
 }
 
 -- OptionItem item indexes
@@ -206,8 +226,10 @@ local DisableProps=10
 local GhostMode=11
 local AICount=12
 local AIClass=13
+local AIDriverSlot=14 -- ChloeCustom
+local AIDriverName=15
 
-local NumOptions=13
+local NumOptions=14 -- ChloeCustom: AI COUNT is replaced by AI SLOT + AI DRIVER
 
 local function GetEnabled(RowNr)
 	return OptionItems[RowNr][Enabled]
@@ -321,6 +343,21 @@ local function UpdateInfoText()
 	end
 end
 
+-- ChloeCustom: AI drivers chosen by the host (ChloeSteamNet.asi keeps the list, saves it and sends it to the clients)
+function ChloeCustom_AIDriverRefresh()
+	local text = ChloeSteam_GetAIDriverText()
+	OptionItems[AIDriverSlot][Descriptions] = text
+	OptionItems[AIDriverName][Descriptions] = text
+end
+function ChloeCustom_AISlotChanged()
+	SetSelectedItemByValue(AIDriverName, ChloeSteam_GetAIDriver(GetSelectedItemValue(AIDriverSlot)))
+	ChloeCustom_AIDriverRefresh()
+end
+function ChloeCustom_AIDriverChanged()
+	ChloeSteam_SetAIDriver(GetSelectedItemValue(AIDriverSlot), GetSelectedItemValue(AIDriverName))
+	ChloeCustom_AIDriverRefresh()
+end
+
 local function ChangeOptions(events, carindex, carskin)	
 	local cartype = GetSelectedItemValue(CarType)
 	if cartype < 0 then
@@ -342,7 +379,11 @@ local function ChangeOptions(events, carindex, carskin)
 	ChloeNet_Host_SetUncappedSpeedLimit(GetSelectedItemValue(SpeedLimit))
 	ChloeNet_Host_SetNoProps(GetSelectedItemValue(DisableProps))
 	ChloeNet_Host_SetNoContact(GetSelectedItemValue(GhostMode))
-	ChloeNet_Host_SetNumAI(GetSelectedItemValue(AICount))
+	if ChloeSteam_GetAIDriverCount ~= nil then -- ChloeCustom: number of chosen AI drivers
+		ChloeNet_Host_SetNumAI(ChloeSteam_GetAIDriverCount())
+	else
+		ChloeNet_Host_SetNumAI(GetSelectedItemValue(AICount))
+	end
 	ChloeNet_Host_SetAIClass(GetSelectedItemValue(AIClass))
 	ChloeNet_Host_SetPropCarsAvailable(GetSelectedItemValue(PropCars))
 	
@@ -525,6 +566,17 @@ function menu_chloemultiplayer_lobby_changeoptions.init(self)
 	SetSelectedItemByValue(NitroRegenType, ChloeNet_GetNitroRegen())
 	SetSelectedItemByValue(AICount, ChloeNet_GetNumAI())
 	SetSelectedItemByValue(AIClass, ChloeNet_GetAIClass())
+	if ChloeSteam_SetAIDriver ~= nil then -- ChloeCustom: AI SLOT / AI DRIVER instead of AI COUNT
+		SetHidden(AICount, true)
+		SetEnabled(AIDriverSlot, true)
+		SetEnabled(AIDriverName, true)
+		SetSelectedItem(AIDriverSlot, 1)
+		SetSelectedItemByValue(AIDriverName, ChloeSteam_GetAIDriver(1))
+		ChloeCustom_AIDriverRefresh()
+	else
+		SetHidden(AIDriverSlot, true)
+		SetHidden(AIDriverName, true)
+	end
 	SetSelectedItemByValue(HandlingMode, ChloeNet_GetHandlingMode())
 	if ChloeNet_GetNoProps() then
 		SetSelectedItemByValue(DisableProps, 1)

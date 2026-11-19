@@ -71,6 +71,67 @@ def filter_cartype_option(text, name):
     marker = '\t\t-- ChloeCustom: car types with only non-FlatOut-2 cars (FO1, Retro Demo, Tough Trucks, Rally Trophy, props) removed\r\n'
     return text[:m.start()] + marker + new + text[m.end():]
 
+AI_DRIVER_NAMES = ['JACK BENTON', 'KATIE JACKSON', 'SOFIA MARTINEZ', 'SALLY TAYLOR', 'JASON WALKER', 'RAY CARTER',
+                   'FRANK MALCOV', 'CURTIS WOLFE', 'LEWIS DURAN', 'LEI BING', 'JILL RICHARDS']   # Config/AIConfig.toml AI1..AI11
+
+def add_ai_driver_rows(t):
+    """Steam package (ChloeSteamNet.asi): the host chooses the AI drivers. Two rows instead of AI COUNT
+    (the option list does not scroll): AI SLOT 1..12 selects the slot, AI DRIVER the driver of that slot.
+    Without ChloeSteam_SetAIDriver (GFWL package) the rows stay hidden and AI COUNT works as before."""
+    slot_row = ('\t{ -- ChloeCustom: AI slot (AI drivers, Steam package)\r\n\t\tL("AI SLOT"),\r\n'
+                '\t\t{' + ', '.join('L"%d"' % i for i in range(1, 13)) + '},\r\n'
+                '\t\t{' + ', '.join(str(i) for i in range(1, 13)) + '},\r\n'
+                '\t\t1,\r\n\t\ttrue,\r\n\t\tfunction() ChloeCustom_AISlotChanged() end,\r\n\t\tL"",\r\n\t\ttrue\r\n\t},\r\n')
+    driver_row = ('\t{ -- ChloeCustom: AI driver of the selected slot\r\n\t\tL("AI DRIVER"),\r\n'
+                  '\t\t{L"NONE", ' + ', '.join('L"%s"' % n for n in AI_DRIVER_NAMES) + '},\r\n'
+                  '\t\t{' + ', '.join(str(i) for i in range(0, 12)) + '},\r\n'
+                  '\t\t1,\r\n\t\ttrue,\r\n\t\tfunction() ChloeCustom_AIDriverChanged() end,\r\n\t\tL"",\r\n\t\ttrue\r\n\t},\r\n')
+    t = replace(t, '\t\t' + AI_CLASS_DESCS + ' -- ChloeCustom\r\n\t},\r\n}\r\n',
+                '\t\t' + AI_CLASS_DESCS + ' -- ChloeCustom\r\n\t},\r\n' + slot_row + driver_row + '}\r\n')
+    t = replace(t, 'local AIClass=13\r\n\r\nlocal NumOptions=13\r\n',
+                'local AIClass=13\r\nlocal AIDriverSlot=14 -- ChloeCustom\r\nlocal AIDriverName=15\r\n\r\n'
+                'local NumOptions=14 -- ChloeCustom: AI COUNT is replaced by AI SLOT + AI DRIVER\r\n')
+    t = replace(t, '\tRowHeight=18,\r\n\tRowPadding=2,\r\n',
+                '\tRowHeight=17, -- ChloeCustom: one more row fits above the description\r\n\tRowPadding=1,\r\n')
+    t = replace(t, 'local function ChangeOptions(events, carindex, carskin)', crlf('''-- ChloeCustom: AI drivers chosen by the host (ChloeSteamNet.asi keeps the list, saves it and sends it to the clients)
+function ChloeCustom_AIDriverRefresh()
+\tlocal text = ChloeSteam_GetAIDriverText()
+\tOptionItems[AIDriverSlot][Descriptions] = text
+\tOptionItems[AIDriverName][Descriptions] = text
+end
+function ChloeCustom_AISlotChanged()
+\tSetSelectedItemByValue(AIDriverName, ChloeSteam_GetAIDriver(GetSelectedItemValue(AIDriverSlot)))
+\tChloeCustom_AIDriverRefresh()
+end
+function ChloeCustom_AIDriverChanged()
+\tChloeSteam_SetAIDriver(GetSelectedItemValue(AIDriverSlot), GetSelectedItemValue(AIDriverName))
+\tChloeCustom_AIDriverRefresh()
+end
+
+local function ChangeOptions(events, carindex, carskin)'''))
+    t = replace(t, '\tChloeNet_Host_SetNumAI(GetSelectedItemValue(AICount))\r\n',
+                crlf('''\tif ChloeSteam_GetAIDriverCount ~= nil then -- ChloeCustom: number of chosen AI drivers
+\t\tChloeNet_Host_SetNumAI(ChloeSteam_GetAIDriverCount())
+\telse
+\t\tChloeNet_Host_SetNumAI(GetSelectedItemValue(AICount))
+\tend
+'''))
+    t = replace(t, '\tSetSelectedItemByValue(AIClass, ChloeNet_GetAIClass())\r\n',
+                crlf('''\tSetSelectedItemByValue(AIClass, ChloeNet_GetAIClass())
+\tif ChloeSteam_SetAIDriver ~= nil then -- ChloeCustom: AI SLOT / AI DRIVER instead of AI COUNT
+\t\tSetHidden(AICount, true)
+\t\tSetEnabled(AIDriverSlot, true)
+\t\tSetEnabled(AIDriverName, true)
+\t\tSetSelectedItem(AIDriverSlot, 1)
+\t\tSetSelectedItemByValue(AIDriverName, ChloeSteam_GetAIDriver(1))
+\t\tChloeCustom_AIDriverRefresh()
+\telse
+\t\tSetHidden(AIDriverSlot, true)
+\t\tSetHidden(AIDriverName, true)
+\tend
+'''))
+    return t
+
 AI_CLASS_DESCS = ('{L"AI drives derby cars", L"AI drives race cars", L"AI drives street cars", '
                   'L"AI drives the same car as the host"}')
 for name in ['chloemultiplayer_lobby_changeoptions.bed', 'chloemultiplayer_lobby_sessiondetails.bed']:
@@ -80,6 +141,7 @@ for name in ['chloemultiplayer_lobby_changeoptions.bed', 'chloemultiplayer_lobby
     if name == 'chloemultiplayer_lobby_changeoptions.bed':
         t = replace(t, '\t\t{L"", L"", L"", L"", L"", L"", L"", L"", L"", L"", L"", L"", L""}\r\n',
                     '\t\t{' + ', '.join(['L"Number of AI opponents. The host computes them, their strength is the DIFFICULTY in the host\'s options"'] * 13) + '} -- ChloeCustom\r\n')
+        t = add_ai_driver_rows(t)
     save(name, t)
 
 # --- lobby: every car list only with FO2 cars (tier lists name addon cars directly) ----------------------------

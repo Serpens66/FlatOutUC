@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <algorithm>
+#include <cmath>
 #include <deque>
 #include <map>
 #include <string>
@@ -37,6 +38,7 @@ static const int      kChannel       = 23756;                     // SteamNetwor
 static const uint8_t  kTypeData      = 0x43;
 static const uint8_t  kTypeHello     = 0x48;   // host -> lobby members, client -> host while connecting
 static const uint8_t  kTypeHelloAck  = 0x41;   // host -> client (answer to a client hello)
+static const uint8_t  kTypeAIDrivers = 0x44;   // host -> clients: chosen AI drivers (profile ids in order)
 static const uint8_t  kTypeName      = 0x4E;   // profile name of the sender (wchar[16]), for the stunt score entries
 static const uint8_t  kTypeStunt     = 0x54;   // stunt round record of the sender (srcPort = level, dstPort = round)
 static const DWORD    kConnectTimeout = 20000; // ms for the Steam connection to the host before joining with ENet
@@ -355,6 +357,8 @@ static void PollCalls() {
 static void LeaveJoinedLobby();
 static void StoreStuntRecord(uint64_t from, const uint8_t* data, int len);
 static void StoreStuntName(uint64_t from, const uint8_t* data, int len);
+static void StoreHostAIDrivers(uint64_t from, const uint8_t* data, int len);
+static void SendAIDriversToLobby();
 static void Pump() {
 	if (!SteamReady()) return;
 	PollCalls();
@@ -382,6 +386,7 @@ static void Pump() {
 			}
 			if (from->eType == kIdentitySteamID && len >= 5 && data[0] == kTypeStunt) StoreStuntRecord(from->steamID64, data, len);
 			if (from->eType == kIdentitySteamID && len >= 5 && data[0] == kTypeName) StoreStuntName(from->steamID64, data, len);
+			if (from->eType == kIdentitySteamID && len >= 5 && data[0] == kTypeAIDrivers) StoreHostAIDrivers(from->steamID64, data, len);
 			if (from->eType == kIdentitySteamID && len >= 5 && data[0] == kTypeData) {
 				Packet p; p.from = from->steamID64;
 				uint16_t dst; memcpy(&p.srcPort, data + 1, 2); memcpy(&dst, data + 3, 2);
@@ -417,6 +422,7 @@ static void Pump() {
 			uint64_t member = S.GetLobbyMemberByIndex(gMM, gHostLobby, i);
 			if (member && member != gSelf) SendRaw(member, kTypeHello, kServerPort, 0, nullptr, 0);
 		}
+		SendAIDriversToLobby();
 	}
 }
 
@@ -922,6 +928,163 @@ static int L_StoreGet(void* L) {   // nil if not set
 	return 1;
 }
 
+// ------------------------------------------------------------------------------------------------------------
+// AI drivers chosen by the host in Chloe's lobby (rows "AI SLOT" / "AI DRIVER", multiplayer_overrides).
+// The game gives the k-th AI slot the profile (k mod NumAIProfiles)+1 (FUN_004698B0, Chloe patches the modulo at
+// 0x4698CA) and the name with the same index. The call of the AIPlayer constructor at 0x46991D
+// (call 0x4091C0: ecx = PlayerInfo index + 1, stack: memory, profile id, class; ebp = PlayerInfo index) is redirected:
+// in Chloe's multiplayer the j-th real AI slot (after the slots of the other players) gets the j-th chosen driver and
+// its name from Config/AIConfig.toml. Saved in Savegame/ChloeCustom_AIDrivers.txt, sent by the host to all clients.
+
+static uint8_t* GameFlowPtr();
+static std::vector<uint64_t> LobbyPeers();
+static const int kMaxAIDrivers = 12;
+static int gAIDrivers[kMaxAIDrivers] = {};             // host settings: 0 = none, 1..11 = profile
+static std::vector<int> gHostAIDrivers;                 // client: list received from the host
+static bool gAIDriversDirty = false;
+static std::vector<std::wstring> gAINames;              // AI1.. names from Config/AIConfig.toml
+
+static std::string GameFile(const char* rel) {
+	char path[MAX_PATH]; GetModuleFileNameA(nullptr, path, MAX_PATH);
+	if (char* s = strrchr(path, '\\')) s[1] = 0;
+	return std::string(path) + rel;
+}
+
+static void LoadAINames() {
+	static const wchar_t* defaults[] = { L"JACK BENTON", L"KATIE JACKSON", L"SOFIA MARTINEZ", L"SALLY TAYLOR", L"JASON WALKER",
+		L"RAY CARTER", L"FRANK MALCOV", L"CURTIS WOLFE", L"LEWIS DURAN", L"LEI BING", L"JILL RICHARDS" };
+	gAINames.assign(std::begin(defaults), std::end(defaults));
+	FILE* f = nullptr;
+	if (fopen_s(&f, GameFile("Config\\AIConfig.toml").c_str(), "r") != 0 || !f) return;
+	char line[256];
+	while (fgets(line, sizeof(line), f)) {
+		int n = 0; char name[128] = {};
+		if (sscanf_s(line, " AI%d = \"%127[^\"]\"", &n, name, (unsigned)sizeof(name)) == 2 && n >= 1 && n <= 31) {
+			if ((int)gAINames.size() < n) gAINames.resize(n);
+			gAINames[n - 1] = Widen(name);
+		}
+	}
+	fclose(f);
+}
+
+static void LoadAIDrivers() {
+	FILE* f = nullptr;
+	if (fopen_s(&f, GameFile("Savegame\\ChloeCustom_AIDrivers.txt").c_str(), "r") != 0 || !f) return;
+	for (int i = 0; i < kMaxAIDrivers; i++) if (fscanf_s(f, "%d", &gAIDrivers[i]) != 1) break;
+	fclose(f);
+}
+
+static void SaveAIDrivers() {
+	FILE* f = nullptr;
+	if (fopen_s(&f, GameFile("Savegame\\ChloeCustom_AIDrivers.txt").c_str(), "w") != 0 || !f) return;
+	for (int i = 0; i < kMaxAIDrivers; i++) fprintf(f, "%d ", gAIDrivers[i]);
+	fprintf(f, "\n");
+	fclose(f);
+}
+
+static std::vector<int> CompactAIDrivers() {
+	std::vector<int> list;
+	for (int i = 0; i < kMaxAIDrivers; i++) if (gAIDrivers[i] > 0) list.push_back(gAIDrivers[i]);
+	return list;
+}
+
+static void StoreHostAIDrivers(uint64_t from, const uint8_t* data, int len) {   // caller holds gLock
+	if (from != gJoinHost || len < 5) return;
+	std::vector<int> list(data + 5, data + len);
+	if (list != gHostAIDrivers) { gHostAIDrivers = list; Log("AI drivers received from the host: %u", (unsigned)list.size()); }
+}
+
+static void SendAIDriversToLobby() {   // caller holds gLock; host only
+	if (!gHostLobby) return;
+	auto list = CompactAIDrivers();
+	std::vector<uint8_t> data;
+	for (int v : list) data.push_back((uint8_t)v);
+	int n = S.GetNumLobbyMembers(gMM, gHostLobby);
+	for (int i = 0; i < n; i++) {
+		uint64_t m = S.GetLobbyMemberByIndex(gMM, gHostLobby, i);
+		if (m && m != gSelf) SendRaw(m, kTypeAIDrivers, 0, 0, data.data(), data.size());
+	}
+	gAIDriversDirty = false;
+}
+
+static int __stdcall MapAIProfile(int playerInfoIndex, int profile) {
+	auto gf = GameFlowPtr();
+	if (!gf) return profile;
+	EnterCriticalSection(&gLock);
+	bool mp = !gSocketPort.empty();
+	std::vector<int> list = gJoinedLobby ? gHostAIDrivers : (gHostLobby ? CompactAIDrivers() : std::vector<int>());
+	int others = mp ? (int)LobbyPeers().size() : 0;
+	LeaveCriticalSection(&gLock);
+	if (!mp || list.empty()) return profile;
+	int locals = 0;
+	for (int i = 0; i < 32; i++) if (*(int*)(gf + 0xAE8 + i * 0x50 + 0x2C) == 1) locals++;
+	int j = playerInfoIndex - locals - others;                // index among the real AI slots
+	if (j < 0 || j >= (int)list.size()) return profile;
+	int p = list[j];
+	if (p < 1 || p > (int)gAINames.size()) return profile;
+	wcsncpy_s((wchar_t*)(gf + 0xAE8 + playerInfoIndex * 0x50), 16, gAINames[p - 1].c_str(), _TRUNCATE);
+	Log("AI slot %d (real AI %d): profile %d -> %d", playerInfoIndex, j + 1, profile, p);
+	return p;
+}
+
+static uintptr_t gAICreateTarget = 0x4091C0;
+static __declspec(naked) void AICreateStub() {
+	__asm {
+		pushad
+		push dword ptr [esp + 0x28]   // profile id (return address + memory before it, 32 bytes of pushad)
+		push ebp                      // PlayerInfo index
+		call MapAIProfile             // stdcall, result in eax
+		mov dword ptr [esp + 0x28], eax
+		popad
+		jmp dword ptr [gAICreateTarget]
+	}
+}
+
+static void PlaceAIDriverHook() {
+	auto p = (uint8_t*)0x46991D;
+	static const uint8_t expected[5] = { 0xE8, 0x9E, 0xF8, 0xF9, 0xFF };   // call 0x4091C0
+	if (memcmp(p, expected, 5) != 0) { Log("AI driver hook skipped: unexpected code at 0x46991D"); return; }
+	DWORD old;
+	VirtualProtect(p, 5, PAGE_EXECUTE_READWRITE, &old);
+	int32_t rel = (int32_t)((uintptr_t)&AICreateStub - ((uintptr_t)p + 5));
+	memcpy(p + 1, &rel, 4);
+	VirtualProtect(p, 5, old, &old);
+}
+
+static int L_SetAIDriver(void* L) {   // (slot 1..12, profile 0..11)
+	int slot = (int)luaL_checknumber(L, 1), profile = (int)luaL_checknumber(L, 2);
+	if (slot >= 1 && slot <= kMaxAIDrivers && profile >= 0 && profile <= (int)gAINames.size()) {
+		EnterCriticalSection(&gLock);
+		if (gAIDrivers[slot - 1] != profile) { gAIDrivers[slot - 1] = profile; gAIDriversDirty = true; SaveAIDrivers(); }
+		if (gAIDriversDirty && SteamReady()) SendAIDriversToLobby();
+		LeaveCriticalSection(&gLock);
+	}
+	return 0;
+}
+
+static int L_GetAIDriver(void* L) {
+	int slot = (int)luaL_checknumber(L, 1);
+	lua_pushnumber(L, (float)(slot >= 1 && slot <= kMaxAIDrivers ? gAIDrivers[slot - 1] : 0));
+	return 1;
+}
+
+static int L_GetAIDriverCount(void* L) {
+	lua_pushnumber(L, (float)CompactAIDrivers().size());
+	return 1;
+}
+
+static int L_GetAIDriverText(void* L) {   // description line: the whole list
+	std::wstring s = L"AI drivers: ";
+	auto list = CompactAIDrivers();
+	if (list.empty()) s += L"none";
+	for (size_t i = 0; i < list.size(); i++) {
+		if (i) s += L", ";
+		s += list[i] >= 1 && list[i] <= (int)gAINames.size() ? gAINames[list[i] - 1] : L"?";
+	}
+	PushString(L, s);
+	return 1;
+}
+
 static void RegisterLua(void* L) {
 	TryPatchChloeMP();
 	struct { const char* name; void* fn; } funcs[] = {
@@ -935,6 +1098,10 @@ static void RegisterLua(void* L) {
 		{ "ChloeSteam_GetJoinAddress", (void*)L_GetJoinAddress },
 		{ "ChloeSteam_ResetJoin", (void*)L_ResetJoin },
 		{ "ChloeSteam_LeaveLobby", (void*)L_LeaveLobby },
+		{ "ChloeSteam_SetAIDriver", (void*)L_SetAIDriver },
+		{ "ChloeSteam_GetAIDriver", (void*)L_GetAIDriver },
+		{ "ChloeSteam_GetAIDriverCount", (void*)L_GetAIDriverCount },
+		{ "ChloeSteam_GetAIDriverText", (void*)L_GetAIDriverText },
 		{ "ChloeSteam_SetLobbyValue", (void*)L_SetLobbyValue },
 		{ "ChloeSteam_GetLobbyValue", (void*)L_GetLobbyValue },
 		{ "ChloeSteam_Log", (void*)L_Log },
@@ -1021,6 +1188,81 @@ static void FixStuntStartPositions() {
 	gStuntLogged = true;
 }
 
+// ------------------------------------------------------------------------------------------------------------
+// Races in Chloe's multiplayer (EndScene, after the original):
+// - Diagnostics: lap setting, laps and finish flag of every score entry (ScoreManager 0x846514, entries at +8/+C:
+//   +4 player index, +0x38 bHasFinished, +0x39 second finish flag, +0x44 completed laps = value that Chloe compares
+//   with her lap setting, FUN_628e52e0) and the car damage (Car +0x7AB8) of every player.
+// - Host: AI cars that have finished keep driving (the game's AI never stops). Their horizontal speed is reduced
+//   each frame (like braking), so they stop like the human players. The clients get the position from the host.
+
+static void RaceTick() {
+	auto gf = GameFlowPtr();
+	if (!gf) return;
+	static bool active = false;
+	struct State { int lap = -99, fin = -1; float dmg = 0.f; bool stopped = false; };
+	static State st[32];
+	static LARGE_INTEGER last = {}, freq = {};
+	int gameState = *(int*)(gf + 0x4A4), level = *(int*)(gf + 0x4CC);
+	if (gameState != 2 || StuntStartForLevel((uint32_t)level)) { active = false; return; }
+	if (!TryEnterCriticalSection(&gLock)) return;
+	bool mp = !gSocketPort.empty(), isHost = gJoinedLobby == 0;
+	LeaveCriticalSection(&gLock);
+	if (!mp) { active = false; return; }
+	auto sm = *(uint8_t**)0x846514, host = *(uint8_t**)(gf + 0x2820);
+	if (!sm || !host) return;
+	LARGE_INTEGER now; QueryPerformanceCounter(&now);
+	if (!freq.QuadPart) QueryPerformanceFrequency(&freq);
+	float dt = last.QuadPart ? (float)(now.QuadPart - last.QuadPart) / (float)freq.QuadPart : 0.f;
+	last = now;
+	if (dt > 0.1f) dt = 0.1f;
+	if (!active) {
+		active = true;
+		for (auto& s : st) s = State();
+		int chloeLaps = -1;
+		if (auto mpMod = (uint8_t*)GetModuleHandleA("FlatOutUCCustomMP_gcp.asi")) chloeLaps = mpMod[0x62D5D0DC - 0x62840000];
+		Log("race: level %d, rules %d, laps PreRace %d, ScoreManager %d, Chloe setting %d, %s", level, *(int*)(gf + 0x514),
+			*(int*)(gf + 0x4D4), *(int*)(sm + 4), chloeLaps, isHost ? "host" : "client");
+	}
+	auto eb = *(uint8_t***)(sm + 8), ee = *(uint8_t***)(sm + 0xC);
+	auto pb = *(uint8_t***)(host + 0x14), pe = *(uint8_t***)(host + 0x18);
+	if (!eb || ee < eb || ee - eb > 32 || !pb || pe < pb || pe - pb > 32) return;
+	for (auto e = eb; e != ee; ++e) {
+		uint8_t* entry = *e;
+		if (!entry) continue;
+		int idx = *(int*)(entry + 4);
+		if (idx < 0 || idx >= 32) continue;
+		uint8_t* ply = nullptr;
+		for (auto p = pb; p != pe; ++p) if (*p && *(int*)(*p + 0x2C4) == idx + 1) { ply = *p; break; }
+		if (!ply) continue;
+		int type = *(int*)(ply + 0x2C8);
+		if (type == 5) continue;
+		auto car = *(uint8_t**)(ply + 0x294);
+		State& s = st[idx];
+		int lap = *(int*)(entry + 0x44), fin = entry[0x38] | (entry[0x39] << 1);
+		float dmg = car ? *(float*)(car + 0x7AB8) : 0.f;
+		if (lap != s.lap || fin != s.fin) {
+			Log("race: player %d (type %d) laps %d, finished %d, damage %.2f", idx, type, lap, fin, dmg);
+			s.lap = lap; s.fin = fin;
+		}
+		if (car && (dmg > s.dmg + 0.05f || dmg < s.dmg - 0.05f)) {
+			Log("race: player %d (type %d) damage %.2f -> %.2f%s", idx, type, s.dmg, dmg, fin ? " (finished)" : "");
+			s.dmg = dmg;
+		}
+		if (isHost && type == 4 && car && (fin & 1) && dt > 0.f) {   // finished AI on the host: brake to a stop
+			if (!s.stopped) { s.stopped = true; Log("race: AI player %d finished, stopping the car", idx); }
+			float* v = (float*)(car + 0x290);
+			float speed = sqrtf(v[0] * v[0] + v[2] * v[2]);
+			if (speed > 0.001f) {
+				float ns = speed - 12.f * dt;                          // ~1.2 g
+				if (ns < 3.f) ns *= 0.85f;
+				if (ns < 0.f) ns = 0.f;
+				v[0] *= ns / speed; v[2] *= ns / speed;
+			}
+		}
+	}
+}
+
 // The original runs first: Chloe's time trial code (careertimetrial.h) also writes nStartPosition = 1 every frame
 // when only one player is in the race, which is the case in a multiplayer stunt. Our value has to be written last.
 static void StuntTick();
@@ -1028,6 +1270,7 @@ static HRESULT __fastcall EndSceneHook(void* self, void*) {
 	HRESULT r = gEndSceneOrig(self);
 	FixStuntStartPositions();
 	StuntTick();
+	RaceTick();
 	return r;
 }
 
@@ -1312,6 +1555,9 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
 		PlaceScriptHook();
 		PlaceEndSceneHook();
 		PlaceStuntHooks();
+		LoadAINames();
+		LoadAIDrivers();
+		PlaceAIDriverHook();
 		if (HMODULE xl = GetModuleHandleA("xlive.dll"))
 			if (!PatchImport(xl, "steam_api.dll", "SteamAPI_Shutdown", (void*)hkSteamShutdown, (void**)&oSteamShutdown))
 				Log("xlive.dll: SteamAPI_Shutdown import not found");
