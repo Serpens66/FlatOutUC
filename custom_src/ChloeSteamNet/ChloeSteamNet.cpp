@@ -19,6 +19,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <algorithm>
 #include <deque>
 #include <map>
 #include <string>
@@ -36,6 +37,8 @@ static const int      kChannel       = 23756;                     // SteamNetwor
 static const uint8_t  kTypeData      = 0x43;
 static const uint8_t  kTypeHello     = 0x48;   // host -> lobby members, client -> host while connecting
 static const uint8_t  kTypeHelloAck  = 0x41;   // host -> client (answer to a client hello)
+static const uint8_t  kTypeName      = 0x4E;   // profile name of the sender (wchar[16]), for the stunt score entries
+static const uint8_t  kTypeStunt     = 0x54;   // stunt round record of the sender (srcPort = level, dstPort = round)
 static const DWORD    kConnectTimeout = 20000; // ms for the Steam connection to the host before joining with ENet
 static const size_t   kMaxQueue      = 2048;                      // packets per local port
 
@@ -98,6 +101,7 @@ static struct {
 	bool (*GetAPICallResult)(void*, SteamAPICall_t, void*, int, int, bool*);
 	uint64_t (*GetSteamID)(void*);
 	const char* (*GetPersonaName)(void*);
+	const char* (*GetFriendPersonaName)(void*, uint64_t);
 	int (*SendMessageToUser)(void*, const SteamNetworkingIdentity*, const void*, uint32_t, int, int);
 	int (*ReceiveMessagesOnChannel)(void*, int, void**, int);
 	bool (*AcceptSessionWithUser)(void*, const SteamNetworkingIdentity*);
@@ -141,6 +145,7 @@ static bool LoadSteam() {
 	get(&S.GetAPICallResult, "SteamAPI_ISteamUtils_GetAPICallResult");
 	get(&S.GetSteamID, "SteamAPI_ISteamUser_GetSteamID");
 	get(&S.GetPersonaName, "SteamAPI_ISteamFriends_GetPersonaName");
+	get(&S.GetFriendPersonaName, "SteamAPI_ISteamFriends_GetFriendPersonaName");
 	get(&S.SendMessageToUser, "SteamAPI_ISteamNetworkingMessages_SendMessageToUser");
 	get(&S.ReceiveMessagesOnChannel, "SteamAPI_ISteamNetworkingMessages_ReceiveMessagesOnChannel");
 	get(&S.AcceptSessionWithUser, "SteamAPI_ISteamNetworkingMessages_AcceptSessionWithUser");
@@ -195,7 +200,12 @@ static DWORD gJoinConnectStart = 0, gJoinLastHello = 0;
 static std::map<SOCKET, bool> gSteamSockets;   // client sockets that sent to Steam addresses
 
 static uint32_t FakeAddrFor(uint64_t steamId);
+// ZOOM's xlive.dll calls SteamAPI_Shutdown when the game exits while Chloe's network thread still runs. After that
+// no Steam interface may be used (crash on Alt+F4: jump into freed memory), see hkSteamShutdown.
+static volatile bool gSteamShutdown = false;
+
 static bool SteamReady() {
+	if (gSteamShutdown) return false;
 	if (gMM && gMsg && gUtils && gSelf) return true;
 	if (!LoadSteam()) return false;
 	gMM = S.Matchmaking(); gMsg = S.Messages(); gUtils = S.Utils();
@@ -266,6 +276,7 @@ static uint16_t LocalPort(SOCKET s, bool bindIfNeeded) {   // caller holds gLock
 // pump: Steam -> queues, lobby call results, hello messages (caller holds gLock)
 
 static void SendRaw(uint64_t to, uint8_t type, uint16_t srcPort, uint16_t dstPort, const uint8_t* data, size_t len) {
+	if (gSteamShutdown || !gMsg) return;
 	std::vector<uint8_t> buf(5 + len);
 	buf[0] = type; memcpy(&buf[1], &srcPort, 2); memcpy(&buf[3], &dstPort, 2);
 	if (len) memcpy(&buf[5], data, len);
@@ -342,6 +353,8 @@ static void PollCalls() {
 }
 
 static void LeaveJoinedLobby();
+static void StoreStuntRecord(uint64_t from, const uint8_t* data, int len);
+static void StoreStuntName(uint64_t from, const uint8_t* data, int len);
 static void Pump() {
 	if (!SteamReady()) return;
 	PollCalls();
@@ -367,6 +380,8 @@ static void Pump() {
 				gJoinState = 2;
 				Log("Steam connection to host %llu ready after %lu ms", gJoinHost, GetTickCount() - gJoinConnectStart);
 			}
+			if (from->eType == kIdentitySteamID && len >= 5 && data[0] == kTypeStunt) StoreStuntRecord(from->steamID64, data, len);
+			if (from->eType == kIdentitySteamID && len >= 5 && data[0] == kTypeName) StoreStuntName(from->steamID64, data, len);
 			if (from->eType == kIdentitySteamID && len >= 5 && data[0] == kTypeData) {
 				Packet p; p.from = from->steamID64;
 				uint16_t dst; memcpy(&p.srcPort, data + 1, 2); memcpy(&dst, data + 3, 2);
@@ -577,6 +592,39 @@ static int WSAAPI hkclosesocket(SOCKET s) {
 	return oclosesocket(s);
 }
 
+static void(__cdecl* oSteamShutdown)() = nullptr;
+static void __cdecl hkSteamShutdown() {
+	EnterCriticalSection(&gLock);
+	gSteamShutdown = true;
+	gMM = gMsg = gUtils = nullptr;
+	LeaveCriticalSection(&gLock);
+	Log("SteamAPI_Shutdown: Steam networking stopped");
+	if (oSteamShutdown) oSteamShutdown();
+}
+
+static bool PatchImport(HMODULE mod, const char* dll, const char* name, void* hook, void** orig) {
+	auto base = (uint8_t*)mod;
+	auto nt = (IMAGE_NT_HEADERS*)(base + ((IMAGE_DOS_HEADER*)base)->e_lfanew);
+	auto& dir = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+	if (!dir.VirtualAddress) return false;
+	for (auto d = (IMAGE_IMPORT_DESCRIPTOR*)(base + dir.VirtualAddress); d->Name; d++) {
+		if (_stricmp((char*)(base + d->Name), dll) != 0 || !d->OriginalFirstThunk) continue;
+		auto names = (IMAGE_THUNK_DATA*)(base + d->OriginalFirstThunk);
+		auto iat = (IMAGE_THUNK_DATA*)(base + d->FirstThunk);
+		for (; names->u1.AddressOfData; names++, iat++) {
+			if (IMAGE_SNAP_BY_ORDINAL(names->u1.Ordinal)) continue;
+			if (strcmp((char*)((IMAGE_IMPORT_BY_NAME*)(base + names->u1.AddressOfData))->Name, name) != 0) continue;
+			DWORD old;
+			VirtualProtect(&iat->u1.Function, sizeof(void*), PAGE_READWRITE, &old);
+			*orig = (void*)iat->u1.Function;
+			iat->u1.Function = (uintptr_t)hook;
+			VirtualProtect(&iat->u1.Function, sizeof(void*), old, &old);
+			return true;
+		}
+	}
+	return false;
+}
+
 static bool PatchImports(HMODULE mod) {
 	auto base = (uint8_t*)mod;
 	auto nt = (IMAGE_NT_HEADERS*)(base + ((IMAGE_DOS_HEADER*)base)->e_lfanew);
@@ -608,12 +656,57 @@ static bool PatchImports(HMODULE mod) {
 	return patched == 5;
 }
 
+// Chloe's multiplayer gives every player its own grid slot each frame:
+//   FlatOutUCCustomMP_gcp.asi 0x628F94AA: mov [eax+0x2CC], edx   (Player.nStartPosition = sessionSlot % numStartPoints + 1)
+// In stunts all players must start at the stunt's start point (several stunts share one map), so this store is
+// replaced by a call that writes the stunt start point on the stunt levels 47..58 and Chloe's value otherwise.
+static int StuntStartForLevel(uint32_t levelId);
+static uint32_t __stdcall ChloeStartPositionValue(uint32_t chloeValue) {
+	auto gf = *(uint8_t**)0x9298FAC;
+	int pos = gf ? StuntStartForLevel((uint32_t)*(int*)(gf + 0x4CC)) : 0;   // PreRace.nLevel
+	return pos ? (uint32_t)pos : chloeValue;
+}
+static __declspec(naked) void ChloeStartPositionStub() {
+	__asm {
+		push ecx
+		push edx
+		push eax                      // player
+		push edx                      // argument: Chloe's value
+		call ChloeStartPositionValue  // stdcall, result in eax
+		mov ecx, eax
+		pop eax
+		mov dword ptr [eax + 0x2CC], ecx
+		pop edx                       // all registers as after the original store
+		pop ecx
+		ret
+	}
+}
+
+static void PatchChloeStartPosition(HMODULE mp) {
+	// The plugin is usually relocated and Windows writes the actual base into the loaded header, so the address is
+	// converted with the preferred base of the 1.83 file (0x62840000).
+	auto base = (uint8_t*)mp;
+	uintptr_t rva = 0x628F94AA - 0x62840000;
+	uint8_t* p = base + rva;
+	static const uint8_t expected[6] = { 0x89, 0x90, 0xCC, 0x02, 0x00, 0x00 };
+	if (memcmp(p, expected, 6) != 0) { Log("start position patch skipped: unexpected code in FlatOutUCCustomMP_gcp.asi"); return; }
+	DWORD old;
+	VirtualProtect(p, 6, PAGE_EXECUTE_READWRITE, &old);
+	p[0] = 0xE8;
+	int32_t rel = (int32_t)((uintptr_t)&ChloeStartPositionStub - ((uintptr_t)p + 5));
+	memcpy(p + 1, &rel, 4);
+	p[5] = 0x90;
+	VirtualProtect(p, 6, old, &old);
+	Log("start position of FlatOutUCCustomMP_gcp.asi patched for stunts");
+}
+
 static bool gImportsPatched = false;
 static void TryPatchChloeMP() {
 	if (gImportsPatched) return;
 	HMODULE mp = GetModuleHandleA("FlatOutUCCustomMP_gcp.asi");
 	if (!mp) return;
 	gImportsPatched = PatchImports(mp);
+	if (gImportsPatched) PatchChloeStartPosition(mp);
 	Log(gImportsPatched ? "network functions of FlatOutUCCustomMP_gcp.asi redirected" : "ERROR: could not patch FlatOutUCCustomMP_gcp.asi imports");
 }
 
@@ -802,36 +895,279 @@ static int StuntStartForLevel(uint32_t levelId) {   // Levels[47..58].StartPosit
 }
 
 static void FixStuntStartPositions() {
+	static bool hookLogged = false;
+	if (!hookLogged) { hookLogged = true; Log("EndScene hook active"); }
 	auto gf = *(uint8_t**)0x9298FAC;               // GameFlow
 	if (!gf) return;
-	if (*(int*)(gf + 0x4A4) != 2) { gStuntLogged = false; return; }   // nGameState != GAME_STATE_RACE
-	if (*(int*)(gf + 0x514) != 2) return;                            // nGameRules != GR_STUNT
-	if (!TryEnterCriticalSection(&gLock)) return;                    // network thread busy, next frame
-	bool inMultiplayer = !gSocketPort.empty();                       // Chloe's multiplayer sockets open
+	int gameState = *(int*)(gf + 0x4A4), rules = *(int*)(gf + 0x514), level = *(int*)(gf + 0x4CC);   // PreRace.nLevel
+	auto host = *(uint8_t**)(gf + 0x2820);
+	static int lastState = -1, lastLevel = -1;
+	if (gameState != lastState || level != lastLevel) {   // diagnostics, once per change
+		lastState = gameState; lastLevel = level;
+		Log("game state %d, rules %d, level %d, stunt start (GameFlow) %d, player host %s", gameState, rules, level,
+			*(int*)(gf + 0x520), host ? "yes" : "no");
+		gStuntLogged = false;
+		if (gameState == 2 && StuntStartForLevel((uint32_t)level)) {   // stunt diagnostics: PlayerInfo + score entries
+			for (int i = 0; i < 8; i++) {
+				uint8_t* pi = gf + 0xAE8 + i * 0x50;               // GameFlow.aPlayerInfos[i]
+				int type = *(int*)(pi + 0x2C);
+				if (!type) continue;
+				char name[17] = {};
+				for (int c = 0; c < 16; c++) name[c] = (char)((wchar_t*)pi)[c];
+				Log("  PlayerInfo[%d] type %d name '%s'", i, type, name);
+			}
+			auto sm = *(uint8_t**)0x846514;                         // ScoreManager
+			if (sm) Log("  ScoreManager entries %d, current round %d", (int)((*(uint8_t**)(sm + 0xC) - *(uint8_t**)(sm + 0x8)) / 4), *(int*)(sm + 0x34));
+		}
+	}
+	int pos = StuntStartForLevel((uint32_t)level);   // only the stunt levels 47..58
+	if (!pos || !host) return;
+	if (!TryEnterCriticalSection(&gLock)) return;    // network thread busy, next frame
+	bool inMultiplayer = !gSocketPort.empty();       // Chloe's multiplayer sockets open
 	LeaveCriticalSection(&gLock);
 	if (!inMultiplayer) return;
-	auto host = *(uint8_t**)(gf + 0x2820);
-	if (!host) return;
-	uint32_t levelId = *(uint32_t*)(host + 0x2098C);
-	int flowPos = *(int*)(gf + 0x520);                               // nStuntStartPosition
-	int pos = StuntStartForLevel(levelId);
-	if (!pos) pos = flowPos;
-	if (pos < 1 || pos > 8) return;
 	auto begin = *(uint8_t***)(host + 0x14), end = *(uint8_t***)(host + 0x18);
 	if (!begin || end < begin || end - begin > 32) return;
+	bool logged = gStuntLogged;
 	for (auto it = begin; it != end; ++it) {
 		uint8_t* ply = *it;
-		if (!ply || !*(void**)(ply + 0x294)) continue;               // pCar
-		uint32_t& start = *(uint32_t*)(ply + 0x2CC);                 // nStartPosition
-		if (!gStuntLogged) Log("stunt level %u: start point %d (GameFlow %d), player %d had %u", levelId, pos, flowPos, (int)(it - begin), start);
-		start = (uint32_t)pos;
+		if (!ply) continue;
+		if (!logged) { logged = true; }
+		uint32_t& start = *(uint32_t*)(ply + 0x2CC);   // Player.nStartPosition
+		if (start != (uint32_t)pos) {
+			if (!gStuntLogged) Log("stunt level %d: player %d start point %u -> %d (game state %d, %d players)", level, (int)(it - begin), start, pos, gameState, (int)(end - begin));
+			start = (uint32_t)pos;
+		}
 	}
 	gStuntLogged = true;
 }
 
+// The original runs first: Chloe's time trial code (careertimetrial.h) also writes nStartPosition = 1 every frame
+// when only one player is in the race, which is the case in a multiplayer stunt. Our value has to be written last.
+static void StuntTick();
 static HRESULT __fastcall EndSceneHook(void* self, void*) {
+	HRESULT r = gEndSceneOrig(self);
 	FixStuntStartPositions();
-	return gEndSceneOrig(self);
+	StuntTick();
+	return r;
+}
+
+// ------------------------------------------------------------------------------------------------------------
+// Stunts in Chloe's multiplayer: everybody does the attempt at the same time, the points of all players are shown.
+// Built on the single player stunt of the game (Documentation/Reverse-Engineering.md):
+//   * ScoreManagerStunt::Init (vtable 0x6E3E4C [5], slot 0x6E3E60) creates one score entry per player object plus one
+//     per PlayerInfo with type 5 ("simulated", name only, no car). Before it runs, one type 5 entry is written per
+//     other player of the Steam lobby (sorted by SteamID, the same order on every PC) with the Steam name.
+//   * ScoreManagerStunt [22] (slot 0x6E3EA4) runs when the local attempt has ended and lets every simulated player
+//     "roll" its points (FUN_00497E80). Replaced: the local round record (0x114 bytes at entry+0x38+(round-1)*0x114)
+//     is sent to all players, the simulated entries of the other players get their real records instead of rolled
+//     ones. Records that arrive later are filled in by the EndScene tick.
+// Waiting for all players before the next attempt is not done yet (needs the start of the next attempt).
+
+static const uintptr_t kStuntInitSlot = 0x6E3E60, kStuntSimSlot = 0x6E3EA4;
+static const size_t kStuntRecordSize = 0x114;
+static void(__thiscall* gStuntInitOrig)(void*, int, int) = nullptr;
+static void(__thiscall* gStuntSimOrig)(void*) = nullptr;
+static auto StuntRollSimulated = (void(__stdcall*)(void*, int))0x497E80;
+
+static std::vector<uint64_t> gStuntPeers;                           // simulated entry id k (1..n) = gStuntPeers[k-1]
+static std::map<uint64_t, std::map<int, std::vector<uint8_t>>> gStuntRecords;   // SteamID -> level*100+round -> record
+struct StuntPending { uint8_t* entry; uint64_t peer; int round; };
+static std::vector<StuntPending> gStuntPending;                    // game thread only
+static bool gStuntActive = false;
+static std::map<uint64_t, std::wstring> gStuntNames;              // SteamID -> in-game profile name (kept)
+
+static uint8_t* GameFlowPtr() { return *(uint8_t**)0x9298FAC; }
+static int CurrentLevel() { auto gf = GameFlowPtr(); return gf ? *(int*)(gf + 0x4CC) : 0; }
+
+static bool IsMultiplayerStunt() {
+	if (!StuntStartForLevel((uint32_t)CurrentLevel())) return false;
+	EnterCriticalSection(&gLock);
+	bool mp = !gSocketPort.empty() && (gHostLobby || gJoinedLobby);
+	LeaveCriticalSection(&gLock);
+	return mp;
+}
+
+static void StoreStuntRecord(uint64_t from, const uint8_t* data, int len) {   // caller holds gLock
+	if (len != (int)(5 + kStuntRecordSize)) return;
+	uint16_t level, round;
+	memcpy(&level, data + 1, 2); memcpy(&round, data + 3, 2);
+	gStuntRecords[from][level * 100 + round].assign(data + 5, data + len);
+	Log("stunt: record of %llu for level %u round %u received", from, level, round);
+}
+
+static void StoreStuntName(uint64_t from, const uint8_t* data, int len) {   // caller holds gLock
+	if (len != 5 + 32) return;
+	wchar_t name[17] = {};
+	memcpy(name, data + 5, 32);
+	if (gStuntNames[from] != name) { gStuntNames[from] = name; Log("stunt: profile name of %llu received", from); }
+}
+
+static void SendOwnStuntName() {   // caller holds gLock; own profile name = PlayerInfo[0]
+	auto gf = GameFlowPtr();
+	if (!gf) return;
+	wchar_t name[16] = {};
+	memcpy(name, gf + 0xAE8, 30);
+	for (auto peer : gStuntPeers) SendRaw(peer, kTypeName, 0, 0, (const uint8_t*)name, 32);
+}
+
+static std::vector<uint64_t> LobbyPeers() {   // caller holds gLock
+	std::vector<uint64_t> peers;
+	uint64_t lobby = gHostLobby ? gHostLobby : gJoinedLobby;
+	if (!lobby || !SteamReady()) return peers;
+	int n = S.GetNumLobbyMembers(gMM, lobby);
+	for (int i = 0; i < n; i++) {
+		uint64_t m = S.GetLobbyMemberByIndex(gMM, lobby, i);
+		if (m && m != gSelf) peers.push_back(m);
+	}
+	std::sort(peers.begin(), peers.end());
+	return peers;
+}
+
+static void PrepareStuntPlayers() {
+	auto gf = GameFlowPtr();
+	EnterCriticalSection(&gLock);
+	gStuntPeers = LobbyPeers();
+	std::vector<std::wstring> names;
+	void* friends = S.Friends ? S.Friends() : nullptr;
+	for (auto id : gStuntPeers) {
+		auto known = gStuntNames.find(id);   // profile name if already received, else the Steam name for now
+		names.push_back(known != gStuntNames.end() && !known->second.empty() ? known->second : Widen(friends ? S.GetFriendPersonaName(friends, id) : ""));
+	}
+	SendOwnStuntName();
+	LeaveCriticalSection(&gLock);
+	if (gStuntPeers.size() > 7) gStuntPeers.resize(7);
+	gStuntPending.clear();
+	for (size_t k = 0; k < 32; k++) {
+		uint8_t* pi = gf + 0xAE8 + k * 0x50;                  // PlayerInfo[k]: name wchar[16] +0, type +0x2C
+		int& type = *(int*)(pi + 0x2C);
+		if (k >= 1 && k <= gStuntPeers.size()) {
+			if (type == 1) { Log("stunt: PlayerInfo[%u] is a local player, other players not added", (unsigned)k); break; }
+			std::wstring name = names[k - 1].empty() ? L"PLAYER" : names[k - 1];
+			memset(pi, 0, 32);
+			wcsncpy_s((wchar_t*)pi, 16, name.c_str(), _TRUNCATE);
+			type = 5;
+			*(int*)(pi + 0x20) = (int)((k - 1) % 5) + 0x22;    // like InitializeAI does for simulated stunt players
+		} else if (k > gStuntPeers.size() && (type == 5 || type == 4 || type == 2)) {
+			type = 0;                                          // no AI / leftovers in multiplayer stunts
+		}
+	}
+	gStuntActive = true;
+	Log("stunt: %u other players added as simulated entries", (unsigned)gStuntPeers.size());
+}
+
+static void __fastcall StuntInitHook(void* self, void*, int a, int b) {
+	if (IsMultiplayerStunt()) PrepareStuntPlayers();
+	else gStuntActive = false;
+	gStuntInitOrig(self, a, b);
+	if (gStuntActive) {
+		auto sm = (uint8_t*)self;
+		Log("stunt: score entries %d, simulated %d, attempts %d", (int)((*(uint8_t**)(sm + 0xC) - *(uint8_t**)(sm + 0x8)) / 4),
+			*(int*)(sm + 0x44), *(int*)(sm + 0x3C));
+	}
+}
+
+static uint8_t* StuntEntry(uint8_t* sm, int playerId) {
+	auto begin = *(uint8_t***)(sm + 0x8), end = *(uint8_t***)(sm + 0xC);
+	for (auto it = begin; it != end; ++it) if (*it && *(int*)(*it + 4) == playerId) return *it;
+	return nullptr;
+}
+
+static bool FillStuntRecord(uint8_t* entry, uint64_t peer, int round) {   // caller holds gLock
+	auto p = gStuntRecords.find(peer);
+	if (p == gStuntRecords.end()) return false;
+	auto r = p->second.find(CurrentLevel() * 100 + round);
+	if (r == p->second.end()) return false;
+	memcpy(entry + 0x38 + (round - 1) * kStuntRecordSize, r->second.data(), kStuntRecordSize);
+	return true;
+}
+
+static void __fastcall StuntSimHook(void* self, void*) {
+	if (!gStuntActive) { gStuntSimOrig(self); return; }
+	auto sm = (uint8_t*)self;
+	auto vt = *(void***)self;
+	int notLastAttempt = ((int(__thiscall*)(void*))vt[0x30 / 4])(self);
+	int round = *(int*)(sm + 0x34);
+	int total = (int)((*(uint8_t**)(sm + 0xC) - *(uint8_t**)(sm + 0x8)) / 4), sims = *(int*)(sm + 0x44);
+	if (round < 1 || round > 10) { Log("stunt: unexpected round %d, rolling as usual", round); gStuntSimOrig(self); return; }
+
+	EnterCriticalSection(&gLock);
+	if (uint8_t* local = StuntEntry(sm, 0)) {               // own record of this attempt to everybody
+		uint8_t* rec = local + 0x38 + (round - 1) * kStuntRecordSize;
+		for (auto peer : gStuntPeers) SendRaw(peer, kTypeStunt, (uint16_t)CurrentLevel(), (uint16_t)round, rec, kStuntRecordSize);
+		Log("stunt: own record of round %d sent to %u players", round, (unsigned)gStuntPeers.size());
+		SendOwnStuntName();
+	}
+	for (int id = total - sims; id < total; id++) {
+		uint8_t* entry = StuntEntry(sm, id);
+		if (!entry) continue;
+		if (id >= 1 && id <= (int)gStuntPeers.size()) {
+			uint64_t peer = gStuntPeers[id - 1];
+			if (!FillStuntRecord(entry, peer, round)) gStuntPending.push_back({ entry, peer, round });
+		} else {
+			LeaveCriticalSection(&gLock);
+			StuntRollSimulated(entry, id + 1);                  // AI entries keep the rolled points
+			EnterCriticalSection(&gLock);
+		}
+		if (!notLastAttempt) *(int*)(entry + 0xCA8) = 1;       // finished, like the original
+	}
+	LeaveCriticalSection(&gLock);
+}
+
+static void StuntTick() {   // EndScene: fill in records that arrived after the local attempt
+	auto gf = GameFlowPtr();
+	if (!gf || *(int*)(gf + 0x4A4) != 2) {                     // left the race: forget everything
+		if (gStuntActive || !gStuntPending.empty()) {
+			gStuntActive = false; gStuntPending.clear();
+			EnterCriticalSection(&gLock); gStuntRecords.clear(); LeaveCriticalSection(&gLock);
+		}
+		return;
+	}
+	if (!gStuntActive || !TryEnterCriticalSection(&gLock)) return;
+	for (size_t k = 0; k < gStuntPeers.size() && k < 7; k++) {   // profile names of the other players
+		auto n = gStuntNames.find(gStuntPeers[k]);
+		if (n == gStuntNames.end() || n->second.empty()) continue;
+		auto pi = (wchar_t*)(gf + 0xAE8 + (k + 1) * 0x50);
+		if (*(int*)((uint8_t*)pi + 0x2C) == 5 && wcsncmp(pi, n->second.c_str(), 15) != 0) wcsncpy_s(pi, 16, n->second.c_str(), _TRUNCATE);
+	}
+	for (size_t i = 0; i < gStuntPending.size();) {
+		auto& p = gStuntPending[i];
+		if (FillStuntRecord(p.entry, p.peer, p.round)) {
+			Log("stunt: record of %llu for round %d filled in late", p.peer, p.round);
+			gStuntPending.erase(gStuntPending.begin() + i);
+		} else i++;
+	}
+	LeaveCriticalSection(&gLock);
+}
+
+// Results between the attempts: the single player tab (IngameMenuTabSingleStuntResults, vtable 0x6E786C) draws only
+// the attempts of the local player. In a multiplayer stunt its draw method [3] (slot 0x6E7878) runs the one of
+// IngameMenuTabMultiplayerStuntResults (0x4B7CC0), which lists every score entry with the PlayerInfo names.
+static const uintptr_t kSingleStuntTabDrawSlot = 0x6E7878;
+static void(__thiscall* gSingleStuntTabDrawOrig)(void*, int) = nullptr;
+static auto MultiplayerStuntTabDraw = (void(__thiscall*)(void*, int))0x4B7CC0;
+static void __fastcall SingleStuntTabDrawHook(void* self, void*, int time) {
+	if (gStuntActive) MultiplayerStuntTabDraw(self, time);
+	else gSingleStuntTabDrawOrig(self, time);
+}
+
+static void PlaceStuntHooks() {
+	auto patch = [](uintptr_t slot, void* hook, void** orig) {
+		DWORD old;
+		VirtualProtect((void*)slot, 4, PAGE_READWRITE, &old);
+		*orig = *(void**)slot;
+		*(void**)slot = hook;
+		VirtualProtect((void*)slot, 4, old, &old);
+	};
+	if (*(uintptr_t*)kStuntInitSlot != 0x499A60 || *(uintptr_t*)kStuntSimSlot != 0x49B1E0) {
+		Log("stunt hooks skipped: unexpected ScoreManagerStunt vtable");
+		return;
+	}
+	patch(kStuntInitSlot, (void*)StuntInitHook, (void**)&gStuntInitOrig);
+	patch(kStuntSimSlot, (void*)StuntSimHook, (void**)&gStuntSimOrig);
+	if (*(uintptr_t*)kSingleStuntTabDrawSlot == 0x4B71C0)
+		patch(kSingleStuntTabDrawSlot, (void*)SingleStuntTabDrawHook, (void**)&gSingleStuntTabDrawOrig);
+	else Log("stunt results hook skipped: unexpected vtable");
 }
 
 static void PlaceEndSceneHook() {
@@ -856,6 +1192,28 @@ static bool PlaceScriptHook() {
 	return true;
 }
 
+// Chloe's copyright screen ("Chloe Collection", Special Thanks, "Press ENTER to Continue"): FlatOutUCChloeCollection_gcp.asi
+// replaces the CALL 0x41FF10 at 0x55BA6F with a JMP to a loop that waits for Enter (skippablecopyright.h). The original
+// call is written back as soon as Chloe's patch is in place (her plugin loads after this one), so the game continues
+// without waiting.
+static DWORD WINAPI CopyrightSkipThread(LPVOID) {
+	auto p = (uint8_t*)0x55BA6F;
+	static const uint8_t original[5] = { 0xE8, 0x9C, 0x44, 0xEC, 0xFF };   // call 0x41FF10
+	for (int i = 0; i < 30000; i++) {
+		if (p[0] == 0xE9) {
+			DWORD old;
+			VirtualProtect(p, 5, PAGE_EXECUTE_READWRITE, &old);
+			memcpy(p, original, 5);
+			VirtualProtect(p, 5, old, &old);
+			Log("copyright screen: Chloe's wait for ENTER removed");
+			return 0;
+		}
+		Sleep(1);
+	}
+	Log("copyright screen: Chloe's patch not found");
+	return 0;
+}
+
 BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
 	if (reason == DLL_PROCESS_ATTACH) {
 		DisableThreadLibraryCalls(inst);
@@ -874,7 +1232,13 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
 		Log("ChloeSteamNet loaded (protocol %s)", kProtocol);
 		PlaceScriptHook();
 		PlaceEndSceneHook();
+		PlaceStuntHooks();
+		if (HMODULE xl = GetModuleHandleA("xlive.dll"))
+			if (!PatchImport(xl, "steam_api.dll", "SteamAPI_Shutdown", (void*)hkSteamShutdown, (void**)&oSteamShutdown))
+				Log("xlive.dll: SteamAPI_Shutdown import not found");
+		if (HANDLE th = CreateThread(nullptr, 0, CopyrightSkipThread, nullptr, 0, nullptr)) CloseHandle(th);
 		TryPatchChloeMP();
 	}
+	if (reason == DLL_PROCESS_DETACH) gSteamShutdown = true;
 	return TRUE;
 }

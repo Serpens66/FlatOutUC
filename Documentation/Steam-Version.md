@@ -29,7 +29,7 @@ pwsh -File custom_src/build.ps1
 pwsh -File custom_src/build_steam.ps1
 ```
 
-Ergebnis: `FlatOutUCChloeCollection_1.83_custom_steam/` (563 Dateien inkl. `DisplayFix.asi` und `ChloeSteamNet.asi`, ~2,0 GB seit der Neukomprimierung von Autos und Lackierungen am 19.11.2026).
+Ergebnis: `FlatOutUCChloeCollection_1.83_custom_steam/` (499 Dateien inkl. `DisplayFix.asi` und `ChloeSteamNet.asi`, ~2,6 GB; Autos teilweise neu komprimiert, Live-Texturen unkomprimiert, Musikauswahl, Stand 19.11.2026).
 
 ## Installieren
 
@@ -48,13 +48,13 @@ pwsh -File custom_src/uninstall.ps1 -GameDir <Spielordner> [-RemoveUserData]
 
 | Wo | Pfad | Stand |
 |---|---|---|
-| Testkopie (dieser PC) | `FOUC_steam_latest/` im Workspace (per DepotDownloader, `-app 12360 -branch public`) | Steam-Paket mit Chloe-MP über Steam installiert (858 Dateien, 18.11.2026 23:26) |
-| Client-PC (Laptop) | `\\LENOVO_SERP\common\FlatOut Ultimate Carnage CE` (Steam-Bibliothek des Clients, Netzwerkfreigabe; lokal `C:\Program Files (x86)\Steam\steamapps\common\…`) | Steam-Paket mit Chloe-MP über Steam per `install.ps1` über das Netzwerk installiert (18.11.2026 nachts): 858 Dateien identisch mit dem Build (kleine per Hash, große per Größe). Früherer Stand 18.11.2026 20:05: 856 Dateien inkl. `DisplayFix.asi`, identisch mit dem Build. Zusätzlich liegen dort die Diagnose-Werkzeuge `ChloeCustom_diag.bat/.ps1` und `ChloeCustom_trace.bat/.ps1` (nicht im Manifest). Zuvor: Steam-Paket per `install.ps1` über das Netzwerk installiert (855 Dateien identisch mit dem Build, keine Spieldatei überschrieben, Manifest vorhanden). Vanilla-Dateien identisch mit der Testkopie. Die Freigabe braucht dafür Schreibrechte ("Ändern"), sonst "Access denied". Start über Steam auf dem Client |
-| Normale Steam-Installation (dieser PC) | `E:\ProgrammeE\Steam\steamapps\common\FlatOut Ultimate Carnage CE` | Branch `gfwl` mit der normalen Custom-Version, **nicht** für das Steam-Paket |
+| Steam-Installation (dieser PC, Host) | `E:\ProgrammeE\Steam\steamapps\common\FlatOut Ultimate Carnage CE` (Branch `public`) | Seit 19.11.2026: Steam-Paket per `install.ps1` installiert (499 Dateien, keine Spieldatei überschrieben), Spielstände und Einstellungen aus der früheren Testkopie `FOUC_steam_latest/` übernommen. Die Testkopie ist gelöscht |
+| Client-PC (Laptop) | `\\LENOVO_SERP\common\FlatOut Ultimate Carnage CE` (Steam-Bibliothek des Clients, Netzwerkfreigabe; lokal `C:\Program Files (x86)\Steam\steamapps\common\…`) | Stand 19.11.2026: aktuelles Steam-Paket (499 Dateien: Ghost Mode bei Stunts, neu komprimierte Autos, Musikauswahl) per `install.ps1` über das Netzwerk installiert und geprüft. Die Freigabe braucht Schreibrechte ("Ändern"). Zusätzlich liegen dort die Diagnose-Werkzeuge `ChloeCustom_diag.bat/.ps1` und `ChloeCustom_trace.bat/.ps1` (nicht im Manifest). Start über Steam |
+
 
 ## Starten
 
-- **Testkopie:** Steam starten und anmelden, dann `FOUC_steam_latest\Fouc.exe` direkt starten (nicht über die Steam-Bibliothek, die startet die `gfwl`-Installation).
+- **Dieser PC:** ganz normal über Steam starten (Branch `public`).
 - **Steam-Bibliothek (z. B. Client):** ganz normal über Steam starten, der Branch muss `public` sein.
 - Beim ersten Online-Spiel fragt die Windows-Firewall nach Netzwerkzugriff für `Fouc.exe`. Zugriff erlauben.
 
@@ -76,6 +76,9 @@ Er läuft über Steam statt über direktes UDP, deshalb ist keine Portfreigabe n
 - **Stunt** (FO2-Stunts mit Rausschleudern, z. B. Bowling, Ski Jump) ist als dritter Spieltyp in der Streckenauswahl wieder freigeschaltet. **Experimentell:** Chloe hatte ihn auskommentiert, die Lobby unterstützt `GR_STUNT` aber. AI COUNT dabei auf 0 lassen, GHOST MODE an (sonst blockieren sich die Spieler am gemeinsamen Startpunkt).
   - Test 19.11.2026 (High Jump): Der Host startete am Curling-Start, der Client richtig. Grund: Mehrere Stunts teilen sich eine Karte (`Stunt/Stunt1`, `Stunt/Stunt2`) und unterscheiden sich nur im Startpunkt (`Levels[].StartPosition`). Im MP bekommt jeder Spieler den Startplatz seines Spielerindex.
   - Abhilfe in `ChloeSteamNet.asi` (EndScene-Hook 0x677448): Während eines Stunts (`nGameRules` GameFlow+0x514 = `GR_STUNT`, Spielzustand Rennen) in Chloes MP setzt das Plugin jeden Frame `Player.nStartPosition` (+0x2CC) aller Spieler auf den Startpunkt des Stunts. Tabelle nach Level-ID 47–58 aus `levels.bed`, sonst GameFlow+0x520. Log: "stunt level …: start point …". Ungetestet: ob schon der erste Versuch am richtigen Punkt beginnt oder erst ab dem zweiten, und ob Wertung und Ablauf bei gleichzeitigen Versuchen stimmen.
+  - Test 19.11.2026: weiterhin manchmal falscher Startpunkt. Im Log beider PCs keine einzige "stunt level"-Zeile, die Korrektur griff also nie (Erkennung über `nGameRules`/Spielzustand/PlayerHost-Level passte nicht). Neu: Erkennung nur über `PreRace.nLevel` (GameFlow+0x4CC, Level 47–58), Startpunkt wird gesetzt, sobald Spieler existieren (auch beim Laden), Log "EndScene hook active", "game state …, rules …, level …" bei jeder Änderung und "stunt level …: player … start point … -> …". Installiert auf beiden PCs, Test steht aus.
+  - Test 19.11.2026 (Log): GameFlow+0x520 enthält den richtigen Startpunkt (High Jump 2, Darts 5). Im Stunt gibt es pro PC **nur einen Spieler** (die Mitspieler-Puppen sind bei Chloe AI-Slots aus `InitializeAI`, die bei Stunts nicht angelegt werden). Jeder PC spielt also einen eigenen Einzelspieler-Stunt: keine sichtbaren Mitspieler, keine gemeinsame Wertung. `nStartPosition` wurde jeden Frame wieder auf 1 gesetzt, vermutlich von Chloes `CareerTimeTrial::OnTick` (`bIsTimeTrial`), das im selben EndScene-Aufruf läuft. Neu: Das Plugin schreibt nach dem Original-EndScene (also nach Chloe). Installiert auf beiden PCs, Test steht aus.
+  - Reverse Engineering 19.11.2026 (Details: [Reverse-Engineering.md](Reverse-Engineering.md)): Die eigentliche Ursache ist Chloes MP-Plugin (`0x628F94AA`, Startplatz = Session-Slot). `ChloeSteamNet.asi` patcht diese Stelle zur Laufzeit für Stunt-Level. Zeitgleiche Stunts mit gemeinsamer Wertung: Mitspieler-Einträge und Punkteaustausch umgesetzt (19.11.2026, ungetestet), Warten auf alle vor dem nächsten Versuch fehlt noch (siehe [Reverse-Engineering.md](Reverse-Engineering.md)).
 - Jeder Spieler braucht einen **eigenen Profilnamen**. Chloe lehnt doppelte Namen ab ("Your name is taken").
 
 Technik (`custom_src/ChloeSteamNet/ChloeSteamNet.cpp`, Plugin `ChloeSteamNet.asi`, nur im Steam-Paket):

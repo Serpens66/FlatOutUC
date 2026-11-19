@@ -1,0 +1,57 @@
+Loop	= {
+	Count = 9,
+	[1] = {
+		File	= "data/music/Annihilator - King of the Kill.ogg",
+		Artist	= "Annihilator",
+		Song	= "King of the Kill",
+		StartPos	= 0,
+	},
+	[2] = {
+		File	= "data/music/Beartooth - Takeover.ogg",
+		Artist	= "Beartooth",
+		Song	= "Takeover",
+		StartPos	= 0,
+	},
+	[3] = {
+		File	= "data/music/Godsmack - 1000hp.ogg",
+		Artist	= "Godsmack",
+		Song	= "1000hp",
+		StartPos	= 0,
+	},
+	[4] = {
+		File	= "data/music/Hawthorne Heights - Hard To Breathe.ogg",
+		Artist	= "Hawthorne Heights",
+		Song	= "Hard To Breathe",
+		StartPos	= 0,
+	},
+	[5] = {
+		File	= "data/music/_M Deez Nuts - You Got Me Fucked Up.ogg",
+		Artist	= "Deez Nuts",
+		Song	= "You Got Me Fucked Up",
+		StartPos	= 0,
+	},
+	[6] = {
+		File	= "data/music/Nickelback - Something in Your Mouth.ogg",
+		Artist	= "Nickelback",
+		Song	= "Something in Your Mouth",
+		StartPos	= 0,
+	},
+	[7] = {
+		File	= "data/music/No Connection - Electrified.ogg",
+		Artist	= "No Connection",
+		Song	= "Electrified",
+		StartPos	= 0,
+	},
+	[8] = {
+		File	= "data/music/No Connection - Release the Dragon.ogg",
+		Artist	= "No Connection",
+		Song	= "Release the Dragon",
+		StartPos	= 0,
+	},
+	[9] = {
+		File	= "data/music/Yellowcard - Hiding in the Light.ogg",
+		Artist	= "Yellowcard",
+		Song	= "Hiding in the Light",
+		StartPos	= 0,
+	},
+}
