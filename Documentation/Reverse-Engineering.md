@@ -56,7 +56,7 @@ Spieler-Objekte entstehen nur für Typ 1 (lokal), 2 (remote, braucht Vanilla-Net
 
 - `FlatOutUCCustomMP_gcp.asi` `0x628F94AA` (`mov [eax+0x2CC], edx` in `FUN_628f8890`, läuft jeden Frame im Rennen, wenn verbunden und mehr als 1 Spieler): `Player0.nStartPosition = (eigener Session-Slot % Anzahl Startpunkte der Strecke) + 1`. Damit startet jeder an einem eigenen Gridplatz. Bei Stunts falsch: Host Startpunkt 1 (Curling), Client 2 (High Jump).
   **Behoben in `ChloeSteamNet.asi`:** Die 6 Bytes werden zur Laufzeit durch `call` auf einen Stub ersetzt, der auf den Stunt-Leveln 47–58 den Startpunkt des Stunts schreibt, sonst Chloes Wert (Originalbytes werden vorher geprüft).
-- Chloes Collection-Plugin `CareerTimeTrial::OnTick` (`source/FlatOutUCChloeCollection/careertimetrial.h`, läuft in `HookLoop` im EndScene) setzt bei `bIsTimeTrial` jeden Frame `GetPlayer(0)->nStartPosition = 1`. `bIsTimeTrial` wird nur von `ChloeCollection_SetIsTimeTrial(1)` (Zeitfahren im Einzelrennen) gesetzt und **nie zurückgesetzt** (Chloe-Fehler: nach einem Zeitfahren gilt es für alle weiteren Rennen der Sitzung). `ChloeSteamNet.asi` schreibt deshalb nach dem Original-EndScene noch einmal den Stunt-Startpunkt.
+- Chloes Collection-Plugin `CareerTimeTrial::OnTick` (`source/FlatOutUCChloeCollection/careertimetrial.h`, läuft in `HookLoop` im EndScene) setzt bei `bIsTimeTrial` jeden Frame `GetPlayer(0)->nStartPosition = 1`. `bIsTimeTrial` wird von `ChloeCollection_SetIsTimeTrial(1)` (Zeitfahren im Einzelrennen) gesetzt und von `ChloeCollection_ReinitHooks` → `CareerTimeTrial::ApplyPatches(false)` zurückgesetzt (vor jedem Einzelrennen in `singleracemenu.bed`, im Haupt-/Einzelspielermenü nach einem Zeitfahren, in der Karriere). Die frühere Annahme "nie zurückgesetzt" war falsch. `ChloeSteamNet.asi` schreibt trotzdem nach dem Original-EndScene noch einmal den Stunt-Startpunkt, und die MP-Lobby ruft beim Betreten `ChloeCollection_SetCareerTimeTrial(0)` auf (setzt auch `bIsCareerTimeTrial` zurück, das in `handlingmode.h` das MP-Handling überschreiben würde).
 - Im MP-Stunt gibt es pro PC **nur einen Spieler**, keine Mitspieler-Puppen (die sind bei Chloe AI-Slots, die es bei Stunts nicht gibt) und laut Test auch keine Mitspieler in der Wertung. Vermutung: keine PlayerInfo-Einträge mit Typ 5. Diagnose im Log seit 19.11.2026: "PlayerInfo[i] type … name …" und "ScoreManager entries …" beim Rennstart eines Stunts.
 - Chloes `InitializeAI`-Hook (`0x628DC060`) setzt nur PreRace.nClass und springt ins Original.
 
@@ -87,6 +87,20 @@ Ansatz auf dem Vanilla-Einzelspieler-Stunt (simulierte Gegner) statt auf dem Van
 - Startpunkt: Der Patch von Chloes MP-Plugin wurde übersprungen ("unexpected code"), weil die Adresse mit der ImageBase aus dem geladenen Header umgerechnet wurde. Das Plugin wird verschoben geladen und Windows trägt die tatsächliche Basis ein. Jetzt mit der Basis der Datei (`0x62840000`).
 - Anzeige: Zwischen den Versuchen zeigt das Spiel `IngameMenuTabSingleStuntResults` (zeichnet nur die Versuche des lokalen Spielers, [3] `FUN_004b71c0`). `IngameMenuTabMultiplayerStuntResults` ([3] `FUN_004b7cc0`) listet alle Wertungseinträge mit PlayerInfo-Namen. Alle übrigen Methoden der beiden Klassen sind gleich. Im MP-Stunt ruft der Slot `0x6E7878` (Single [3]) jetzt die Multiplayer-Variante auf.
 - Erneuter Test steht aus.
+
+### Robustheit und Endwertung (19.11.2026, ungetestet)
+
+- Schritt 4 (Warten auf alle vor jedem Versuch) entfällt auf Wunsch des Nutzers: Jeder spielt im eigenen Tempo, nur die Endwertung muss stimmen.
+- Eigene Rundendatensätze und der Name werden während des Stunts alle 2 s erneut gesendet (`StuntTick`). `PrepareStuntPlayers` verwirft beim Start alle empfangenen Datensätze.
+- `ScoreManagerStunt` [9] (`FUN_0049aee0`, Slot `0x6E3E70`) baut die Endwertung (Werte je Spieler in GameFlow+0xA68, `FUN_0048b890` sortiert). Der Hook trägt vorher nachgelieferte Datensätze ein und merkt sich, wie viele noch fehlen (offene Einträge plus nicht gespielte eigene Versuche). Wer als Letzter fertig ist, hat alle Datensätze und damit eine vollständige Endwertung.
+- Gesamtpunkte je Eintrag berechnet das Spiel je nach `nStuntType` (GameFlow+0x518) unterschiedlich (`FUN_004b4c80`: Summe, Maximum oder Minimum der Versuche über `FUN_004960b0`/`FUN_00496100`/`FUN_00496370`/`FUN_00496a70`/`FUN_00497770`, Register-Aufrufkonventionen). Deshalb überträgt das Turnier keine Punktzahlen, sondern die Reihenfolge der Ergebnisliste des vollständigsten PCs.
+- Rangfeld der Einträge: `PlayerScore+8` (Platz, in der MP-Ergebnistafel als Zahl ausgegeben).
+
+## Derby (ScoreManagerDerby)
+
+- Zeitlimit `ScoreManager+0x38` (ms, -1 = keins). `FUN_00490c10` und `FUN_00490b60` setzen es nur bei `PreRace.Mode` 5 auf `Laps * 60000`, sonst -1 bzw. bei Frag (`nDerbyType` 3) 300000. Geprüft wird es bei `Fouc.exe_all.c` ~90178 (Ereignisse nach Ablauf ignoriert) und ~90466 (Ende, `FUN_0048ef30`).
+- `ScoreManager+0x3C`: verbleibende Autos (nur bei `nDerbyType` 2 = Wrecking gepflegt). `nDerbyType` GameFlow+0x51C: 0 keiner, 1 LMS (Survivor), 2 Wrecking, 3 Frag.
+- Rennzeit: `PlayerHost.nRaceTime` (+0x2099C, ms; PlayerHost = GameFlow+0x2820 bzw. `0x715E68`).
 
 ## Copyright-Bildschirm (Chloe)
 

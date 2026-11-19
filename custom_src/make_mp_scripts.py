@@ -239,6 +239,47 @@ t = replace(t, '\t\tUpdateGameInfo(self)\r\n',
 t = replace(t, '\t\tChloeNet_Stats_Save()\r\n\t\tEnterMenu("menu_chloemultiplayer")\r\n',
             '\t\tChloeNet_Stats_Save()\r\n\t\tif ChloeCustomTourney_Reset then ChloeCustomTourney_Reset() end -- ChloeCustom Tourney\r\n'
             '\t\tChloeCustom_SetPersistent("hostdefaults", nil) -- ChloeCustom\r\n\t\tChloeCustom_SetPersistent("ghostbeforestunt", nil)\r\n\t\tEnterMenu("menu_chloemultiplayer")\r\n')
+# progress of a running stunt / derby for the players in the lobby (Chloe's own version used vanilla
+# LatestSessionInfo, which her multiplayer does not have; the Steam package sends it, ChloeSteam_GetRaceStatus)
+t = replace(t, 'local function UpdateGameInfo(self)\r\n', crlf('''-- ChloeCustom: progress of a stunt or derby while others play (Steam package: ChloeSteamNet.asi sends it)
+local function ChloeCustom_ShowRaceStatus(gameRules)
+\tif ChloeSteam_GetRaceStatus == nil or not ChloeNet_IsLobbyInGame() then
+\t\treturn false
+\tend
+\tlocal kind, dtype, a, b, c = ChloeSteam_GetRaceStatus()
+\tif kind == 1 and gameRules == GR_STUNT then
+\t\tW("progress_title"):SetTitle(WStringConcat(INGAME_ROUND, L":"))
+\t\tW("progress"):SetTitle(L(a .. "/" .. b))
+\telseif kind == 2 and gameRules == GR_DERBY and (a >= 0 or c >= 0) then
+\t\tlocal msg = L""
+\t\tif a >= 0 then
+\t\t\tmsg = WStringConcat(L(a .. "/" .. b .. " "), MULTIPLAYER_PLAYERS)
+\t\tend
+\t\tif c >= 0 then
+\t\t\tif a >= 0 then
+\t\t\t\tmsg = WStringConcat(msg, L", ")
+\t\t\tend
+\t\t\tmsg = WStringConcat(msg, L(string.format("%d:%02d", math.floor(c / 60), math.mod(c, 60))))
+\t\tend
+\t\tW("progress_title"):SetTitle(WStringConcat(INGAME_REMAINING, L":"))
+\t\tW("progress"):SetTitle(msg)
+\telse
+\t\treturn false
+\tend
+\tW("progress_title"):ShowWindow()
+\tW("progress"):ShowWindow()
+\treturn true
+end
+
+local function UpdateGameInfo(self)
+'''))
+t = replace(t, '\telse\r\n\t\tW("progress_title"):HideWindow()\r\n\t\tW("progress"):HideWindow()\r\n\tend\r\n\t\r\n\t--if not ChloeNet_IsLobbyInGame() then\r\n',
+            '\telseif ChloeCustom_ShowRaceStatus(gameRules) then -- ChloeCustom: stunt round, derby cars and time left\r\n'
+            '\telse\r\n\t\tW("progress_title"):HideWindow()\r\n\t\tW("progress"):HideWindow()\r\n\tend\r\n\t\r\n\t--if not ChloeNet_IsLobbyInGame() then\r\n')
+# Chloe's time trial flags (careertimetrial.h) also select the handling in multiplayer (handlingmode.h); they are
+# reset before other single player races, here also when entering the multiplayer lobby
+t = replace(t, '\tChloeCollection_SetIsInMultiplayer(1)\r\n',
+            '\tChloeCollection_SetIsInMultiplayer(1)\r\n\tChloeCollection_SetCareerTimeTrial(0) -- ChloeCustom: no time trial flags left from single player\r\n')
 save('chloemultiplayer_lobby.bed', t)
 
 # --- track selection: no FO1 / Tough Trucks / Rally Trophy categories, removed tracks hidden -------------------

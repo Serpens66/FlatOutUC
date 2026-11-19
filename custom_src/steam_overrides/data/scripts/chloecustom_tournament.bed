@@ -39,6 +39,8 @@ ChloeCustomTourney = {
 	nextTrack = 0,		-- track id of the next event (for the standings screen)
 	random = false,
 	loaded = false,
+	stuntPending = nil,	-- host only: tag "id:played" of a stunt event whose results are still collected
+	stuntWaitStart = nil,
 }
 -- The menu scripts are loaded again after every race (Fouc.exe runs main.bed when the menus start), so the state is
 -- kept in ChloeSteamNet.asi (ChloeSteam_StoreSet/StoreGet) and restored by EnsureLoaded().
@@ -209,7 +211,12 @@ function ChloeCustomTourney_Reset()
 	T.lastValue = nil
 	T.lastPoll = nil
 	T.nextTrack = 0
+	T.stuntPending = nil
+	T.stuntWaitStart = nil
 	T.loaded = true		-- nothing to restore any more
+	if ChloeSteam_ClearStuntResults ~= nil then
+		ChloeSteam_ClearStuntResults()
+	end
 	if ChloeSteam_StoreSet ~= nil then
 		ChloeSteam_StoreSet("tourney_pub", nil)
 		ChloeSteam_StoreSet("tourney_host", nil)
@@ -291,7 +298,7 @@ local function SaveState()
 			table.insert(q, tostring(v))
 		end
 		ChloeSteam_StoreSet("tourney_host", table.concat({ "H1", tostring(T.stuntsPlayed), T.raceStarted and "1" or "0",
-			T.pendingApply and "1" or "0", T.random and "1" or "0", table.concat(q, ","), table.concat(ev, ";") }, "|"))
+			T.pendingApply and "1" or "0", T.random and "1" or "0", table.concat(q, ","), table.concat(ev, ";"), T.stuntPending or "" }, "|"))
 	end
 	ChloeSteam_StoreSet("tourney_shown", T.shownKey)
 end
@@ -327,6 +334,9 @@ local function EnsureLoaded()
 					table.insert(T.events, { trackid = tonumber(v[1]), rules = tonumber(v[2]), lapsOrTimeLimit = tonumber(v[3]),
 						weather = tonumber(v[4]), tracktype = tonumber(v[5]) })
 				end
+			end
+			if f[8] ~= nil and f[8] ~= "" then
+				T.stuntPending = f[8]
 			end
 		end
 	end
@@ -445,10 +455,146 @@ function ChloeCustomTourney_OnStartRace()
 	end
 end
 
+local function FinishEvent()
+	local T = ChloeCustomTourney
+	T.played = T.played + 1
+	if T.played >= T.total then
+		T.active = false
+		T.finished = true
+	else
+		T.pendingApply = true
+	end
+	T.dirty = true
+	SaveState()
+end
+
+-- Stunts: every player does the attempts at its own pace. A PC that finished before the others ranks them without
+-- their last attempts, so every PC sends its ranking (players only) and the number of records it was missing
+-- (ChloeSteamNet.asi); the host counts the event with the most complete ranking once everybody is back in the lobby.
+local TOURNEY_STUNT_WAIT = 15	-- seconds after the last player is back, for rankings still on their way
+
+local function StuntTag()
+	return ChloeCustomTourney.id .. ":" .. ChloeCustomTourney.played
+end
+
+local function SendStuntResult()
+	if ChloeSteam_GetLastStuntMissing == nil then
+		return
+	end
+	local missing = ChloeSteam_GetLastStuntMissing()	-- nil if the plugin saw no final stunt ranking
+	local n = GameFlow.GetNumResults() or 0
+	local level = Levels[ChloeNet_GetLevelId()]
+	local stunt = ChloeNet_GetGameRules() == GR_STUNT or (level ~= nil and level.Rules == GR_STUNT)
+	if not stunt or n <= 0 or not ChloeCustomTourney.active then
+		return
+	end
+	if missing == nil then
+		missing = 999	-- still usable if nothing better arrives
+	end
+	local humans = LobbyPlayerKeys()
+	local keys = { }
+	local seen = { }
+	for i = 1, n do
+		local id = GameFlow.GetPlayerIdByPosition(i)
+		if id ~= nil then
+			local key = NameKey(GameFlow.GetPlayerName(id))
+			if humans[key] and not seen[key] then
+				seen[key] = true
+				table.insert(keys, key)
+			end
+		end
+	end
+	ChloeSteam_SendStuntResult(StuntTag() .. "|" .. missing .. "|" .. table.concat(keys, ","))
+	TourneyLog("stunt ranking sent, " .. missing .. " records missing")
+end
+
+-- host: count the stunt event from the rankings received so far
+local function CountStuntEvent()
+	local T = ChloeCustomTourney
+	local best = nil
+	local bestMissing = nil
+	local all = ""
+	if ChloeSteam_GetStuntResults ~= nil then
+		all = ChloeSteam_GetStuntResults() or ""
+	end
+	local results = 0
+	for _, line in ipairs(Split(all, "\n")) do
+		local f = Split(line, "|")
+		if f[1] == T.stuntPending and table.getn(f) >= 3 then
+			results = results + 1
+			local missing = tonumber(f[2]) or 999
+			if bestMissing == nil or missing < bestMissing then
+				bestMissing = missing
+				best = f[3]
+			end
+		end
+	end
+	for _, e in ipairs(T.standings) do
+		e.last = nil
+	end
+	local logparts = { }
+	if best ~= nil and best ~= "" then
+		local rank = 0
+		for _, key in ipairs(Split(best, ",")) do
+			if key ~= "" then
+				local e = FindEntry(key)
+				if e == nil then
+					e = AddEntry(key, false)
+				end
+				rank = rank + 1
+				local p = TOURNEY_POINTS[rank] or 0
+				e.points = e.points + p
+				e.last = p
+				table.insert(logparts, rank .. ". " .. KeyToAscii(key))
+			end
+		end
+	end
+	for _, e in ipairs(T.standings) do
+		if e.ai then
+			e.points = e.points + TOURNEY_AI_STUNT_POINTS
+			e.last = TOURNEY_AI_STUNT_POINTS
+		end
+	end
+	T.stuntsPlayed = T.stuntsPlayed + 1
+	TourneyLog("stunt event " .. (T.played + 1) .. " counted from " .. results .. " ranking(s), " .. tostring(bestMissing) .. " records missing: " .. table.concat(logparts, ", "))
+	T.stuntPending = nil
+	T.stuntWaitStart = nil
+	if ChloeSteam_ClearStuntResults ~= nil then
+		ChloeSteam_ClearStuntResults()
+	end
+	FinishEvent()
+	if BuildLobbyMenuButtons ~= nil then
+		BuildLobbyMenuButtons()	-- START RACE again
+	end
+end
+
+local function StuntResultsComplete()
+	if ChloeSteam_GetStuntResults == nil then
+		return true
+	end
+	local T = ChloeCustomTourney
+	local count = 0
+	for _, line in ipairs(Split(ChloeSteam_GetStuntResults() or "", "\n")) do
+		local f = Split(line, "|")
+		if f[1] == T.stuntPending then
+			count = count + 1
+			if tonumber(f[2]) == 0 then
+				return true		-- one complete ranking is enough
+			end
+		end
+	end
+	local players = 0
+	for _, _ in pairs(LobbyPlayerKeys()) do
+		players = players + 1
+	end
+	return count >= players
+end
+
 -- called when the lobby is created after a race, before GameFlow.ClearRace() (results are still available)
 function ChloeCustomTourney_CaptureResults()
 	EnsureLoaded()
 	local T = ChloeCustomTourney
+	SendStuntResult()	-- every PC (stunt events only)
 	if not T.active or not T.raceStarted or not ChloeNet_IsServer() then
 		return
 	end
@@ -461,6 +607,13 @@ function ChloeCustomTourney_CaptureResults()
 
 	local ev = T.events[T.queue[T.played + 1]]
 	local stunt = IsStuntEvent(ev)
+	if stunt and ChloeSteam_GetStuntResults ~= nil then
+		T.stuntPending = StuntTag()
+		T.stuntWaitStart = nil
+		TourneyLog("stunt event " .. (T.played + 1) .. ": waiting for the rankings of all players")
+		SaveState()
+		return
+	end
 	local humans = LobbyPlayerKeys()
 	for _, e in ipairs(T.standings) do
 		e.last = nil
@@ -502,16 +655,7 @@ function ChloeCustomTourney_CaptureResults()
 		T.stuntsPlayed = T.stuntsPlayed + 1
 	end
 	TourneyLog("event " .. (T.played + 1) .. " counted, stunt " .. tostring(stunt) .. ", results: " .. table.concat(logparts, ", "))
-
-	T.played = T.played + 1
-	if T.played >= T.total then
-		T.active = false
-		T.finished = true
-	else
-		T.pendingApply = true
-	end
-	T.dirty = true
-	SaveState()
+	FinishEvent()
 end
 
 local function StopTournament()
@@ -553,11 +697,15 @@ function ChloeCustomTourney_AddLobbyButtons(menu)
 	local T = ChloeCustomTourney
 	local items = menu.items
 	local new = { }
+	local startRemoved = false
 	if ChloeNet_IsServer() then
 		if T.active then
 			for i = table.getn(items), 1, -1 do
 				if items[i][1] == MULTIPLAYER_ICON_CHANGETRACK then
 					table.remove(items, i)
+				elseif T.stuntPending ~= nil and items[i][1] == ICON_MULTIPLAYER_STARTRACE then
+					table.remove(items, i)	-- no new start while the last stunt is not counted yet
+					startRemoved = true
 				end
 			end
 			table.insert(new, { L("STOP TOURNAMENT"), StopTournament, ICON(menu, "icon_profile_x") })
@@ -570,6 +718,9 @@ function ChloeCustomTourney_AddLobbyButtons(menu)
 	end
 	-- before the last button (START RACE / READY / UNREADY)
 	local pos = table.getn(items)
+	if startRemoved then
+		pos = pos + 1	-- no START RACE: at the end
+	end
 	if pos < 1 then
 		pos = 1
 	end
@@ -631,6 +782,21 @@ function ChloeCustomTourney_LobbyUpdate(menu, time)
 		end
 	end
 
+	-- host: stunt event counted when everybody is back and the rankings are there (or after a short wait)
+	if ChloeNet_IsServer() and T.stuntPending ~= nil then
+		if ChloeNet_IsLobbyInGame() then
+			T.stuntWaitStart = nil
+		else
+			if T.stuntWaitStart == nil or time < T.stuntWaitStart then
+				T.stuntWaitStart = time
+			end
+			if StuntResultsComplete() or time - T.stuntWaitStart > TOURNEY_STUNT_WAIT then
+				CountStuntEvent()
+				return
+			end
+		end
+	end
+
 	-- host: next event, as soon as nobody is racing any more
 	if ChloeNet_IsServer() and T.pendingApply and not ChloeNet_IsLobbyInGame() then
 		T.pendingApply = false
@@ -644,6 +810,8 @@ function ChloeCustomTourney_LobbyUpdate(menu, time)
 		W("eventnum_title"):SetTitle(L"TOURNAMENT:")
 		if T.finished then
 			W("eventnum"):SetTitle(L("FINISHED (" .. T.total .. " EVENTS)"))
+		elseif T.stuntPending ~= nil and ChloeNet_IsServer() then
+			W("eventnum"):SetTitle(L("WAITING FOR STUNT RESULTS"))
 		else
 			W("eventnum"):SetTitle(L("EVENT " .. (T.played + 1) .. " OF " .. T.total))
 		end

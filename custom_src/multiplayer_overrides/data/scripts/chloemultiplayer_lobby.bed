@@ -1260,6 +1260,36 @@ ChloeDerbyTypeNames = {
 	[DERBY_FRAG]			= MULTIPLAYER_GAMEMODE_FRAGDERBY,
 }
 
+-- ChloeCustom: progress of a stunt or derby while others play (Steam package: ChloeSteamNet.asi sends it)
+local function ChloeCustom_ShowRaceStatus(gameRules)
+	if ChloeSteam_GetRaceStatus == nil or not ChloeNet_IsLobbyInGame() then
+		return false
+	end
+	local kind, dtype, a, b, c = ChloeSteam_GetRaceStatus()
+	if kind == 1 and gameRules == GR_STUNT then
+		W("progress_title"):SetTitle(WStringConcat(INGAME_ROUND, L":"))
+		W("progress"):SetTitle(L(a .. "/" .. b))
+	elseif kind == 2 and gameRules == GR_DERBY and (a >= 0 or c >= 0) then
+		local msg = L""
+		if a >= 0 then
+			msg = WStringConcat(L(a .. "/" .. b .. " "), MULTIPLAYER_PLAYERS)
+		end
+		if c >= 0 then
+			if a >= 0 then
+				msg = WStringConcat(msg, L", ")
+			end
+			msg = WStringConcat(msg, L(string.format("%d:%02d", math.floor(c / 60), math.mod(c, 60))))
+		end
+		W("progress_title"):SetTitle(WStringConcat(INGAME_REMAINING, L":"))
+		W("progress"):SetTitle(msg)
+	else
+		return false
+	end
+	W("progress_title"):ShowWindow()
+	W("progress"):ShowWindow()
+	return true
+end
+
 local function UpdateGameInfo(self)
 	local gameRules = ChloeNet_GetGameRules()
 	if gameRules == GR_DEFAULT then
@@ -1313,6 +1343,7 @@ local function UpdateGameInfo(self)
 			W("progress_title"):SetTitle(WStringConcat(INGAME_SCORE_LAP_TITLE, L":"))
 			W("progress"):SetTitle(L(highestLap.."/"..ChloeNet_GetLapCount()))
 		end
+	elseif ChloeCustom_ShowRaceStatus(gameRules) then -- ChloeCustom: stunt round, derby cars and time left
 	else
 		W("progress_title"):HideWindow()
 		W("progress"):HideWindow()
@@ -1423,6 +1454,7 @@ function menu_chloemultiplayer_lobby.init(self)
 	self.parent:init(self)
 
 	ChloeCollection_SetIsInMultiplayer(1)
+	ChloeCollection_SetCareerTimeTrial(0) -- ChloeCustom: no time trial flags left from single player
 	
 	ChloeNet_SetPlayerInLobby()
 	ChloeNet_SetPlayerChangingOptions(0)

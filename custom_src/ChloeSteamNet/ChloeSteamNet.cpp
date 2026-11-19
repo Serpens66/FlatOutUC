@@ -42,6 +42,8 @@ static const uint8_t  kTypeAIDrivers = 0x44;   // host -> clients: chosen AI dri
 static const uint8_t  kTypeAIDamage  = 0x47;   // client -> host: damage the client dealt to an AI car (srcPort = player index, float)
 static const uint8_t  kTypeName      = 0x4E;   // profile name of the sender (wchar[16]), for the stunt score entries
 static const uint8_t  kTypeStunt     = 0x54;   // stunt round record of the sender (srcPort = level, dstPort = round)
+static const uint8_t  kTypeRaceStatus = 0x53;  // racing PC -> lobby members: progress for the lobby (5 x int32)
+static const uint8_t  kTypeStuntResult = 0x52; // client -> host: result of a multiplayer stunt (narrow string, tournament)
 static const DWORD    kConnectTimeout = 20000; // ms for the Steam connection to the host before joining with ENet
 static const size_t   kMaxQueue      = 2048;                      // packets per local port
 
@@ -360,6 +362,9 @@ static void StoreStuntRecord(uint64_t from, const uint8_t* data, int len);
 static void StoreStuntName(uint64_t from, const uint8_t* data, int len);
 static void StoreHostAIDrivers(uint64_t from, const uint8_t* data, int len);
 static void StoreAIDamage(uint64_t from, const uint8_t* data, int len);
+static void StoreRaceStatus(uint64_t from, const uint8_t* data, int len);
+static void StoreStuntResult(uint64_t from, const uint8_t* data, int len);
+static void ResendStuntResult();
 static void SendAIDriversToLobby();
 static void Pump() {
 	if (!SteamReady()) return;
@@ -390,6 +395,8 @@ static void Pump() {
 			if (from->eType == kIdentitySteamID && len >= 5 && data[0] == kTypeName) StoreStuntName(from->steamID64, data, len);
 			if (from->eType == kIdentitySteamID && len >= 5 && data[0] == kTypeAIDrivers) StoreHostAIDrivers(from->steamID64, data, len);
 			if (from->eType == kIdentitySteamID && len >= 5 && data[0] == kTypeAIDamage) StoreAIDamage(from->steamID64, data, len);
+			if (from->eType == kIdentitySteamID && len >= 5 && data[0] == kTypeRaceStatus) StoreRaceStatus(from->steamID64, data, len);
+			if (from->eType == kIdentitySteamID && len >= 5 && data[0] == kTypeStuntResult) StoreStuntResult(from->steamID64, data, len);
 			if (from->eType == kIdentitySteamID && len >= 5 && data[0] == kTypeData) {
 				Packet p; p.from = from->steamID64;
 				uint16_t dst; memcpy(&p.srcPort, data + 1, 2); memcpy(&dst, data + 3, 2);
@@ -427,6 +434,7 @@ static void Pump() {
 		}
 		SendAIDriversToLobby();
 	}
+	ResendStuntResult();
 }
 
 // accepts SteamNetworkingMessages sessions (callback 1251, run by SteamAPI_RunCallbacks in ZOOM's xlive.dll)
@@ -1146,6 +1154,109 @@ static int L_GetAIDriverText(void* L) {   // description line: the whole list
 	return 1;
 }
 
+// ------------------------------------------------------------------------------------------------------------
+// Progress of a running game for the players in the lobby (chloemultiplayer_lobby.bed, UpdateGameInfo). Chloe's
+// multiplayer only shares laps per player. Every racing PC sends once per second (kTypeRaceStatus, 5 x int32):
+//   kind 1 = stunt: a = current attempt, b = attempts
+//   kind 2 = derby: type = derby type (1 LMS, 2 wrecking, 3 frag), a = cars left (-1 unknown), b = cars,
+//            c = seconds left (-1 = no time limit)
+// The lobby shows the newest status (ChloeSteam_GetRaceStatus, nil if older than 3 s).
+
+struct RaceStatus { int32_t kind, type, a, b, c; };
+static RaceStatus gRaceStatusIn = {};
+static DWORD gRaceStatusInTick = 0;
+
+static void StoreRaceStatus(uint64_t from, const uint8_t* data, int len) {   // caller holds gLock
+	if (len != 5 + (int)sizeof(RaceStatus)) return;
+	(void)from;
+	memcpy(&gRaceStatusIn, data + 5, sizeof(RaceStatus));
+	gRaceStatusInTick = GetTickCount();
+}
+
+static void SendRaceStatus(const RaceStatus& st) {   // game thread, at most once per second
+	static DWORD last = 0;
+	if (GetTickCount() - last < 1000) return;
+	if (!TryEnterCriticalSection(&gLock)) return;
+	last = GetTickCount();
+	for (auto peer : LobbyPeers()) SendRaw(peer, kTypeRaceStatus, 0, 0, (const uint8_t*)&st, sizeof(st));
+	LeaveCriticalSection(&gLock);
+}
+
+static int L_GetRaceStatus(void* L) {   // kind, type, a, b, c or nil
+	EnterCriticalSection(&gLock);
+	bool fresh = gRaceStatusInTick && GetTickCount() - gRaceStatusInTick < 3000;
+	RaceStatus st = gRaceStatusIn;
+	LeaveCriticalSection(&gLock);
+	if (!fresh || st.kind == 0) { lua_pushnil_cc(L); return 1; }
+	lua_pushnumber(L, (float)st.kind);
+	lua_pushnumber(L, (float)st.type);
+	lua_pushnumber(L, (float)st.a);
+	lua_pushnumber(L, (float)st.b);
+	lua_pushnumber(L, (float)st.c);
+	return 5;
+}
+
+// ------------------------------------------------------------------------------------------------------------
+// Result of a multiplayer stunt for the tournament. Every player does the attempts at its own pace, so the results
+// of a PC are complete only if the records of all other players had arrived when its game built the final ranking
+// (ScoreManagerStunt [9], see StuntResultsHook). After the race every PC hands its ranking to the host
+// (ChloeSteam_SendStuntResult: "tag|missing records|names", repeated for 60 s); the host takes the most complete one.
+
+static int gLastStuntMissing = -1;              // records missing when the ranking was built, -1 = no MP stunt
+static std::map<uint64_t, std::string> gStuntResults;   // host: SteamID -> result string
+static std::string gStuntResultOut;              // client: own result, resent to the host
+static DWORD gStuntResultOutStart = 0, gStuntResultOutLast = 0;
+
+static void StoreStuntResult(uint64_t from, const uint8_t* data, int len) {   // caller holds gLock
+	if (!gHostLobby || len > 5 + 4000) return;
+	std::string s((const char*)data + 5, (size_t)(len - 5));
+	if (gStuntResults[from] != s) { gStuntResults[from] = s; Log("stunt result of %llu received: %s", from, s.c_str()); }
+}
+
+static void ResendStuntResult() {   // caller holds gLock (network thread)
+	if (gStuntResultOut.empty() || !gJoinHost) return;
+	if (GetTickCount() - gStuntResultOutStart > 60000) { gStuntResultOut.clear(); return; }
+	if (GetTickCount() - gStuntResultOutLast < 1000) return;
+	gStuntResultOutLast = GetTickCount();
+	SendRaw(gJoinHost, kTypeStuntResult, 0, 0, (const uint8_t*)gStuntResultOut.data(), gStuntResultOut.size());
+}
+
+static int L_GetLastStuntMissing(void* L) {   // missing records of the last MP stunt (once, then nil)
+	int v = gLastStuntMissing;
+	gLastStuntMissing = -1;
+	if (v < 0) lua_pushnil_cc(L);
+	else lua_pushnumber(L, (float)v);
+	return 1;
+}
+
+static int L_SendStuntResult(void* L) {   // host: own result, client: sent to the host
+	size_t len = 0;
+	auto s = (const char*)lua_tolstring(L, 1, &len);
+	if (!s || len == 0 || len > 4000) return 0;
+	EnterCriticalSection(&gLock);
+	if (gHostLobby) gStuntResults[gSelf] = std::string(s, len);
+	else { gStuntResultOut.assign(s, len); gStuntResultOutStart = GetTickCount(); gStuntResultOutLast = 0; }
+	Log("own stunt result: %s", std::string(s, len).c_str());
+	LeaveCriticalSection(&gLock);
+	return 0;
+}
+
+static int L_GetStuntResults(void* L) {   // host: all results, one per line
+	std::string all;
+	EnterCriticalSection(&gLock);
+	for (auto& r : gStuntResults) { all += r.second; all += "\n"; }
+	LeaveCriticalSection(&gLock);
+	lua_pushlstring(L, (const wchar_t*)all.c_str(), all.length());
+	return 1;
+}
+
+static int L_ClearStuntResults(void*) {
+	EnterCriticalSection(&gLock);
+	gStuntResults.clear();
+	LeaveCriticalSection(&gLock);
+	return 0;
+}
+
 static void RegisterLua(void* L) {
 	TryPatchChloeMP();
 	struct { const char* name; void* fn; } funcs[] = {
@@ -1168,6 +1279,11 @@ static void RegisterLua(void* L) {
 		{ "ChloeSteam_Log", (void*)L_Log },
 		{ "ChloeSteam_StoreSet", (void*)L_StoreSet },
 		{ "ChloeSteam_StoreGet", (void*)L_StoreGet },
+		{ "ChloeSteam_GetRaceStatus", (void*)L_GetRaceStatus },
+		{ "ChloeSteam_GetLastStuntMissing", (void*)L_GetLastStuntMissing },
+		{ "ChloeSteam_SendStuntResult", (void*)L_SendStuntResult },
+		{ "ChloeSteam_GetStuntResults", (void*)L_GetStuntResults },
+		{ "ChloeSteam_ClearStuntResults", (void*)L_ClearStuntResults },
 	};
 	for (auto& f : funcs) {
 		lua_pushcfunction(L, f.fn, 0);
@@ -1285,6 +1401,33 @@ static void RaceTick() {
 	if (!mp) { active = false; gRealAIFirst = -1; return; }
 	auto sm = *(uint8_t**)0x846514, host = *(uint8_t**)(gf + 0x2820);
 	if (!sm || !host) return;
+	int derbyType = *(int*)(gf + 0x51C);   // GameFlow.nDerbyType: 0 none, 1 LMS, 2 wrecking, 3 frag
+	if (derbyType >= 1 && derbyType <= 3) {
+		// Derby time limit: the lobby's minutes are in PreRace.Laps (+0x4D4). ScoreManagerDerby only turns them into
+		// its time limit (+0x38, ms, -1 = none) in PreRace.Mode 5 (vanilla online, FUN_00490b60 / FUN_00490c10);
+		// Chloe's multiplayer races run as Mode 2, so there was no limit (frag: fixed 5 minutes).
+		int minutes = *(int*)(gf + 0x4D4);
+		if (minutes >= 1 && minutes <= 60 && *(int*)(sm + 0x38) != minutes * 60000) {
+			Log("derby: time limit %d -> %d ms (%d minutes, derby type %d)", *(int*)(sm + 0x38), minutes * 60000, minutes, derbyType);
+			*(int*)(sm + 0x38) = minutes * 60000;
+		}
+		RaceStatus rs = { 2, derbyType, -1, 0, -1 };
+		int limit = *(int*)(sm + 0x38), raceTime = *(int*)(host + 0x2099C);   // PlayerHost.nRaceTime (ms)
+		if (limit > 0) rs.c = (std::max)(0, (limit - raceTime + 999) / 1000);
+		auto b = *(uint8_t***)(sm + 8), e = *(uint8_t***)(sm + 0xC);
+		if (b && e >= b && e - b <= 32) {
+			rs.b = (int)(e - b);
+			if (derbyType == 2) {                             // cars left, kept by the game for wrecking derbies
+				int left = *(int*)(sm + 0x3C);
+				if (left >= 1 && left <= rs.b) rs.a = left;   // not counted yet at the start
+			}
+			else if (derbyType == 1) {                        // survivor: entries without an end flag
+				rs.a = 0;
+				for (auto p = b; p != e; ++p) if (*p && !(*p)[0x38] && !(*p)[0x39]) rs.a++;
+			}
+		}
+		SendRaceStatus(rs);
+	}
 	if (!active) {
 		active = true;
 		int locals = 0;
@@ -1333,8 +1476,9 @@ static void RaceTick() {
 	}
 }
 
-// The original runs first: Chloe's time trial code (careertimetrial.h) also writes nStartPosition = 1 every frame
-// when only one player is in the race, which is the case in a multiplayer stunt. Our value has to be written last.
+// The original runs first: Chloe's time trial code (careertimetrial.h) writes nStartPosition = 1 every frame while
+// her time trial flag is set (it is reset before other races, ChloeCollection_ReinitHooks). Our value is written
+// last to be safe; the actual cause of wrong stunt start points was Chloe's MP plugin (see PatchChloeStartPosition).
 static void StuntTick();
 static HRESULT __fastcall EndSceneHook(void* self, void*) {
 	HRESULT r = gEndSceneOrig(self);
@@ -1367,6 +1511,7 @@ static std::map<uint64_t, std::map<int, std::vector<uint8_t>>> gStuntRecords;   
 struct StuntPending { uint8_t* entry; uint64_t peer; int round; };
 static std::vector<StuntPending> gStuntPending;                    // game thread only
 static bool gStuntActive = false;
+static int gStuntOwnRounds = 0;                                    // own attempts done (records sent)
 static std::map<uint64_t, std::wstring> gStuntNames;              // SteamID -> in-game profile name (kept)
 
 static uint8_t* GameFlowPtr() { return *(uint8_t**)0x9298FAC; }
@@ -1419,6 +1564,9 @@ static std::vector<uint64_t> LobbyPeers() {   // caller holds gLock
 static void PrepareStuntPlayers() {
 	auto gf = GameFlowPtr();
 	EnterCriticalSection(&gLock);
+	// records of an earlier stunt (e.g. the same stunt again in a tournament) must not be taken over; records of this
+	// stunt that arrived before (other players faster) are sent again by their PCs every 2 s
+	gStuntRecords.clear();
 	gStuntPeers = LobbyPeers();
 	std::vector<std::wstring> names;
 	void* friends = S.Friends ? S.Friends() : nullptr;
@@ -1445,6 +1593,8 @@ static void PrepareStuntPlayers() {
 		}
 	}
 	gStuntActive = true;
+	gStuntOwnRounds = 0;
+	gLastStuntMissing = -1;
 	Log("stunt: %u other players added as simulated entries", (unsigned)gStuntPeers.size());
 }
 
@@ -1489,6 +1639,7 @@ static void __fastcall StuntSimHook(void* self, void*) {
 		for (auto peer : gStuntPeers) SendRaw(peer, kTypeStunt, (uint16_t)CurrentLevel(), (uint16_t)round, rec, kStuntRecordSize);
 		Log("stunt: own record of round %d sent to %u players", round, (unsigned)gStuntPeers.size());
 		SendOwnStuntName();
+		if (round > gStuntOwnRounds) gStuntOwnRounds = round;
 	}
 	for (int id = total - sims; id < total; id++) {
 		uint8_t* entry = StuntEntry(sm, id);
@@ -1515,7 +1666,24 @@ static void StuntTick() {   // EndScene: fill in records that arrived after the 
 		}
 		return;
 	}
-	if (!gStuntActive || !TryEnterCriticalSection(&gLock)) return;
+	if (!gStuntActive) return;
+	auto sm = *(uint8_t**)0x846514;
+	if (sm) {
+		RaceStatus rs = { 1, 0, *(int*)(sm + 0x34), *(int*)(sm + 0x3C), -1 };   // current attempt / attempts
+		if (rs.a >= 1 && rs.a <= 10 && rs.b >= 1 && rs.b <= 10) SendRaceStatus(rs);
+	}
+	if (!TryEnterCriticalSection(&gLock)) return;
+	// own records again every 2 s while in the race (messages are unreliable; duplicates just overwrite)
+	static DWORD lastResend = 0;
+	if (sm && gStuntOwnRounds > 0 && GetTickCount() - lastResend > 2000) {
+		lastResend = GetTickCount();
+		if (uint8_t* local = StuntEntry(sm, 0)) {
+			for (int r = 1; r <= gStuntOwnRounds && r <= 10; r++)
+				for (auto peer : gStuntPeers)
+					SendRaw(peer, kTypeStunt, (uint16_t)CurrentLevel(), (uint16_t)r, local + 0x38 + (r - 1) * kStuntRecordSize, kStuntRecordSize);
+			SendOwnStuntName();
+		}
+	}
 	for (size_t k = 0; k < gStuntPeers.size() && k < 7; k++) {   // profile names of the other players
 		auto n = gStuntNames.find(gStuntPeers[k]);
 		if (n == gStuntNames.end() || n->second.empty()) continue;
@@ -1530,6 +1698,28 @@ static void StuntTick() {   // EndScene: fill in records that arrived after the 
 		} else i++;
 	}
 	LeaveCriticalSection(&gLock);
+}
+
+// ScoreManagerStunt [9] (FUN_0049aee0, slot 0x6E3E70) builds the final ranking of the stunt (GameFlow results that the
+// lobby reads). Records that arrived late are filled in first; the number still missing is kept for the tournament.
+static const uintptr_t kStuntResultsSlot = 0x6E3E70;
+static void(__thiscall* gStuntResultsOrig)(void*, void*) = nullptr;
+static void __fastcall StuntResultsHook(void* self, void*, void* a) {
+	if (gStuntActive) {
+		EnterCriticalSection(&gLock);
+		for (size_t i = 0; i < gStuntPending.size();) {
+			auto& p = gStuntPending[i];
+			if (FillStuntRecord(p.entry, p.peer, p.round)) gStuntPending.erase(gStuntPending.begin() + i);
+			else i++;
+		}
+		auto sm = (uint8_t*)self;
+		int attempts = *(int*)(sm + 0x3C);
+		int missing = (int)gStuntPending.size() + (gStuntOwnRounds < attempts ? attempts - gStuntOwnRounds : 0);
+		LeaveCriticalSection(&gLock);
+		if (missing != gLastStuntMissing) Log("stunt: final ranking built, %d records missing", missing);
+		gLastStuntMissing = missing;
+	}
+	gStuntResultsOrig(self, a);
 }
 
 // Results between the attempts: the single player tab (IngameMenuTabSingleStuntResults, vtable 0x6E786C) draws only
@@ -1557,6 +1747,9 @@ static void PlaceStuntHooks() {
 	}
 	patch(kStuntInitSlot, (void*)StuntInitHook, (void**)&gStuntInitOrig);
 	patch(kStuntSimSlot, (void*)StuntSimHook, (void**)&gStuntSimOrig);
+	if (*(uintptr_t*)kStuntResultsSlot == 0x49AEE0)
+		patch(kStuntResultsSlot, (void*)StuntResultsHook, (void**)&gStuntResultsOrig);
+	else Log("stunt ranking hook skipped: unexpected vtable");
 	if (*(uintptr_t*)kSingleStuntTabDrawSlot == 0x4B71C0)
 		patch(kSingleStuntTabDrawSlot, (void*)SingleStuntTabDrawHook, (void**)&gSingleStuntTabDrawOrig);
 	else Log("stunt results hook skipped: unexpected vtable");
