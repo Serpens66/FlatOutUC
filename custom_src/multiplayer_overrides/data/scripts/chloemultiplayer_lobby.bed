@@ -1,4 +1,21 @@
 dofile("data/scripts/chloemultiplayer_customization.bed")
+
+-- ChloeCustom: values that must survive the reload of the menu scripts after every race (Fouc.exe runs main.bed
+-- again). Steam package: kept in ChloeSteamNet.asi. GFWL package: only a global (lost after a race).
+ChloeCustom_PersistentFallback = ChloeCustom_PersistentFallback or { }
+function ChloeCustom_GetPersistent(key)
+	if ChloeSteam_StoreGet ~= nil then
+		return ChloeSteam_StoreGet("lobby_" .. key)
+	end
+	return ChloeCustom_PersistentFallback[key]
+end
+function ChloeCustom_SetPersistent(key, value)
+	if ChloeSteam_StoreSet ~= nil then
+		ChloeSteam_StoreSet("lobby_" .. key, value)
+	else
+		ChloeCustom_PersistentFallback[key] = value
+	end
+end
 dofile("data/menu/cup_next_race_elements.bed")
 dofile("data/menu/xbox_controller.bed")
 dofile("data/menu/garage_elements_2.bed")
@@ -827,13 +844,13 @@ local function SetEvents(events)
 	
 	-- ChloeCustom: ghost mode for stunts (players start at the same point), restore the previous setting afterwards
 	if gameRules == GR_STUNT then
-		if ChloeCustom_GhostBeforeStunt == nil then
-			ChloeCustom_GhostBeforeStunt = ChloeNet_GetNoContact() and 1 or 0
+		if ChloeCustom_GetPersistent("ghostbeforestunt") == nil then
+			ChloeCustom_SetPersistent("ghostbeforestunt", ChloeNet_GetNoContact() and "1" or "0")
 			ChloeNet_Host_SetNoContact(1)
 		end
-	elseif ChloeCustom_GhostBeforeStunt ~= nil then
-		ChloeNet_Host_SetNoContact(ChloeCustom_GhostBeforeStunt)
-		ChloeCustom_GhostBeforeStunt = nil
+	elseif ChloeCustom_GetPersistent("ghostbeforestunt") ~= nil then
+		ChloeNet_Host_SetNoContact(tonumber(ChloeCustom_GetPersistent("ghostbeforestunt")) or 0)
+		ChloeCustom_SetPersistent("ghostbeforestunt", nil)
 	end
 	if gameRules == GR_STUNT and ChloeNet_GetCarClass() >= CARCLASS_SAMEASHOST and not IsStuntCar(ChloeNet_GetLocalPlayerCar()) then
 		ChangeCar()
@@ -1355,8 +1372,8 @@ end
 function ExitChloeMultiplayerLobby()
 	local ok=function(value)
 		if value == TRUE then
-			ChloeCustom_HostDefaultsApplied = false -- ChloeCustom
-			ChloeCustom_GhostBeforeStunt = nil
+			ChloeCustom_SetPersistent("hostdefaults", nil) -- ChloeCustom
+			ChloeCustom_SetPersistent("ghostbeforestunt", nil)
 			if ChloeCustomTourney_Reset then ChloeCustomTourney_Reset() end -- ChloeCustom Tourney
 			ChloeNet_Disconnect()
 		else
@@ -1429,8 +1446,8 @@ function menu_chloemultiplayer_lobby.init(self)
 	end
 	
 	-- ChloeCustom: defaults for a new hosted game (handling FLATOUT 2, AI class SAME AS HOST)
-	if ChloeNet_IsServer() and not ChloeCustom_HostDefaultsApplied then
-		ChloeCustom_HostDefaultsApplied = true
+	if ChloeNet_IsServer() and ChloeCustom_GetPersistent("hostdefaults") == nil then
+		ChloeCustom_SetPersistent("hostdefaults", "1")
 		ChloeNet_Host_SetHandlingMode(HANDLING_NORMAL_FO2DOWNFORCE)
 		ChloeNet_Host_SetAIClass(4)
 	end
@@ -1984,6 +2001,8 @@ function menu_chloemultiplayer_lobby.update(self, time)
 	else
 		ChloeNet_Stats_Save()
 		if ChloeCustomTourney_Reset then ChloeCustomTourney_Reset() end -- ChloeCustom Tourney
+		ChloeCustom_SetPersistent("hostdefaults", nil) -- ChloeCustom
+		ChloeCustom_SetPersistent("ghostbeforestunt", nil)
 		EnterMenu("menu_chloemultiplayer")
 	end
 end

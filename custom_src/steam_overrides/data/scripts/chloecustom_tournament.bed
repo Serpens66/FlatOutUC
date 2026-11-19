@@ -18,7 +18,7 @@
 local TOURNEY_POINTS = { 10, 8, 6, 5, 4, 3, 2, 1 }
 local TOURNEY_AI_STUNT_POINTS = 4
 local TOURNEY_LOBBY_KEY = "tourney"
-local TOURNEY_FORMAT = "CCT1"
+local TOURNEY_FORMAT = "CCT2"
 
 ChloeCustomTourney = {
 	id = 0,
@@ -35,9 +35,13 @@ ChloeCustomTourney = {
 	dirty = false,
 	lastValue = nil,
 	lastPoll = nil,
-	finalShownId = nil,
+	shownKey = nil,		-- "id:played" of the standings shown last (shown once after every counted event)
+	nextTrack = 0,		-- track id of the next event (for the standings screen)
 	random = false,
+	loaded = false,
 }
+-- The menu scripts are loaded again after every race (Fouc.exe runs main.bed when the menus start), so the state is
+-- kept in ChloeSteamNet.asi (ChloeSteam_StoreSet/StoreGet) and restored by EnsureLoaded().
 
 local function TourneyAvailable()
 	return ChloeSteam_IsAvailable ~= nil and ChloeSteam_SetLobbyValue ~= nil and ChloeSteam_IsAvailable()
@@ -204,13 +208,26 @@ function ChloeCustomTourney_Reset()
 	T.dirty = false
 	T.lastValue = nil
 	T.lastPoll = nil
+	T.nextTrack = 0
+	T.loaded = true		-- nothing to restore any more
+	if ChloeSteam_StoreSet ~= nil then
+		ChloeSteam_StoreSet("tourney_pub", nil)
+		ChloeSteam_StoreSet("tourney_host", nil)
+	end
 end
 
 -- --- sharing the state (host writes, everybody else reads) ------------------------------------------------------
 
 local function Serialize()
 	local T = ChloeCustomTourney
-	local parts = { TOURNEY_FORMAT, T.id, T.active and 1 or 0, T.finished and 1 or 0, T.played, T.total }
+	if table.getn(T.events) > 0 then	-- host: next event from its list
+		T.nextTrack = 0
+		local ev = T.events[T.queue[T.played + 1] or 0]
+		if T.active and ev ~= nil then
+			T.nextTrack = ev.trackid or 0
+		end
+	end
+	local parts = { TOURNEY_FORMAT, T.id, T.active and 1 or 0, T.finished and 1 or 0, T.played, T.total, T.nextTrack or 0 }
 	for _, e in ipairs(T.standings) do
 		local last = e.last
 		if last == nil then
@@ -223,7 +240,7 @@ end
 
 local function Parse(s)
 	local f = Split(s, "|")
-	if f[1] ~= TOURNEY_FORMAT or table.getn(f) < 6 then
+	if f[1] ~= TOURNEY_FORMAT or table.getn(f) < 7 then
 		return
 	end
 	local T = ChloeCustomTourney
@@ -232,8 +249,9 @@ local function Parse(s)
 	T.finished = f[4] == "1"
 	T.played = tonumber(f[5]) or 0
 	T.total = tonumber(f[6]) or 0
+	T.nextTrack = tonumber(f[7]) or 0
 	T.standings = { }
-	for i = 7, table.getn(f) do
+	for i = 8, table.getn(f) do
 		local v = Split(f[i], ",")
 		if table.getn(v) >= 4 and v[1] ~= "" then
 			local last = tonumber(v[4])
@@ -245,9 +263,83 @@ local function Parse(s)
 	end
 end
 
+-- --- keeping the state while the menu scripts are reloaded (ChloeSteamNet.asi) ------------------------------------
+
+local function NumField(v)
+	if v == nil then
+		return ""
+	end
+	return tostring(v)
+end
+
+local function SaveState()
+	if ChloeSteam_StoreSet == nil then
+		return
+	end
+	local T = ChloeCustomTourney
+	if not T.active and not T.finished and table.getn(T.events) == 0 then
+		ChloeSteam_StoreSet("tourney_pub", nil)
+		ChloeSteam_StoreSet("tourney_host", nil)
+	else
+		ChloeSteam_StoreSet("tourney_pub", Serialize())
+		local ev = { }
+		for _, e in ipairs(T.events) do
+			table.insert(ev, NumField(e.trackid) .. "," .. NumField(e.rules) .. "," .. NumField(e.lapsOrTimeLimit) .. "," .. NumField(e.weather) .. "," .. NumField(e.tracktype))
+		end
+		local q = { }
+		for _, v in ipairs(T.queue) do
+			table.insert(q, tostring(v))
+		end
+		ChloeSteam_StoreSet("tourney_host", table.concat({ "H1", tostring(T.stuntsPlayed), T.raceStarted and "1" or "0",
+			T.pendingApply and "1" or "0", T.random and "1" or "0", table.concat(q, ","), table.concat(ev, ";") }, "|"))
+	end
+	ChloeSteam_StoreSet("tourney_shown", T.shownKey)
+end
+
+local function EnsureLoaded()
+	local T = ChloeCustomTourney
+	if T.loaded or ChloeSteam_StoreGet == nil then
+		return
+	end
+	T.loaded = true
+	local pub = ChloeSteam_StoreGet("tourney_pub")
+	if pub ~= nil then
+		Parse(pub)
+	end
+	local host = ChloeSteam_StoreGet("tourney_host")
+	if host ~= nil then
+		local f = Split(host, "|")
+		if f[1] == "H1" and table.getn(f) >= 7 then
+			T.stuntsPlayed = tonumber(f[2]) or 0
+			T.raceStarted = f[3] == "1"
+			T.pendingApply = f[4] == "1"
+			T.random = f[5] == "1"
+			T.queue = { }
+			if f[6] ~= "" then
+				for _, v in ipairs(Split(f[6], ",")) do
+					table.insert(T.queue, tonumber(v))
+				end
+			end
+			T.events = { }
+			if f[7] ~= "" then
+				for _, s in ipairs(Split(f[7], ";")) do
+					local v = Split(s, ",")
+					table.insert(T.events, { trackid = tonumber(v[1]), rules = tonumber(v[2]), lapsOrTimeLimit = tonumber(v[3]),
+						weather = tonumber(v[4]), tracktype = tonumber(v[5]) })
+				end
+			end
+		end
+	end
+	T.shownKey = ChloeSteam_StoreGet("tourney_shown")
+	if T.active or T.finished then
+		TourneyLog("state restored: event " .. T.played .. "/" .. T.total .. ", race started " .. tostring(T.raceStarted) .. ", " .. table.getn(T.standings) .. " drivers")
+	end
+end
+
 local function Publish()
 	ChloeCustomTourney.dirty = false
 	ChloeSteam_SetLobbyValue(TOURNEY_LOBBY_KEY, Serialize())
+	SaveState()
 end
 
 -- --- host: events and points ------------------------------------------------------------------------------------
@@ -341,17 +433,21 @@ function ChloeCustomTourney_Start(events, random)
 	end
 	T.active = true
 	T.dirty = true
+	SaveState()
 	ApplyCurrentEvent()
 end
 
 function ChloeCustomTourney_OnStartRace()
+	EnsureLoaded()
 	if ChloeNet_IsServer() and ChloeCustomTourney.active then
 		ChloeCustomTourney.raceStarted = true
+		SaveState()	-- the menu scripts are reloaded after the race
 	end
 end
 
 -- called when the lobby is created after a race, before GameFlow.ClearRace() (results are still available)
 function ChloeCustomTourney_CaptureResults()
+	EnsureLoaded()
 	local T = ChloeCustomTourney
 	if not T.active or not T.raceStarted or not ChloeNet_IsServer() then
 		return
@@ -415,6 +511,7 @@ function ChloeCustomTourney_CaptureResults()
 		T.pendingApply = true
 	end
 	T.dirty = true
+	SaveState()
 end
 
 local function StopTournament()
@@ -444,6 +541,7 @@ end
 -- --- lobby hooks ------------------------------------------------------------------------------------------------
 
 function ChloeCustomTourney_IsActive()
+	EnsureLoaded()
 	return TourneyAvailable() and ChloeCustomTourney.active
 end
 
@@ -451,6 +549,7 @@ function ChloeCustomTourney_AddLobbyButtons(menu)
 	if not TourneyAvailable() then
 		return
 	end
+	EnsureLoaded()
 	local T = ChloeCustomTourney
 	local items = menu.items
 	local new = { }
@@ -480,6 +579,7 @@ function ChloeCustomTourney_AddLobbyButtons(menu)
 end
 
 function ChloeCustomTourney_RowText(playerId, ping)
+	EnsureLoaded()
 	local T = ChloeCustomTourney
 	if not TourneyAvailable() or not (T.active or T.finished) then
 		return ConvertToWString(ping)
@@ -496,14 +596,11 @@ function ChloeCustomTourney_LobbyUpdate(menu, time)
 	if not TourneyAvailable() then
 		return
 	end
+	EnsureLoaded()
 	local T = ChloeCustomTourney
 	if ChloeNet_IsServer() then
 		if T.dirty then
 			Publish()
-		end
-		if T.pendingApply and not ChloeNet_IsLobbyInGame() then
-			T.pendingApply = false
-			ApplyCurrentEvent(true)
 		end
 	elseif T.lastPoll == nil or time < T.lastPoll or time - T.lastPoll > 0.5 then
 		T.lastPoll = time
@@ -515,11 +612,30 @@ function ChloeCustomTourney_LobbyUpdate(menu, time)
 				ChloeCustomTourney_Reset()
 			else
 				Parse(v)
+				SaveState()
 			end
 			if wasActive ~= (T.active or T.finished) and BuildLobbyMenuButtons ~= nil then
 				BuildLobbyMenuButtons()
 			end
 		end
+	end
+
+	-- after every counted event: standings screen (once per event, like the vanilla screen after a tournament race)
+	if (T.active or T.finished) and T.played > 0 then
+		local key = T.id .. ":" .. T.played
+		if T.shownKey ~= key then
+			T.shownKey = key
+			SaveState()
+			ChloeCustomTourney_ShowStandings()
+			return
+		end
+	end
+
+	-- host: next event, as soon as nobody is racing any more
+	if ChloeNet_IsServer() and T.pendingApply and not ChloeNet_IsLobbyInGame() then
+		T.pendingApply = false
+		SaveState()
+		ApplyCurrentEvent(true)
 	end
 
 	local header = W("chloecustom_pingheader")
@@ -539,11 +655,6 @@ function ChloeCustomTourney_LobbyUpdate(menu, time)
 	elseif header then
 		header:SetTitle(L"PING")
 	end
-
-	if T.finished and T.finalShownId ~= T.id then
-		T.finalShownId = T.id
-		ChloeCustomTourney_ShowStandings()
-	end
 end
 
 -- --- standings menu -----------------------------------------------------------------------------------------------
@@ -562,63 +673,101 @@ function menu_chloecustom_tourney_standings.create(self)
 	self:loadResources()
 end
 
+local function LocalPlayerKey()
+	for i = 1, ChloeNet_GetNumPlayers() do
+		if ChloeNet_IsPlayerValid(i) and ChloeNet_IsPlayerLocalPlayer(i) then
+			return NameKey(ChloeNet_GetPlayerName(i))
+		end
+	end
+	return nil
+end
+
+-- layout like the vanilla MultiplayerTournamentStandings.bed (shown after each tournament race); one list for up to
+-- 12 drivers, two columns for more (with AI there can be up to 32)
 function menu_chloecustom_tourney_standings.init(self)
 	self.parent:init(self)
+	EnsureLoaded()
 	local T = ChloeCustomTourney
 
-	Frame { Position=LEFTPOS(0,39), Size=SIZE(ChloeWidescreen_GetRight(),42) }:AttachResource(self:getResource("cup_title_bd"))
-	StaticText { Title=L"TOURNAMENT STANDINGS", Font=fonttitle(), Color=GetPaletteColor(33), Position=POS(320,40), Size=SIZE(320,33), Align=FONTF_CENTER }
+	Frame { Position=LEFTPOS(0,66), Size=SIZE(ChloeWidescreen_GetRight(),44) }:AttachResource(self:getResource("cup_title_bd"))
+	StaticText { Title=L"TOURNAMENT STANDINGS", Font=fonttitle(), Color=GetPaletteColor(33), Position=POS(320,67), Size=SIZE(400,22), Align=FONTF_CENTER }
 
 	local info
 	if T.finished then
-		info = "FINAL RESULT AFTER " .. T.total .. " EVENTS"
+		info = L("FINAL RESULT AFTER " .. T.total .. " EVENTS")
 	elseif T.active then
-		info = "AFTER " .. T.played .. " OF " .. T.total .. " EVENTS"
+		info = L("AFTER EVENT " .. T.played .. " OF " .. T.total)
+		local level = Levels[T.nextTrack or 0]
+		if level ~= nil and level.Name ~= nil then
+			info = WStringConcat(info, L("   -   NEXT: " .. level.Name))
+		end
 	else
-		info = "NO TOURNAMENT"
+		info = L"NO TOURNAMENT"
 	end
-	StaticText { Title=L(info), Font=fontsmall(), Color=GetPaletteColor(34), Position=POS(320,86), Size=SIZE(400,16), Align=FONTF_CENTER }
+	StaticText { Title=info, Font=fontsmall(), Color=GetPaletteColor(34), Position=POS(320,112), Size=SIZE(500,14), Align=FONTF_CENTER }
 
 	local list = ChloeCustomTourney_GetSortedStandings()
 	if T.finished and list[1] ~= nil then
 		local winner = WStringConcat(L"WINNER: ", EscapeString(KeyToName(list[1].key)))
-		StaticText { Title=winner, Font=fontlarge(), Color=GetPaletteColor(33), Position=POS(320,104), Size=SIZE(400,20), Align=FONTF_CENTER }
+		StaticText { Title=winner, Font=fontmedium(), Color=GetPaletteColor(33), Position=POS(320,122), Size=SIZE(500,16), Align=FONTF_CENTER }
 	end
 
-	-- two columns with 16 rows each
-	local top = 132
-	local rowh = 16
+	local localKey = LocalPlayerKey()
+	local num = table.getn(list)
+	local twoColumns = num > 12
+	local rowh, pad, perColumn, colWidth
+	if twoColumns then
+		rowh, pad, perColumn, colWidth = 14, 1, 16, 300
+	else
+		rowh, pad, perColumn, colWidth = 18, 3, 12, 600
+	end
+
+	-- column titles
+	for col = 0, (twoColumns and 1 or 0) do
+		local x = 20 + col * (colWidth + 20)
+		StaticText { Title=L"#", Font=fontsmall(), Color=GetPaletteColor(33), Position=POS(x + 4,140), Size=SIZE(20,13), Align=FONTF_CENTER }
+		StaticText { Title=MULTIPLAYER_NAME, Font=fontsmall(), Color=GetPaletteColor(33), Position=POS(x + 30,140), Size=SIZE(200,13) }
+		StaticText { Title=L"LAST", Font=fontsmall(), Color=GetPaletteColor(33), Position=POS(x + colWidth - 75,140), Size=SIZE(40,13), Align=FONTF_CENTER }
+		StaticText { Title=MULTIPLAYER_POINTS, Font=fontsmall(), Color=GetPaletteColor(33), Position=POS(x + colWidth - 25,140), Size=SIZE(50,13), Align=FONTF_CENTER }
+	end
+
 	for i, e in ipairs(list) do
-		if i > 32 then
+		if i > perColumn * 2 then
 			break
 		end
-		local col = math.floor((i - 1) / 16)
-		local row = math.mod(i - 1, 16)
-		local x = 40 + col * 300
-		local y = top + row * rowh
-		local color = GetPaletteColor(34)
-		if e.rank == 1 then
-			color = GetPaletteColor(33)
+		local col = math.floor((i - 1) / perColumn)
+		local row = math.mod(i - 1, perColumn)
+		local x = 20 + col * (colWidth + 20)
+		local y = 157 + row * (rowh + pad)
+		local bg = Frame { Position=POS(x - 6, y), Size=SIZE(colWidth + 12, rowh), DrawBackgroundColor=TRUE, Layer=1 }
+		if e.key == localKey then
+			bg:SetColor(GetPaletteColor(33), false)
+			bg:SetAlpha(0.35)
+		else
+			bg:SetColor({0,0,0,MAX_VERTEXCOLOR_A}, false)
+			bg:SetAlpha(0.5)
 		end
+		local color = GetPaletteColor(34)
 		local name = EscapeString(KeyToName(e.key))
 		if e.ai then
-			name = WStringConcat(name, L" (AI)")
+			name = WStringConcat(name, L"  (AI)")
 		end
 		local last = L""
 		if e.last ~= nil then
 			last = L("+" .. e.last)
 		end
-		StaticText { Title=L(e.rank .. "."), Font=fontsmall(), Color=color, Position=POS(x,y), Size=SIZE(24,rowh) }
-		StaticText { Title=name, Font=fontsmall(), Color=color, Position=POS(x + 26,y), Size=SIZE(190,rowh) }
-		StaticText { Title=L(e.points), Font=fontsmall(), Color=color, Position=POS(x + 240,y), Size=SIZE(30,rowh), Align=FONTF_RIGHT }
-		StaticText { Title=last, Font=fontsmall(), Color=GetPaletteColor(34), Position=POS(x + 275,y), Size=SIZE(24,rowh), Align=FONTF_RIGHT }
+		local ty = y + (rowh - 13) / 2
+		StaticText { Title=L(e.rank .. "."), Font=fontsmall(), Color=GetPaletteColor(34), Position=POS(x + 4,ty), Size=SIZE(20,13), Align=FONTF_CENTER, Layer=2 }
+		StaticText { Title=name, Font=fontsmall(), Color=color, Position=POS(x + 30,ty), Size=SIZE(colWidth - 110,13), Layer=2 }
+		StaticText { Title=last, Font=fontsmall(), Color=GetPaletteColor(34), Position=POS(x + colWidth - 75,ty), Size=SIZE(40,13), Align=FONTF_CENTER, Layer=2 }
+		StaticText { Title=L(e.points), Font=fontsmall(), Color=GetPaletteColor(1), Position=POS(x + colWidth - 25,ty), Size=SIZE(50,13), Align=FONTF_CENTER, Layer=2 }
 	end
 
 	self.items = { { ICON_MULTIPLAYER_CONTINUE, function() EnterMenu("menu_chloemultiplayer_lobby") end, ICON(self, "icon_continue"), ICON(self, "icon_continue_s") } }
 	GUI:InitMenuButtons(self.items)
 	GUI:SetActiveItem(1)
 	GUI:ShowMenuButtons()
-	GUI:SetHelpButtons(BUTTON_OK, UI_SELECT, BUTTON_BACK, UI_BACK)
+	GUI:SetHelpButtons(BUTTON_OK, TRANSLATOR(UI_CONTINUE), BUTTON_BACK, UI_BACK)
 end
 
 function menu_chloecustom_tourney_standings.update(self, time)
@@ -632,6 +781,8 @@ end
 function menu_chloecustom_tourney_standings.deinit(self)
 	self.parent:deinit(self)
 end
+
+EnsureLoaded()	-- the menu scripts were reloaded: restore the tournament (also done lazily in every hook)
 
 -- --- event editor (copy of the vanilla MultiplayerBuildTournament.bed, ReplicatedSession.GAMETYPE_* replaced by
 -- --- Chloe's GAMETYPE_* globals, own presets, editing starts from the previous tournament) -------------------------

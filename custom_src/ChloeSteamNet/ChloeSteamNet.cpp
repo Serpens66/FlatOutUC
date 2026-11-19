@@ -897,6 +897,31 @@ static int L_Log(void* L) {   // narrow Lua string into ChloeSteamNet.log (tourn
 	return 0;
 }
 
+// Values that survive the reload of the menu scripts: Fouc.exe runs data/scripts/main.bed again every time the
+// menus start (after each race), so all Lua globals are lost. Used by the tournament and the lobby defaults.
+static auto lua_type_cc = (int(*)(void*, int))0x632F20;
+static std::map<std::string, std::string> gLuaStore;
+
+static int L_StoreSet(void* L) {   // ChloeSteam_StoreSet(key, value); value nil removes the key
+	size_t klen = 0, vlen = 0;
+	auto key = (const char*)lua_tolstring(L, 1, &klen);
+	if (!key || klen == 0) return 0;
+	std::string k(key, klen);
+	if (lua_type_cc(L, 2) == 0 /* LUA_TNIL */) { gLuaStore.erase(k); return 0; }
+	auto val = (const char*)lua_tolstring(L, 2, &vlen);
+	if (val) gLuaStore[k] = std::string(val, vlen);
+	return 0;
+}
+
+static int L_StoreGet(void* L) {   // nil if not set
+	size_t klen = 0;
+	auto key = (const char*)lua_tolstring(L, 1, &klen);
+	auto it = key ? gLuaStore.find(std::string(key, klen)) : gLuaStore.end();
+	if (it == gLuaStore.end()) lua_pushnil_cc(L);
+	else lua_pushlstring(L, (const wchar_t*)it->second.data(), it->second.size());
+	return 1;
+}
+
 static void RegisterLua(void* L) {
 	TryPatchChloeMP();
 	struct { const char* name; void* fn; } funcs[] = {
@@ -913,6 +938,8 @@ static void RegisterLua(void* L) {
 		{ "ChloeSteam_SetLobbyValue", (void*)L_SetLobbyValue },
 		{ "ChloeSteam_GetLobbyValue", (void*)L_GetLobbyValue },
 		{ "ChloeSteam_Log", (void*)L_Log },
+		{ "ChloeSteam_StoreSet", (void*)L_StoreSet },
+		{ "ChloeSteam_StoreGet", (void*)L_StoreGet },
 	};
 	for (auto& f : funcs) {
 		lua_pushcfunction(L, f.fn, 0);

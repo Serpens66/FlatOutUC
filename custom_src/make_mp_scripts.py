@@ -84,6 +84,27 @@ for name in ['chloemultiplayer_lobby_changeoptions.bed', 'chloemultiplayer_lobby
 
 # --- lobby: every car list only with FO2 cars (tier lists name addon cars directly) ----------------------------
 t = load('chloemultiplayer_lobby.bed')
+# values that must survive the reload of the menu scripts after every race (Fouc.exe runs main.bed again when the
+# menus start, all Lua globals are lost). Steam package: kept in ChloeSteamNet.asi (ChloeSteam_StoreSet/StoreGet).
+t = replace(t, 'dofile("data/scripts/chloemultiplayer_customization.bed")\r\n', crlf('''dofile("data/scripts/chloemultiplayer_customization.bed")
+
+-- ChloeCustom: values that must survive the reload of the menu scripts after every race (Fouc.exe runs main.bed
+-- again). Steam package: kept in ChloeSteamNet.asi. GFWL package: only a global (lost after a race).
+ChloeCustom_PersistentFallback = ChloeCustom_PersistentFallback or { }
+function ChloeCustom_GetPersistent(key)
+\tif ChloeSteam_StoreGet ~= nil then
+\t\treturn ChloeSteam_StoreGet("lobby_" .. key)
+\tend
+\treturn ChloeCustom_PersistentFallback[key]
+end
+function ChloeCustom_SetPersistent(key, value)
+\tif ChloeSteam_StoreSet ~= nil then
+\t\tChloeSteam_StoreSet("lobby_" .. key, value)
+\telse
+\t\tChloeCustom_PersistentFallback[key] = value
+\tend
+end
+'''))
 t = replace(t, '\tSortCarsByClass(carlist)\r\n\t\r\n\t-- 157 cars crashes the game', crlf('''\t-- ChloeCustom: only FlatOut 2 / Ultimate Carnage cars (some classes list addon cars directly)
 \tlocal fo2carlist = { }
 \tfor _,c in ipairs(carlist) do
@@ -109,21 +130,21 @@ t = replace(t, '\tif ChloeNet_IsServer() and not ChloeNet_HasPortWarningBeenShow
 t = replace(t, '\tif gameRules == GR_STUNT and ChloeNet_GetCarClass() >= CARCLASS_SAMEASHOST and not IsStuntCar(ChloeNet_GetLocalPlayerCar()) then\r\n',
             crlf('''\t-- ChloeCustom: ghost mode for stunts (players start at the same point), restore the previous setting afterwards
 \tif gameRules == GR_STUNT then
-\t\tif ChloeCustom_GhostBeforeStunt == nil then
-\t\t\tChloeCustom_GhostBeforeStunt = ChloeNet_GetNoContact() and 1 or 0
+\t\tif ChloeCustom_GetPersistent("ghostbeforestunt") == nil then
+\t\t\tChloeCustom_SetPersistent("ghostbeforestunt", ChloeNet_GetNoContact() and "1" or "0")
 \t\t\tChloeNet_Host_SetNoContact(1)
 \t\tend
-\telseif ChloeCustom_GhostBeforeStunt ~= nil then
-\t\tChloeNet_Host_SetNoContact(ChloeCustom_GhostBeforeStunt)
-\t\tChloeCustom_GhostBeforeStunt = nil
+\telseif ChloeCustom_GetPersistent("ghostbeforestunt") ~= nil then
+\t\tChloeNet_Host_SetNoContact(tonumber(ChloeCustom_GetPersistent("ghostbeforestunt")) or 0)
+\t\tChloeCustom_SetPersistent("ghostbeforestunt", nil)
 \tend
 \tif gameRules == GR_STUNT and ChloeNet_GetCarClass() >= CARCLASS_SAMEASHOST and not IsStuntCar(ChloeNet_GetLocalPlayerCar()) then
 '''))
 # defaults for a new hosted game: handling FLATOUT 2 and AI class SAME AS HOST (once per hosted game)
 t = replace(t, '\tif ChloeNet_IsServer() then\r\n\t\tif ChloeNet_IsUsingZMenu() or Settings["Network"]["AllowCheats"] then\r\n',
             crlf('''\t-- ChloeCustom: defaults for a new hosted game (handling FLATOUT 2, AI class SAME AS HOST)
-\tif ChloeNet_IsServer() and not ChloeCustom_HostDefaultsApplied then
-\t\tChloeCustom_HostDefaultsApplied = true
+\tif ChloeNet_IsServer() and ChloeCustom_GetPersistent("hostdefaults") == nil then
+\t\tChloeCustom_SetPersistent("hostdefaults", "1")
 \t\tChloeNet_Host_SetHandlingMode(HANDLING_NORMAL_FO2DOWNFORCE)
 \t\tChloeNet_Host_SetAIClass(4)
 \tend
@@ -131,7 +152,7 @@ t = replace(t, '\tif ChloeNet_IsServer() then\r\n\t\tif ChloeNet_IsUsingZMenu() 
 \t\tif ChloeNet_IsUsingZMenu() or Settings["Network"]["AllowCheats"] then
 '''))
 t = replace(t, '\t\tif value == TRUE then\r\n\t\t\tChloeNet_Disconnect()\r\n',
-            '\t\tif value == TRUE then\r\n\t\t\tChloeCustom_HostDefaultsApplied = false -- ChloeCustom\r\n\t\t\tChloeCustom_GhostBeforeStunt = nil\r\n'
+            '\t\tif value == TRUE then\r\n\t\t\tChloeCustom_SetPersistent("hostdefaults", nil) -- ChloeCustom\r\n\t\t\tChloeCustom_SetPersistent("ghostbeforestunt", nil)\r\n'
             '\t\t\tif ChloeCustomTourney_Reset then ChloeCustomTourney_Reset() end -- ChloeCustom Tourney\r\n\t\t\tChloeNet_Disconnect()\r\n')
 # tournament mode (Steam package: chloecustom_tournament.bed from steam_overrides, loaded by chloemultiplayer.bed).
 # In the GFWL package the ChloeCustomTourney_* functions do not exist, so every hook is skipped.
@@ -154,7 +175,8 @@ t = replace(t, '\t\t\tupgrades:SetTitle(ConvertToWString(ping))\r\n',
 t = replace(t, '\t\tUpdateGameInfo(self)\r\n',
             '\t\tUpdateGameInfo(self)\r\n\t\tif ChloeCustomTourney_LobbyUpdate then ChloeCustomTourney_LobbyUpdate(self, time) end -- ChloeCustom Tourney\r\n')
 t = replace(t, '\t\tChloeNet_Stats_Save()\r\n\t\tEnterMenu("menu_chloemultiplayer")\r\n',
-            '\t\tChloeNet_Stats_Save()\r\n\t\tif ChloeCustomTourney_Reset then ChloeCustomTourney_Reset() end -- ChloeCustom Tourney\r\n\t\tEnterMenu("menu_chloemultiplayer")\r\n')
+            '\t\tChloeNet_Stats_Save()\r\n\t\tif ChloeCustomTourney_Reset then ChloeCustomTourney_Reset() end -- ChloeCustom Tourney\r\n'
+            '\t\tChloeCustom_SetPersistent("hostdefaults", nil) -- ChloeCustom\r\n\t\tChloeCustom_SetPersistent("ghostbeforestunt", nil)\r\n\t\tEnterMenu("menu_chloemultiplayer")\r\n')
 save('chloemultiplayer_lobby.bed', t)
 
 # --- track selection: no FO1 / Tough Trucks / Rally Trophy categories, removed tracks hidden -------------------
