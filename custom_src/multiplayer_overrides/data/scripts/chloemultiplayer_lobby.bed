@@ -1402,6 +1402,7 @@ end
 
 function ExitChloeMultiplayerLobby()
 	local ok=function(value)
+		ChloeCustomTourney_DialogOpen = false -- ChloeCustom Tourney
 		if value == TRUE then
 			ChloeCustom_SetPersistent("hostdefaults", nil) -- ChloeCustom
 			ChloeCustom_SetPersistent("ghostbeforestunt", nil)
@@ -1414,6 +1415,7 @@ function ExitChloeMultiplayerLobby()
 	end
 
 	GUI:HideMenuButtons()
+	ChloeCustomTourney_DialogOpen = true -- ChloeCustom Tourney
 	MessageBox(MULTIPLAYER_LOBBY_QUITGAME,MESSAGEBOX_YESNO,ok)
 end
 
@@ -1837,7 +1839,7 @@ function menu_chloemultiplayer_lobby.update(self, time)
 	if ChloeNet_IsConnected() then		
 		wm.GetWindow("list"):SetNumRows(NUMPLAYERS_LOBBYLIST)
 		UpdateGameInfo(self)
-		if ChloeCustomTourney_LobbyUpdate then ChloeCustomTourney_LobbyUpdate(self, time) end -- ChloeCustom Tourney
+		if ChloeCustomTourney_LobbyUpdate then ChloeCustomTourney_LobbyUpdate(self, time, Mode == LOBBY) end -- ChloeCustom Tourney
 		
 		if Mode == SELECT_PLAYER then
 			local numplayers = ChloeNet_GetNumPlayers()

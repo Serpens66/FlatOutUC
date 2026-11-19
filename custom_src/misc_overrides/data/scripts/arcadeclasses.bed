@@ -127,7 +127,7 @@ Row1 = {
 			Level = LevelIndex.Desert1A,	
 			Description = "See how long you can survive driving through the desert with a Chili that has a bomb inside it!", -- custom
 			
-			--PlatinumGoal = 64000, -- my score is 64388 -- ChloeCustom: no platinum, Chloe's score was set on another track or car
+			PlatinumGoal = 52000, -- ChloeCustom: estimate for the FO2 track/car (Chloe: 64000 on the old one, "my score is 64388")
 			
 			GoalScores = {
 				[1] = 40000, -- ChloeCustom: estimate for the FO2 track (Chloe: 45000)
@@ -334,7 +334,7 @@ Row2 = {
 			Level = LevelIndex.Desert1B, -- custom
 			Description = "Turn the desert scrap yard into your personal skatepark with your Flatmobile!", -- custom
 			
-			--PlatinumGoal = 400000, -- my score is 406350 -- ChloeCustom: no platinum, Chloe's score was set on another track or car
+			PlatinumGoal = 160000, -- ChloeCustom: estimate for the FO2 track/car (Chloe: 400000 on the old one, "my score is 406350")
 			
 			Scoring = ArcadeRaceScoring.Default,
 			GoalScores = {
@@ -392,7 +392,7 @@ Row2 = {
 			Level = LevelIndex.City2C, -- custom
 			Description = "",
 			
-			--PlatinumGoal = 330000, -- my score is 331229 -- ChloeCustom: no platinum, Chloe's score was set on another track or car
+			PlatinumGoal = 160000, -- ChloeCustom: estimate for the FO2 track/car (Chloe: 330000 on the old one, "my score is 331229")
 			
 			Scoring = ArcadeRaceScoring.Default,
 			GoalScores = {
@@ -456,7 +456,7 @@ Row3 = {
 			Level = LevelIndex.City1A,	
 			Description = "",
 			
-			--PlatinumGoal = 150000, -- my score is 77425 on dt2, 154350 on cc1, 291040 by uni -- ChloeCustom: no platinum, Chloe's score was set on another track or car
+			PlatinumGoal = 128000, -- ChloeCustom: estimate for the FO2 track/car (Chloe: 150000 on the old one, "my score is 77425 on dt2, 154350 on cc1, 291040 by uni")
 			
 			Scoring = ArcadeRaceScoring.Default,
 			GoalScores = {
@@ -483,7 +483,7 @@ Row3 = {
 			Level = LevelIndex.Forest1B, -- custom
 			Description = "Cause as much carnage as possible in the woods with your Sparrowhawk. Seatbelts are optional!", -- custom
 			
-			--PlatinumGoal = 145000, -- my score is 138615 with lancea, 147525 with slider -- ChloeCustom: no platinum, Chloe's score was set on another track or car
+			PlatinumGoal = 104000, -- ChloeCustom: estimate for the FO2 track/car (Chloe: 145000 on the old one, "my score is 138615 with lancea, 147525 with slider")
 			
 			Scoring = ArcadeRaceScoring.Default,
 			GoalScores = {
@@ -510,7 +510,7 @@ Row3 = {
 			Level = LevelIndex.Arena4, -- custom
 			Description = "Do your best monster truck impression as you take your Blaster XL to the speedway, taking out everyone in your way!", -- custom
 			
-			--PlatinumGoal = 250000, -- my score is 176215 on sadistic, 253300 on normal -- ChloeCustom: no platinum, Chloe's score was set on another track or car
+			PlatinumGoal = 160000, -- ChloeCustom: estimate for the FO2 track/car (Chloe: 250000 on the old one, "my score is 176215 on sadistic, 253300 on normal")
 			
 			Scoring = ArcadeRaceScoring.Default,
 			GoalScores = {
@@ -564,7 +564,7 @@ Row3 = {
 			Level = LevelIndex.Arena3, -- custom
 			Description = "",
 			
-			--PlatinumGoal = 350000, -- my score is 349198 -- ChloeCustom: no platinum, Chloe's score was set on another track or car
+			PlatinumGoal = 176000, -- ChloeCustom: estimate for the FO2 track/car (Chloe: 350000 on the old one, "my score is 349198")
 			
 			Scoring = ArcadeRaceScoring.Default,
 			GoalScores = {
@@ -599,7 +599,7 @@ Row4 = {
 			Level = LevelIndex.Fields1C, -- custom
 			Description = "Take the Speedevil through the ranch, and cause as much destruction as possible!", -- custom
 			
-			--PlatinumGoal = 190000, -- my score is 193980 -- ChloeCustom: no platinum, Chloe's score was set on another track or car
+			PlatinumGoal = 120000, -- ChloeCustom: estimate for the FO2 track/car (Chloe: 190000 on the old one, "my score is 193980")
 			
 			Scoring = ArcadeRaceScoring.Default,
 			GoalScores = {
@@ -672,7 +672,7 @@ Row4 = {
 			Level = LevelIndex.City1C, -- custom
 			Description = "",
 			
-			--PlatinumGoal = 305000, -- my score is 230338 with fo1 bonecracker, 306703 with lancea -- ChloeCustom: no platinum, Chloe's score was set on another track or car
+			PlatinumGoal = 160000, -- ChloeCustom: estimate for the FO2 track/car (Chloe: 305000 on the old one, "my score is 230338 with fo1 bonecracker, 306703 with lancea")
 			
 			Scoring = ArcadeRaceScoring.Default,
 			GoalScores = {
@@ -780,7 +780,7 @@ Row5 = {
 			Level = LevelIndex.Forest2C,	
 			Description = ARCADE_CAREER_DESC_R5C2,
 			
-			--PlatinumGoal = 120000, -- my score is 87840 normal, 122655 professional -- ChloeCustom: no platinum, Chloe's score was set on another track or car
+			PlatinumGoal = 72000, -- ChloeCustom: estimate for the FO2 track/car (Chloe: 120000 on the old one, "my score is 87840 normal, 122655 professional")
 			
 			Scoring = ArcadeRaceScoring.Default,
 			GoalScores = {
@@ -807,7 +807,7 @@ Row5 = {
 			Level = LevelIndex.Forest2B, -- custom
 			Description = "Your CTR Sport pitted against fully tuned Street cars on a tricky forest road. Can you beat the odds, or rather, crash into them?",
 			
-			--PlatinumGoal = 110000, -- my score is 113115 now, was 114050 before -- ChloeCustom: no platinum, Chloe's score was set on another track or car
+			PlatinumGoal = 96000, -- ChloeCustom: estimate for the FO2 track/car (Chloe: 110000 on the old one, "my score is 113115 now, was 114050 before")
 			
 			Scoring = ArcadeRaceScoring.Default,
 			GoalScores = {
@@ -837,7 +837,7 @@ Row5 = {
 			-- old drift scoring
 			--PlatinumGoal = 230000, -- my score is 325393 with 5 min timer, 235200 with 3 min timer
 			
-			--PlatinumGoal = 320000, -- my score is 323013 -- ChloeCustom: no platinum, Chloe's score was set on another track or car
+			PlatinumGoal = 192000, -- ChloeCustom: estimate for the FO2 track/car (Chloe: 320000 on the old one, "my score is 323013")
 			
 			Scoring = ArcadeRaceScoring.Default,
 			GoalScores = {
@@ -945,7 +945,7 @@ Row5 = {
 			Level = LevelIndex.Fields2A, -- custom
 			Description = "Race your Insetta through the farmlands, destroying everything that gets in your way.", -- custom
 			
-			--PlatinumGoal = 170000, -- my score is 173590 -- ChloeCustom: no platinum, Chloe's score was set on another track or car
+			PlatinumGoal = 112000, -- ChloeCustom: estimate for the FO2 track/car (Chloe: 170000 on the old one, "my score is 173590")
 			
 			Scoring = ArcadeRaceScoring.Default,
 			GoalScores = {
@@ -978,7 +978,7 @@ Row6 = {
 			Level = LevelIndex.Canal1B, -- custom
 			Description = "A leisurely cruise with a Banger through the water canals, except your car is rigged with a bomb!", -- custom
 			
-			--PlatinumGoal = 46000, -- my score is 46254 -- ChloeCustom: no platinum, Chloe's score was set on another track or car
+			PlatinumGoal = 42000, -- ChloeCustom: estimate for the FO2 track/car (Chloe: 46000 on the old one, "my score is 46254")
 			
 			GoalScores = {
 				[1] = 32000,
@@ -1002,7 +1002,7 @@ Row6 = {
 			Description = "There are 32 cars, all a mix of Chilis and Chili Peppers. Have fun!",
 			
 			--PlatinumGoal = 200000, -- my score is 203750
-			--PlatinumGoal = 160000, -- my score is 160290 -- ChloeCustom: no platinum, Chloe's score was set on another track or car
+			PlatinumGoal = 136000, -- ChloeCustom: estimate for the FO2 track/car (Chloe: 160000 on the old one, "my score is 160290")
 			
 			Scoring = ArcadeRaceScoring.Default,
 			GoalScores = {
@@ -1056,7 +1056,7 @@ Row6 = {
 			Level = LevelIndex.Fields2B, -- custom
 			Description = "The Venom might be fast, but is it faster than a ticking time bomb?", -- custom
 			
-			--PlatinumGoal = 50000, -- my score is 50768 -- ChloeCustom: no platinum, Chloe's score was set on another track or car
+			PlatinumGoal = 53000, -- ChloeCustom: estimate for the FO2 track/car (Chloe: 50000 on the old one, "my score is 50768")
 			
 			GoalScores = {
 				[1] = 41000,

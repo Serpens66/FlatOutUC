@@ -1160,17 +1160,19 @@ static int L_GetAIDriverText(void* L) {   // description line: the whole list
 //   kind 1 = stunt: a = current attempt, b = attempts
 //   kind 2 = derby: type = derby type (1 LMS, 2 wrecking, 3 frag), a = cars left (-1 unknown), b = cars,
 //            c = seconds left (-1 = no time limit)
-// The lobby shows the newest status (ChloeSteam_GetRaceStatus, nil if older than 3 s).
+// Kept per sender; the lobby shows one of the fresh ones (ChloeSteam_GetRaceStatus, nil if all older than 3 s):
+// stunt = the lowest current attempt (players are at different attempts), derby = the host's, else the lowest SteamID
+// (the times differ by the countdown of each PC). So the display does not jump between players.
 
 struct RaceStatus { int32_t kind, type, a, b, c; };
-static RaceStatus gRaceStatusIn = {};
-static DWORD gRaceStatusInTick = 0;
+struct RaceStatusIn { RaceStatus st; DWORD tick; };
+static std::map<uint64_t, RaceStatusIn> gRaceStatusIn;
 
 static void StoreRaceStatus(uint64_t from, const uint8_t* data, int len) {   // caller holds gLock
 	if (len != 5 + (int)sizeof(RaceStatus)) return;
-	(void)from;
-	memcpy(&gRaceStatusIn, data + 5, sizeof(RaceStatus));
-	gRaceStatusInTick = GetTickCount();
+	RaceStatusIn& in = gRaceStatusIn[from];
+	memcpy(&in.st, data + 5, sizeof(RaceStatus));
+	in.tick = GetTickCount();
 }
 
 static void SendRaceStatus(const RaceStatus& st) {   // game thread, at most once per second
@@ -1183,11 +1185,19 @@ static void SendRaceStatus(const RaceStatus& st) {   // game thread, at most onc
 }
 
 static int L_GetRaceStatus(void* L) {   // kind, type, a, b, c or nil
+	RaceStatus st = {};
+	bool found = false;
 	EnterCriticalSection(&gLock);
-	bool fresh = gRaceStatusInTick && GetTickCount() - gRaceStatusInTick < 3000;
-	RaceStatus st = gRaceStatusIn;
+	DWORD now = GetTickCount();
+	for (auto& it : gRaceStatusIn) {   // map order = ascending SteamID
+		const RaceStatus& s = it.second.st;
+		if (now - it.second.tick >= 3000 || s.kind == 0) continue;
+		if (!found) { st = s; found = true; continue; }
+		if (s.kind == 1 && st.kind == 1) { if (s.a < st.a) st = s; }          // stunt: lowest attempt
+		else if (s.kind == 2 && it.first == gJoinHost) st = s;              // derby: the host's if it is racing
+	}
 	LeaveCriticalSection(&gLock);
-	if (!fresh || st.kind == 0) { lua_pushnil_cc(L); return 1; }
+	if (!found) { lua_pushnil_cc(L); return 1; }
 	lua_pushnumber(L, (float)st.kind);
 	lua_pushnumber(L, (float)st.type);
 	lua_pushnumber(L, (float)st.a);
@@ -1221,9 +1231,8 @@ static void ResendStuntResult() {   // caller holds gLock (network thread)
 	SendRaw(gJoinHost, kTypeStuntResult, 0, 0, (const uint8_t*)gStuntResultOut.data(), gStuntResultOut.size());
 }
 
-static int L_GetLastStuntMissing(void* L) {   // missing records of the last MP stunt (once, then nil)
+static int L_GetLastStuntMissing(void* L) {   // missing records of the last MP stunt, nil if none (reset at stunt start)
 	int v = gLastStuntMissing;
-	gLastStuntMissing = -1;
 	if (v < 0) lua_pushnil_cc(L);
 	else lua_pushnumber(L, (float)v);
 	return 1;
@@ -1402,7 +1411,7 @@ static void RaceTick() {
 	auto sm = *(uint8_t**)0x846514, host = *(uint8_t**)(gf + 0x2820);
 	if (!sm || !host) return;
 	int derbyType = *(int*)(gf + 0x51C);   // GameFlow.nDerbyType: 0 none, 1 LMS, 2 wrecking, 3 frag
-	if (derbyType >= 1 && derbyType <= 3) {
+	if (derbyType >= 1 && derbyType <= 3 && *(uintptr_t*)sm == 0x6E2BEC) {   // ScoreManagerDerby (vtable)
 		// Derby time limit: the lobby's minutes are in PreRace.Laps (+0x4D4). ScoreManagerDerby only turns them into
 		// its time limit (+0x38, ms, -1 = none) in PreRace.Mode 5 (vanilla online, FUN_00490b60 / FUN_00490c10);
 		// Chloe's multiplayer races run as Mode 2, so there was no limit (frag: fixed 5 minutes).
@@ -1413,17 +1422,18 @@ static void RaceTick() {
 		}
 		RaceStatus rs = { 2, derbyType, -1, 0, -1 };
 		int limit = *(int*)(sm + 0x38), raceTime = *(int*)(host + 0x2099C);   // PlayerHost.nRaceTime (ms)
+		if (raceTime < 0) raceTime = 0;   // countdown: the race time starts at -3000
 		if (limit > 0) rs.c = (std::max)(0, (limit - raceTime + 999) / 1000);
 		auto b = *(uint8_t***)(sm + 8), e = *(uint8_t***)(sm + 0xC);
 		if (b && e >= b && e - b <= 32) {
 			rs.b = (int)(e - b);
-			if (derbyType == 2) {                             // cars left, kept by the game for wrecking derbies
+			if (derbyType == 2) {                             // cars left, kept by the game for wrecking derbies (from the start)
 				int left = *(int*)(sm + 0x3C);
-				if (left >= 1 && left <= rs.b) rs.a = left;   // not counted yet at the start
+				if (left >= 1 && left <= rs.b) rs.a = left;
 			}
-			else if (derbyType == 1) {                        // survivor: entries without an end flag
-				rs.a = 0;
-				for (auto p = b; p != e; ++p) if (*p && !(*p)[0x38] && !(*p)[0x39]) rs.a++;
+			else if (derbyType == 1) {                        // survivor: entries not out (+0x39, events 0x1790/0x1792);
+				rs.a = 0;                                     // +0x38 is also set for the winner / at the time limit
+				for (auto p = b; p != e; ++p) if (*p && !(*p)[0x39]) rs.a++;
 			}
 		}
 		SendRaceStatus(rs);
@@ -1529,7 +1539,10 @@ static void StoreStuntRecord(uint64_t from, const uint8_t* data, int len) {   //
 	if (len != (int)(5 + kStuntRecordSize)) return;
 	uint16_t level, round;
 	memcpy(&level, data + 1, 2); memcpy(&round, data + 3, 2);
-	gStuntRecords[from][level * 100 + round].assign(data + 5, data + len);
+	auto& rec = gStuntRecords[from][level * 100 + round];
+	bool changed = rec.size() != kStuntRecordSize || memcmp(rec.data(), data + 5, kStuntRecordSize) != 0;
+	if (!changed) return;   // records are sent again every 2 s
+	rec.assign(data + 5, data + len);
 	Log("stunt: record of %llu for level %u round %u received", from, level, round);
 }
 
@@ -1668,6 +1681,7 @@ static void StuntTick() {   // EndScene: fill in records that arrived after the 
 	}
 	if (!gStuntActive) return;
 	auto sm = *(uint8_t**)0x846514;
+	if (sm && *(uintptr_t*)sm != 0x6E3E4C) sm = nullptr;   // only ScoreManagerStunt (vtable)
 	if (sm) {
 		RaceStatus rs = { 1, 0, *(int*)(sm + 0x34), *(int*)(sm + 0x3C), -1 };   // current attempt / attempts
 		if (rs.a >= 1 && rs.a <= 10 && rs.b >= 1 && rs.b <= 10) SendRaceStatus(rs);

@@ -491,6 +491,13 @@ local function SendStuntResult()
 	if missing == nil then
 		missing = 999	-- still usable if nothing better arrives
 	end
+	if not ChloeNet_IsServer() and ChloeSteam_GetLobbyValue ~= nil then
+		-- the event number of the tag must be the host's current one (the last poll may be older, e.g. after a sub menu)
+		local v = ChloeSteam_GetLobbyValue(TOURNEY_LOBBY_KEY)
+		if type(v) == "string" then
+			Parse(v)
+		end
+	end
 	local humans = LobbyPlayerKeys()
 	local keys = { }
 	local seen = { }
@@ -508,26 +515,49 @@ local function SendStuntResult()
 	TourneyLog("stunt ranking sent, " .. missing .. " records missing")
 end
 
--- host: count the stunt event from the rankings received so far
-local function CountStuntEvent()
+-- host: the rankings received for the pending stunt event (empty ones skipped) and the best of them:
+-- fewest missing records, then most names, then the text (the same choice on every call)
+local function ReadStuntRankings()
 	local T = ChloeCustomTourney
+	local list = { }
 	local best = nil
-	local bestMissing = nil
+	local maxNames = 0
 	local all = ""
 	if ChloeSteam_GetStuntResults ~= nil then
 		all = ChloeSteam_GetStuntResults() or ""
 	end
-	local results = 0
 	for _, line in ipairs(Split(all, "\n")) do
 		local f = Split(line, "|")
-		if f[1] == T.stuntPending and table.getn(f) >= 3 then
-			results = results + 1
-			local missing = tonumber(f[2]) or 999
-			if bestMissing == nil or missing < bestMissing then
-				bestMissing = missing
-				best = f[3]
+		if f[1] == T.stuntPending and table.getn(f) >= 3 and f[3] ~= "" then
+			local r = { missing = tonumber(f[2]) or 999, names = 0, text = f[3] }
+			for _, key in ipairs(Split(f[3], ",")) do
+				if key ~= "" then
+					r.names = r.names + 1
+				end
+			end
+			table.insert(list, r)
+			if r.names > maxNames then
+				maxNames = r.names
+			end
+			if best == nil or r.missing < best.missing or (r.missing == best.missing and (r.names > best.names
+				or (r.names == best.names and r.text < best.text))) then
+				best = r
 			end
 		end
+	end
+	return list, best, maxNames
+end
+
+-- host: count the stunt event from the rankings received so far
+local function CountStuntEvent()
+	local T = ChloeCustomTourney
+	local list, bestRanking = ReadStuntRankings()
+	local results = table.getn(list)
+	local best = nil
+	local bestMissing = nil
+	if bestRanking ~= nil then
+		best = bestRanking.text
+		bestMissing = bestRanking.missing
 	end
 	for _, e in ipairs(T.standings) do
 		e.last = nil
@@ -563,32 +593,25 @@ local function CountStuntEvent()
 		ChloeSteam_ClearStuntResults()
 	end
 	FinishEvent()
-	if BuildLobbyMenuButtons ~= nil then
-		BuildLobbyMenuButtons()	-- START RACE again
-	end
+	-- no BuildLobbyMenuButtons here: the standings screen opens in the next update, and coming back to the lobby
+	-- builds the buttons again (START RACE included)
 end
 
+-- enough rankings: one without missing records that names everybody, or one from every player of the stunt
+-- (the longest ranking = the players of the stunt; players who joined during it do not count)
 local function StuntResultsComplete()
 	if ChloeSteam_GetStuntResults == nil then
 		return true
 	end
-	local T = ChloeCustomTourney
-	local count = 0
-	for _, line in ipairs(Split(ChloeSteam_GetStuntResults() or "", "\n")) do
-		local f = Split(line, "|")
-		if f[1] == T.stuntPending then
-			count = count + 1
-			if tonumber(f[2]) == 0 then
-				return true		-- one complete ranking is enough
-			end
-		end
+	local list, best, maxNames = ReadStuntRankings()
+	if best ~= nil and best.missing == 0 and best.names >= maxNames then
+		return true
 	end
-	local players = 0
-	for _, _ in pairs(LobbyPlayerKeys()) do
-		players = players + 1
-	end
-	return count >= players
+	return maxNames > 0 and table.getn(list) >= maxNames
 end
+
+-- the host's question (STOP TOURNAMENT) or the lobby's quit question is open: no screen change now
+ChloeCustomTourney_DialogOpen = false
 
 -- called when the lobby is created after a race, before GameFlow.ClearRace() (results are still available)
 function ChloeCustomTourney_CaptureResults()
@@ -658,9 +681,25 @@ function ChloeCustomTourney_CaptureResults()
 	FinishEvent()
 end
 
+-- host: count a waiting stunt event now with the rankings received so far (e.g. a player hangs in the race)
+local function CountStuntNow()
+	GUI:HideMenuButtons()
+	ChloeCustomTourney_DialogOpen = true
+	MessageBox(L"COUNT THE STUNT NOW WITH THE RESULTS RECEIVED SO FAR?", MESSAGEBOX_YESNO, function(value)
+		ChloeCustomTourney_DialogOpen = false
+		if value == TRUE and ChloeCustomTourney.stuntPending ~= nil then
+			TourneyLog("stunt event counted by the host (COUNT STUNT NOW)")
+			CountStuntEvent()
+		end
+		EnterMenu("menu_chloemultiplayer_lobby")
+	end)
+end
+
 local function StopTournament()
 	GUI:HideMenuButtons()
+	ChloeCustomTourney_DialogOpen = true
 	MessageBox(L"STOP THE TOURNAMENT?", MESSAGEBOX_YESNO, function(value)
+		ChloeCustomTourney_DialogOpen = false
 		if value == TRUE then
 			ChloeCustomTourney_Reset()
 			Publish()
@@ -708,6 +747,9 @@ function ChloeCustomTourney_AddLobbyButtons(menu)
 					startRemoved = true
 				end
 			end
+			if T.stuntPending ~= nil then
+				table.insert(new, { L("COUNT STUNT NOW"), CountStuntNow, ICON(menu, "icon_go_race") })
+			end
 			table.insert(new, { L("STOP TOURNAMENT"), StopTournament, ICON(menu, "icon_profile_x") })
 		else
 			table.insert(new, { L("TOURNAMENT"), OpenBuilder, ICON(menu, "icon_change_track") })
@@ -743,7 +785,8 @@ function ChloeCustomTourney_RowText(playerId, ping)
 	return L(points .. "  (" .. tostring(ping) .. ")")
 end
 
-function ChloeCustomTourney_LobbyUpdate(menu, time)
+-- inLobbyMode: the lobby shows its own buttons (no player selection, kick or ban question open)
+function ChloeCustomTourney_LobbyUpdate(menu, time, inLobbyMode)
 	if not TourneyAvailable() then
 		return
 	end
@@ -771,8 +814,11 @@ function ChloeCustomTourney_LobbyUpdate(menu, time)
 		end
 	end
 
+	-- screen changes and counting only while the lobby is free (no question or sub mode open)
+	local free = inLobbyMode ~= false and not ChloeCustomTourney_DialogOpen
+
 	-- after every counted event: standings screen (once per event, like the vanilla screen after a tournament race)
-	if (T.active or T.finished) and T.played > 0 then
+	if free and (T.active or T.finished) and T.played > 0 then
 		local key = T.id .. ":" .. T.played
 		if T.shownKey ~= key then
 			T.shownKey = key
@@ -790,7 +836,7 @@ function ChloeCustomTourney_LobbyUpdate(menu, time)
 			if T.stuntWaitStart == nil or time < T.stuntWaitStart then
 				T.stuntWaitStart = time
 			end
-			if StuntResultsComplete() or time - T.stuntWaitStart > TOURNEY_STUNT_WAIT then
+			if free and (StuntResultsComplete() or time - T.stuntWaitStart > TOURNEY_STUNT_WAIT) then
 				CountStuntEvent()
 				return
 			end
@@ -798,7 +844,7 @@ function ChloeCustomTourney_LobbyUpdate(menu, time)
 	end
 
 	-- host: next event, as soon as nobody is racing any more
-	if ChloeNet_IsServer() and T.pendingApply and not ChloeNet_IsLobbyInGame() then
+	if free and ChloeNet_IsServer() and T.pendingApply and not ChloeNet_IsLobbyInGame() then
 		T.pendingApply = false
 		SaveState()
 		ApplyCurrentEvent(true)

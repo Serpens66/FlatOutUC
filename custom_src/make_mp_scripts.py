@@ -235,7 +235,12 @@ t = replace(t, '\t\t\tupgrades:SetTitle(ConvertToWString(ping))\r\n',
             '\t\t\t\tupgrades:SetTitle(ChloeCustomTourney_RowText(playerId, ping))\r\n\t\t\telse\r\n'
             '\t\t\t\tupgrades:SetTitle(ConvertToWString(ping))\r\n\t\t\tend\r\n')
 t = replace(t, '\t\tUpdateGameInfo(self)\r\n',
-            '\t\tUpdateGameInfo(self)\r\n\t\tif ChloeCustomTourney_LobbyUpdate then ChloeCustomTourney_LobbyUpdate(self, time) end -- ChloeCustom Tourney\r\n')
+            '\t\tUpdateGameInfo(self)\r\n\t\tif ChloeCustomTourney_LobbyUpdate then ChloeCustomTourney_LobbyUpdate(self, time, Mode == LOBBY) end -- ChloeCustom Tourney\r\n')
+# the tournament must not switch to its standings screen while the quit question is open (Mode stays LOBBY there)
+t = replace(t, 'function ExitChloeMultiplayerLobby()\r\n\tlocal ok=function(value)\r\n',
+            'function ExitChloeMultiplayerLobby()\r\n\tlocal ok=function(value)\r\n\t\tChloeCustomTourney_DialogOpen = false -- ChloeCustom Tourney\r\n')
+t = replace(t, '\tGUI:HideMenuButtons()\r\n\tMessageBox(MULTIPLAYER_LOBBY_QUITGAME,MESSAGEBOX_YESNO,ok)\r\n',
+            '\tGUI:HideMenuButtons()\r\n\tChloeCustomTourney_DialogOpen = true -- ChloeCustom Tourney\r\n\tMessageBox(MULTIPLAYER_LOBBY_QUITGAME,MESSAGEBOX_YESNO,ok)\r\n')
 t = replace(t, '\t\tChloeNet_Stats_Save()\r\n\t\tEnterMenu("menu_chloemultiplayer")\r\n',
             '\t\tChloeNet_Stats_Save()\r\n\t\tif ChloeCustomTourney_Reset then ChloeCustomTourney_Reset() end -- ChloeCustom Tourney\r\n'
             '\t\tChloeCustom_SetPersistent("hostdefaults", nil) -- ChloeCustom\r\n\t\tChloeCustom_SetPersistent("ghostbeforestunt", nil)\r\n\t\tEnterMenu("menu_chloemultiplayer")\r\n')
