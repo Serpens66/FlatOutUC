@@ -1,0 +1,160 @@
+--///////////////////////////////////////////////////////////////////////////
+--// MainMenu.bed
+--///////////////////////////////////////////////////////////////////////////
+--// Copyright (c) 2005 Bugbear Entertainment ltd. 
+--// All Rights Reserved.
+--// 
+--// Created on 1.4.2005 14:07:05
+--// 
+--// @Author Mikko Sivulainen (mikko.sivulainen@bugbear.fi)
+--///////////////////////////////////////////////////////////////////////////
+
+
+
+menu_mainmenu = CreateMenuFromTemplate("template_basic")
+
+menu_mainmenu.options.title=TRANSLATOR(TITLE_MAINMENU)
+
+
+local function quit_confirm()
+	local ok=function(value)
+		if value == TRUE then
+			Event:PostEvent(event(EVENT_QUIT))
+		else
+			GUI:ShowMenuButtons()
+		end
+	end
+
+	GUI:HideMenuButtons()
+	MessageBox(TRANSLATOR(PC_QUIT_CONFIRMATION),MESSAGEBOX_YESNO,ok)
+
+end
+
+local function check_career_garage()
+	if Garage:GetNumCarsPurchased() == 0 then
+		EnterCarShop(CarlistFromClassStart(1,false,false),true,"data/menu/garage_bg.tga",1)
+	else
+		EnterMenu("menu_career")
+	end
+end
+
+local function check_rallycareer_garage()
+	if ChloeRally_GetCurrentCar() == 0 then
+		ChloeRally_SetCash(5000)
+		EnterRallyCarShop(1, true)
+	else
+		EnterMenu("menu_rally")
+	end
+end
+
+function menu_mainmenu.create(self)
+	--//slight kludge: set profilemenu back here
+	menu_profiles.back=entermenu("menu_mainmenu")
+
+	self.back=nil
+	if MenuState then
+		MenuState:reset()
+	end
+
+	self.parent:create(self)
+
+	self:addResource("title_logo",image("fo2_logo.tga"))
+
+	self:loadResources()
+
+	self.items={
+		--MENUITEM(L("TEST"),entermenu("menu_career_cup_scorecard"),ICON(self,"icon_sp_career")),
+		MENUITEM(TRANSLATOR(ICON_CAREER),check_career_garage,ICON(self,"icon_sp_career")),
+		MENUITEM(TRANSLATOR(ARCADEMODE_CARNAGEMODE),entermenu("menu_arcadecareer_main"),ICON(self,"icon_arcade_career")),
+		--MENUITEM(L("RALLY MODE"),check_rallycareer_garage,ICON(self,"icon_scoreboards")), -- custom: Rally Trophy content removed
+		MENUITEM(TRANSLATOR(ICON_MAIN_MULTIPLAYER), entermenu("menu_multiplayer"), ICON(self,"icon_multiplayer")),
+		MENUITEM(TRANSLATOR(MAINMENU_SINGLEEVENTS),entermenu("menu_singleplayer_events"), ICON(self,"icon_sp_single_race")),
+		MENUITEM(TRANSLATOR(ICON_MAIN_INSTANTACTION), instantaction(),	ICON(self,"icon_instant_action")),
+		MENUITEM(TRANSLATOR(ICON_MAIN_CHANGEPROFILE), entermenu("menu_profiles"),     ICON(self,"icon_change_profiles")),
+		MENUITEM(TRANSLATOR(ICON_MAIN_OPTIONS),		entermenu("menu_options"),		ICON(self,"icon_options")),
+		MENUITEM(TRANSLATOR(ICON_MAIN_EXTRAS), entermenu("menu_extras"), ICON(self,"icon_extras")),
+	}
+
+	if PC then
+		table.insert(self.items,MENUITEM(TRANSLATOR(ICON_MAIN_QUITGAME),function() quit_confirm() end,ICON(self,"icon_pc_quit_game")))
+	end
+end
+
+
+function menu_mainmenu.init(self)
+	self.parent:init(self)
+
+
+	local size=SIZE(188,75) --//GetResourceSize(self:getResource("title_logo"))
+
+	--//local w=Frame{Name="logo",Position=POS(404,31),Size=size,Layer=5}:AttachResource(self:getResource("title_logo"))
+	
+	--//w:HideWindow()
+
+	if self.from_startscreen then
+		wm.SetGlobalAlpha(1.0)
+		self.from_startscreen=nil
+	end
+	
+	SetCurrentMenuCar()
+
+
+	MenuScene:CameraRotate(FALSE)
+	MenuScene:AllowCameraRotate(FALSE)
+
+	if USE_NETWORK then
+		XBoxLive.GetRichPresence():Clear()
+		XBoxLive.GetRichPresence():SetContextValue(X_CONTEXT_PRESENCE, CONTEXT_PRESENCE_PRESENCE_MENU)
+		Network:StopMultiplayer()
+		--Theese two are here in case we lost connection to live when one of theese were open
+		GUI:CloseMessageBox()
+		HideThinkingWindow()
+	end
+	
+	--if not ChloeCollection_HasWelcomeScreenDisplayed() then
+	--	MessageBox(L("Welcome to Chloe's Collection! This is my own little place to chip away at FOUC and make it the best combination of FlatOut 2 and UC, while also adding new content and features. To get started, check out the Options menu to configure the mod!"),MESSAGEBOX_OK,function() ChloeCollection_SetWelcomeScreenDisplayed() end)
+	--end
+	
+	-- clear this in the main menu since a profile load occurs
+	ChloeProfiles_HasLoaded()
+end
+
+function menu_mainmenu.update(self,time)
+	self.parent:update(self,time)
+	if not GUI:IsMenuAnimating() then
+		if USE_NETWORK then
+			if XBoxLive.GetHalfConfirmedInvite() ~= -1 then
+				XBoxLive.ConfirmInvite()
+			end
+			CheckGameInvite()
+		end
+	end
+	
+	if TimeTrial_WasLastRaceTimeTrial() or ChloeCollection_WasLastRaceStuntMode() or ChloeCollection_WasLastRaceSpeedtrap() or ChloeCollection_WasLastRaceDrift() or ChloeCollection_WasLastRaceLapKnockout() then
+		ChloeCollection_ReinitHooks()
+	end
+	
+	ChloeCollection_SetIsInMultiplayer(0)
+	
+	-- connect to lobby if one was created or joined
+	if ChloeNet_IsConnected() then
+		EnterMenu("menu_chloemultiplayer_lobby")
+	elseif ChloeNet_ArePatchesActive() then
+		EnterMenu("menu_chloemultiplayer")
+	end
+end
+
+
+function menu_mainmenu.startshow(self)
+	self.parent:startshow(self)
+end
+
+function menu_mainmenu.starthide(self)
+	self.parent:starthide(self)
+end
+
+function menu_mainmenu.deinit(self)
+	self.parent:deinit(self)
+
+	wm.SetGlobalAlpha(1.0)
+end

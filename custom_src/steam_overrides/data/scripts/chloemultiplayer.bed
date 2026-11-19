@@ -1,0 +1,236 @@
+CARCLASS_ANY			= 0
+CARCLASS_DERBY			= 1
+CARCLASS_RACING			= 2
+CARCLASS_STREET			= 3
+CARCLASS_FO1ANY			= 4
+CARCLASS_FO1DERBY		= 5
+CARCLASS_FO1RACING		= 6
+CARCLASS_FO1STREET		= 7
+CARCLASS_RETRODEMO		= 8
+CARCLASS_TOUGHTRUCKS	= 9
+CARCLASS_RTANY			= 10
+CARCLASS_RTDERBY		= 11
+CARCLASS_RTRACING		= 12
+CARCLASS_RTSTREET		= 13
+CARCLASS_STUNT			= 14
+CARCLASS_BONUSSTUNT		= 15
+CARCLASS_NOBONUS		= 16
+CARCLASS_BONUS			= 17
+CARCLASS_FWD			= 18
+CARCLASS_RWD			= 19
+CARCLASS_4WD			= 20
+CARCLASS_FWDNOBONUS		= 21
+CARCLASS_RWDNOBONUS		= 22
+CARCLASS_4WDNOBONUS		= 23
+CARCLASS_TIERF2			= 24
+CARCLASS_TIERF			= 25
+CARCLASS_TIERD			= 26
+CARCLASS_TIERC			= 27
+CARCLASS_TIERB			= 28
+CARCLASS_TIERA			= 29
+CARCLASS_TIERS			= 30
+CARCLASS_TIERS2			= 31
+CARCLASS_PROPS			= 32
+CARCLASS_PROPSLIGHT		= 33
+CARCLASS_PROPSMEDIUM	= 34
+CARCLASS_PROPSHEAVY		= 35
+CARCLASS_PROPSRETROFOLK	= 36
+CARCLASS_SAMEASHOST		= 37
+
+GAMETYPE_TOURNAMENT_RACE = 1
+GAMETYPE_TOURNAMENT_DERBY = 2
+GAMETYPE_STUNT = 3
+GAMETYPE_TOURNAMENT = 4
+GAMETYPE_RACE = 5
+GAMETYPE_PONGRACE = 6
+GAMETYPE_DERBY_WRECKING = 7
+GAMETYPE_DERBY_LMS = 8
+GAMETYPE_DERBY_FRAG = 9
+GAMETYPE_ARCADE_ADVENTURE = 10
+GAMETYPE_HUNTER_PREY = 11
+GAMETYPE_ARCADE_RACE = 11
+GAMETYPE_BEAT_THE_BOMB = 12
+GAMETYPE_TONYHAWK = 13
+GAMETYPE_SPEEDTRAP = 14
+GAMETYPE_DRIFT = 15
+GAMETYPE_LAPKNOCKOUT = 16
+GAMETYPE_KNOCKOUT = 17
+
+--// ChloeCustom Steam: game browser for Chloe's multiplayer over Steam (plugin ChloeSteamNet.asi).
+--// CREATE GAME opens a Steam lobby automatically, JOIN GAME lists those lobbies, no port forwarding needed.
+ChloeSteamBrowser_MaxListed = 12
+local ChloeSteamBrowser_Shown = nil      -- "searching" / "list" / "joining"
+local ChloeSteamBrowser_JoinTime = nil
+
+local function ChloeSteamBrowser_Open()
+	if not ChloeSteam_IsAvailable() then
+		MessageBox(L("Steam is not available. Is Steam running?"),MESSAGEBOX_OK,function() end)
+		return
+	end
+	ChloeSteam_LeaveLobby()
+	ChloeSteam_RefreshLobbies()
+	EnterMenu("menu_chloesteam_browser")
+end
+
+menu_chloesteam_browser = CreateMenuFromTemplate("template_basic")
+menu_chloesteam_browser.options.title=ICON_MULTIPLAYER_PC
+menu_chloesteam_browser.back=function()
+	ChloeSteam_LeaveLobby()
+	EnterMenu("menu_chloemultiplayer")
+end
+
+function menu_chloesteam_browser.create(self)
+	self.parent:create(self)
+	self:loadResources()
+
+	self.items = { }
+	if ChloeSteam_GetJoinState() == 1 then
+		ChloeSteamBrowser_Shown = "joining"
+		table.insert(self.items, MENUITEM(L("JOINING..."), function() end, ICON(self,"icon_xbl_optimatch")))
+	elseif ChloeSteam_IsRefreshing() then
+		ChloeSteamBrowser_Shown = "searching"
+		table.insert(self.items, MENUITEM(L("SEARCHING..."), function() end, ICON(self,"icon_xbl_optimatch")))
+	else
+		ChloeSteamBrowser_Shown = "list"
+		local n = ChloeSteam_GetNumLobbies()
+		if n > ChloeSteamBrowser_MaxListed then n = ChloeSteamBrowser_MaxListed end
+		for i = 1, n do
+			local idx = i
+			table.insert(self.items, MENUITEM(ChloeSteam_GetLobbyLabel(idx), function()
+				if ChloeSteam_JoinLobby(idx) then
+					ChloeSteamBrowser_JoinTime = nil
+					EnterMenu("menu_chloesteam_browser")
+				end
+			end, ICON(self,"icon_xbl_optimatch")))
+		end
+		if n == 0 then
+			table.insert(self.items, MENUITEM(L("NO GAMES FOUND"), function() end, ICON(self,"icon_xbl_optimatch")))
+		end
+		table.insert(self.items, MENUITEM(L("REFRESH"), function()
+			ChloeSteam_RefreshLobbies()
+			EnterMenu("menu_chloesteam_browser")
+		end, ICON(self,"icon_instant_action")))
+	end
+end
+
+function menu_chloesteam_browser.init(self)
+	self.parent:init(self)
+	SetCurrentMenuCar()
+	MenuScene:CameraRotate(FALSE)
+	MenuScene:AllowCameraRotate(FALSE)
+end
+function menu_chloesteam_browser.deinit(self)
+	self.parent:deinit(self)
+end
+function menu_chloesteam_browser.update(self, time)
+	self.parent:update(self, time)
+
+	if ChloeNet_IsConnected() then
+		EnterMenu("menu_chloemultiplayer_lobby")
+		return
+	end
+
+	local joinState = ChloeSteam_GetJoinState()
+	if joinState == 2 then
+		-- Steam lobby joined: connect Chloe's multiplayer to the host's placeholder address
+		local address = ChloeSteam_GetJoinAddress()
+		ChloeSteam_ResetJoin()
+		ChloeNet_JoinGame(address, 23756)
+		EnterMenu("menu_chloemultiplayer")
+	elseif joinState == 3 then
+		ChloeSteam_ResetJoin()
+		MessageBox(L("Could not join the game. It may have been closed."),MESSAGEBOX_OK,function()
+			ChloeSteam_RefreshLobbies()
+			EnterMenu("menu_chloesteam_browser")
+		end)
+	elseif ChloeSteamBrowser_Shown == "searching" and not ChloeSteam_IsRefreshing() then
+		EnterMenu("menu_chloesteam_browser")
+	end
+end
+
+function ExitChloeMultiplayerMenu()
+	if ChloeNet_ArePatchesActive() then
+		local ok=function(value)
+			if value == TRUE then
+				Event:PostEvent(event(EVENT_QUIT))
+			else
+				GUI:ShowMenuButtons()
+			end
+		end
+
+		GUI:HideMenuButtons()
+		MessageBox(L("Are you sure you want to quit the game?"),MESSAGEBOX_YESNO,ok)
+	else
+		EnterMenu("menu_multiplayer")
+	end
+end
+
+menu_chloemultiplayer = CreateMenuFromTemplate("template_basic")
+menu_chloemultiplayer.options.title=ICON_MULTIPLAYER_PC
+menu_chloemultiplayer.back=ExitChloeMultiplayerMenu
+
+function menu_chloemultiplayer.create(self)
+	self.parent:create(self)
+	GameFlow.ClearRace()
+
+	self:loadResources()
+			
+	self.items={
+		--// ChloeCustom Steam: JOIN GAME lists the Steam lobbies, CREATE GAME also opens a Steam lobby (ChloeSteamNet.asi)
+		MENUITEM(L("JOIN GAME"), function() ChloeSteamBrowser_Open(); end, ICON(self,"icon_xbl_optimatch")),
+		MENUITEM(TRANSLATOR(ICON_GAMESPY_CREATEGAME), function() ChloeNet_CreateGame(23756); end, ICON(self,"icon_xbl_create_game")),
+		MENUITEM(L("JOIN BY IP ADDRESS"), function() ChloeNet_OpenIPEntry(23756); end, ICON(self,"icon_system_link")),
+	}
+end
+
+function menu_chloemultiplayer.init(self) 
+	self.parent:init(self)
+	
+	SetCurrentMenuCar()
+	MenuScene:CameraRotate(FALSE)
+	MenuScene:AllowCameraRotate(FALSE)
+	
+	ChloeCollection_SetIsInMultiplayer(0)
+	
+	for i = 1, 4 do
+		ChloeNet_SetFragDerbyRewards(i, ChloeCollection_GetFragDerbyRewardAmount(i))
+	end
+	
+	ChloeNet_SetDefaultTickrate(GetDefaultTickrate())
+end
+function menu_chloemultiplayer.deinit(self)
+	self.parent:deinit(self)
+end
+function menu_chloemultiplayer.update(self)
+	self.parent:update(self)
+	
+	-- connect to lobby if one was created or joined
+	if ChloeNet_IsConnected() then
+		EnterMenu("menu_chloemultiplayer_lobby")
+	else
+		ChloeTuning_SetEnabledForMultiplayer(0)
+		ChloeCollection_SetHandlingMode(Settings["Game"]["HandlingMode"])
+		ChloeCollection_SetAirControlMode(0)
+		
+		local kickReason = ChloeNet_GetLastKickReason()
+		if kickReason ~= -1 then
+			if kickReason == 0 then
+				MessageBox(L("You have been kicked from the game."),MESSAGEBOX_OK,function() end)
+			elseif kickReason == 1 then
+				MessageBox(L("Failed to connect to game: Your name is taken"),MESSAGEBOX_OK,function() end)
+			elseif kickReason == 2 then
+				MessageBox(L("Failed to connect to game: Wrong game version"),MESSAGEBOX_OK,function() end)
+			elseif kickReason == 3 then
+				MessageBox(L("Failed to connect to game: Incompatible game files"),MESSAGEBOX_OK,function() end)
+			elseif kickReason == 4 then
+				MessageBox(L("Failed to connect to game: ZMenu and UC Tweaker are not allowed"),MESSAGEBOX_OK,function() end)
+			elseif kickReason == 5 then
+				MessageBox(L("Failed to connect to game: The server is full"),MESSAGEBOX_OK,function() end)
+			elseif kickReason == 6 then
+				MessageBox(L("Failed to connect to game: Incompatible plugins"),MESSAGEBOX_OK,function() end)
+			elseif kickReason == 7 then
+				MessageBox(L("You have been banned from the game."),MESSAGEBOX_OK,function() end)
+			end
+		end
+	end
+end

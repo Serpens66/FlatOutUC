@@ -1,0 +1,1976 @@
+dofile("data/scripts/chloemultiplayer_customization.bed")
+dofile("data/menu/cup_next_race_elements.bed")
+dofile("data/menu/xbox_controller.bed")
+dofile("data/menu/garage_elements_2.bed")
+dofile("data/menu/flags2.bed")
+
+local LobbyMessages
+local LobbyMessage
+
+local Mode
+local PrevNumPlayers
+
+local LOBBY = 1
+local SELECT_PLAYER = 2
+local PLAYER_OPTIONS = 3
+local PLAYER_PROFILE = 4
+
+local MaxLobbyMessages = 10
+
+local LOBBY_MIGRATION_MESSAGE_TIME = 3.0
+local LOBBY_OPTIONSCHANGED_MESSAGE_TIME = 3.0
+local LOBBY_KICK_MESSAGE_TIME = 2.0
+local LOBBY_CONNECT_MESSAGE_TIME = 2.0
+
+local LOBBY_MESSAGE_FADE_TIME = 0.3
+local LOBBY_PERMANENT_MESSAGE = -1
+
+local ANIM_BLINK = 1
+local ANIM_PULSE = 2
+local ANIM_FADEOUT = 3
+
+local NUMPLAYERS_LOBBYLIST = 10
+local PLAYERLIST_SCROLL = 0
+
+local Layout={
+	TitleFramePos=LEFTPOS(0,39),
+	TitleFrameSize=SIZE(ChloeWidescreen_GetRight(),42),
+
+	TitlePos=POS(320,40),
+	TitleSize=SIZE(320,33),
+	TitleColor=GetPaletteColor(33),
+
+	EventFramePos=LEFTPOS(0,84),
+	EventFrameSize=SIZE(ChloeWidescreen_GetRight(),34),
+
+	EventTypePos=POS(223,91),
+	EventTypeSize=SIZE(200,14),
+	EventTypeFont=fontsmall(),
+	EventTypeColor=GetPaletteColor(33),
+
+	EventInfoPos=POS(231,88),
+	EventInfoSize=SIZE(200,16),
+	EventInfoColor=GetPaletteColor(34),
+
+	SessionDetailsFramePos=LEFTPOS(0,120),
+	SessionDetailsFrameSize=SIZE(ChloeWidescreen_GetRight(),18),
+	
+	DetailsTitleColor=GetPaletteColor(33),
+	DetailsColor=GetPaletteColor(34),
+	EventNumTitlePos=POS(223,119),
+	EventNumTitleSize=SIZE(200,16),
+	EventNumPos=POS(231,119),
+	EventNumSize=SIZE(200,16),
+	ProgressTitlePos=POS(420,119),
+	ProgressTitleSize=SIZE(200,16),
+	ProgressPos=POS(428,119),
+	ProgressSize=SIZE(200,16),
+
+	LobbyMessagePos=POS(320,328),
+	LobbyMessageSize=SIZE(200,16),
+	LobbyMessageFont=fontmedium(),
+	LobbyMessageColor=GetPaletteColor(1),
+	
+	ChatBoxPos=POS(100,143),
+	ChatBoxSize=SIZE(440,186),
+	ChatTextPos=POS(5,5),
+	ChatTextSize=SIZE(417,166),
+	ChatTextFont=fontsmall(),
+	ChatTextFontScale=0.6,
+	ChatTextColor=34,
+	ChatTextLines=13,
+	ChatNameColor=33,
+	ChatEditorPos=POS(119, 313),
+	ChatEditorSize=SIZE(410, 13),
+	
+	ChatNewMessageDisplayTime=3,
+	ChatNewMessageFadeTime=0.5,
+	ChatNewMessagePos=POS(320,319),
+	ChatNewMessageWidth=580,
+	
+	ScrollBarWidth=8,
+	ScrollBarColor=GetPaletteColor(1),
+	ScrollBarBgAlpha=0.3,
+	ScrollBarAlpha=0.6,
+	
+	LabelTop=143,
+	LabelHeight=14,
+	LabelWidth=10,
+
+	LabelFont=fontsmall(),
+	LabelColor=GetPaletteColor(33),
+	
+	ReadyX=53,
+	ReadyTop=1,
+	VoiceCenterX=82,
+	VoiceCenterY=9,
+	FlagLeft=96,
+	FlagTop=1,
+	NameLeft=129,
+	CarLeft=360,
+	UpgradesX=545,
+	UpgradesTop=2,
+	TrueSkillCenter=550,
+	ScoreTop=-1,
+	
+	TrueSkillWidth=67,
+	TrueSkillHeight=14,
+	TrueSkillColor=GetPaletteColor(1),
+	TrueSkillFont=fontextratiny(),
+	
+	ListLeft=0,
+	ListTop=162,
+	ListWidth=ChloeWidescreen_GetRight(),
+	RowHeight=18,
+	RowPadding=2,
+	
+	ProgressBarPos=POS(123, 328),
+	ProgressBarSize=SIZE(393, 22),
+	
+	ListFont=fontsmall(),
+	ListFontColor=GetPaletteColor(34),
+	CarChangingFontColor=GetPaletteColor(34),
+	SelectCarFontColor=GetPaletteColor(33),
+	
+	RankFont=wm.GetResource("FontRank"),
+	RankColor=GetPaletteColor(0),
+}
+
+local function IsCarUnfairBonus(carId)
+	local car = db.FlatOut2.Cars:GetProperty("Car", carId)
+	if string.find(car:GetFullPath(), ".PropMedium")~=nil then return true end
+	if string.find(car:GetFullPath(), ".PropHeavy")~=nil then return true end
+	
+	if carId == CarIndex.Pimpster then return true end
+	if carId == CarIndex.Flatmobile then return true end
+	--if carId == CarIndex.MobCar then return true end
+	if carId == CarIndex.SchoolBus then return true end
+	if carId == CarIndex.StarflightSS then return true end
+	if carId == CarIndex.TrailblazerSS then return true end
+	if carId == CarIndex.AfterburnerSS then return true end
+	if carId == CarIndex.RocketSS then return true end
+	if carId == CarIndex.NucleonSS then return true end
+	if carId == CarIndex.Truck then return true end
+	if carId == CarIndex.PropForklift then return true end
+	if carId == CarIndex.PropRoller then return true end
+	if carId == CarIndex.PropChassis then return true end
+	if carId == CarIndex.Freeman then return true end
+	return false
+end
+
+local function GetCarListForCurrentClass(skipProps)
+	local carlist = { }
+	local carclass = ChloeNet_GetCarClass()
+	local hostCar = ChloeNet_GetPlayerCar(1)
+	
+	local hostCarMatchup = ChloeCollection_GetCarMatchupInverse(hostCar)
+	if hostCarMatchup ~= nil then
+		hostCar = hostCarMatchup
+	end
+	
+	local nitroMult = ChloeNet_GetNitroMult()
+	
+	local gameRules = ChloeNet_GetGameRules()
+	if gameRules == GR_DEFAULT then
+		gameRules = Levels[ChloeNet_GetLevelId()].Rules or GR_RACE
+	end
+	
+	local propCarsEnabled = ChloeNet_GetPropCarsAvailable()
+	local validCarFunc = IsValidCarNoTemp350
+	if propCarsEnabled and skipProps then
+		validCarFunc = IsValidCarIncludeTemp350NoProps
+	elseif propCarsEnabled and not skipProps then
+		validCarFunc = IsValidCarIncludeTemp350
+	end
+	
+	local function SplitString(str)
+		local t={}		
+		for w in string.gfind(str,"(%w+)%.?") do
+			table.insert(t,w)
+		end
+		return t
+	end
+	
+	if gameRules == GR_STUNT then
+		-- Only stunt cars are valid in stunt events
+		if carclass >= CARCLASS_SAMEASHOST and not ChloeNet_IsServer() then
+			carlist = { { index = hostCar } }
+		else
+			carlist = CarlistStuntCars()
+		end
+	elseif carclass == CARCLASS_ANY then
+		-- Any car; includes derby, racing, street and bonus cars
+		for i=0,db.FlatOut2.Cars:GetPropertyArraySize("Car")-1 do
+			if validCarFunc(i) then
+				table.insert(carlist,{ index=i })
+			end
+		end
+	elseif carclass == CARCLASS_NOBONUS then
+		for i = 0, db.FlatOut2.Cars:GetPropertyArraySize("Car") - 1 do
+			local car = db.FlatOut2.Cars:GetProperty("Car", i)
+			
+			local path = SplitString(string.lower(car:GetFullPath()))
+
+			if path[3] ~= "bonus" and validCarFunc(i) then
+				table.insert(carlist, {index = i})
+			end
+		end
+	elseif carclass == CARCLASS_BONUS then
+		for i = 0, db.FlatOut2.Cars:GetPropertyArraySize("Car") - 1 do
+			local car = db.FlatOut2.Cars:GetProperty("Car", i)
+			
+			local path = SplitString(string.lower(car:GetFullPath()))
+
+			if path[3] == "bonus" and validCarFunc(i) then
+				table.insert(carlist, {index = i})
+			end
+		end
+	elseif carclass == CARCLASS_STUNT then
+		carlist = CarlistStuntCars()
+	elseif carclass == CARCLASS_FO1ANY then
+		for i = 0, db.FlatOut2.Cars:GetPropertyArraySize("Car") - 1 do
+			local car = db.FlatOut2.Cars:GetProperty("Car", i)
+
+			if string.find(car:GetFullPath(), "FO1")~=nil and validCarFunc(i) then
+				table.insert(carlist, {index = i})
+			end
+		end
+	elseif carclass == CARCLASS_FO1DERBY then
+		for i = 0, db.FlatOut2.Cars:GetPropertyArraySize("Car") - 1 do
+			local car = db.FlatOut2.Cars:GetProperty("Car", i)
+			
+			local path = SplitString(string.lower(car:GetFullPath()))
+
+			if string.find(car:GetFullPath(), "FO1")~=nil and path[3] == "beginner" and validCarFunc(i) then
+				table.insert(carlist, {index = i})
+			end
+		end
+	elseif carclass == CARCLASS_FO1RACING then
+		for i = 0, db.FlatOut2.Cars:GetPropertyArraySize("Car") - 1 do
+			local car = db.FlatOut2.Cars:GetProperty("Car", i)
+			
+			local path = SplitString(string.lower(car:GetFullPath()))
+
+			if string.find(car:GetFullPath(), "FO1")~=nil and path[3] == "amateur" and validCarFunc(i) then
+				table.insert(carlist, {index = i})
+			end
+		end
+	elseif carclass == CARCLASS_FO1STREET then
+		for i = 0, db.FlatOut2.Cars:GetPropertyArraySize("Car") - 1 do
+			local car = db.FlatOut2.Cars:GetProperty("Car", i)
+			
+			local path = SplitString(string.lower(car:GetFullPath()))
+
+			if string.find(car:GetFullPath(), "FO1")~=nil and path[3] == "professional" and validCarFunc(i) then
+				table.insert(carlist, {index = i})
+			end
+		end
+	elseif carclass == CARCLASS_RETRODEMO then
+		for i = 0, db.FlatOut2.Cars:GetPropertyArraySize("Car") - 1 do
+			local car = db.FlatOut2.Cars:GetProperty("Car", i)
+
+			if string.find(car:GetFullPath(), ".Retro")~=nil and IsValidCarIncludeMatchups(i) then
+				table.insert(carlist, {index = i})
+			end
+		end
+	elseif carclass == CARCLASS_TOUGHTRUCKS then
+		for i = 0, db.FlatOut2.Cars:GetPropertyArraySize("Car") - 1 do
+			local car = db.FlatOut2.Cars:GetProperty("Car", i)
+
+			if string.find(car:GetFullPath(), ".TT")~=nil then
+				table.insert(carlist, {index = i})
+			end
+		end
+	elseif carclass == CARCLASS_RTANY then
+		for i = 0, db.FlatOut2.Cars:GetPropertyArraySize("Car") - 1 do
+			local car = db.FlatOut2.Cars:GetProperty("Car", i)
+
+			if string.find(car:GetFullPath(), ".RT")~=nil and validCarFunc(i) then
+				table.insert(carlist, {index = i})
+			end
+		end
+	elseif carclass == CARCLASS_RTDERBY then
+		for i = 0, db.FlatOut2.Cars:GetPropertyArraySize("Car") - 1 do
+			local car = db.FlatOut2.Cars:GetProperty("Car", i)
+			
+			local path = SplitString(string.lower(car:GetFullPath()))
+
+			if string.find(car:GetFullPath(), ".RT")~=nil and path[3] == "beginner" and validCarFunc(i) then
+				table.insert(carlist, {index = i})
+			end
+		end
+	elseif carclass == CARCLASS_RTRACING then
+		for i = 0, db.FlatOut2.Cars:GetPropertyArraySize("Car") - 1 do
+			local car = db.FlatOut2.Cars:GetProperty("Car", i)
+			
+			local path = SplitString(string.lower(car:GetFullPath()))
+
+			if string.find(car:GetFullPath(), ".RT")~=nil and path[3] == "amateur" and validCarFunc(i) then
+				table.insert(carlist, {index = i})
+			end
+		end
+	elseif carclass == CARCLASS_RTSTREET then
+		for i = 0, db.FlatOut2.Cars:GetPropertyArraySize("Car") - 1 do
+			local car = db.FlatOut2.Cars:GetProperty("Car", i)
+			
+			local path = SplitString(string.lower(car:GetFullPath()))
+
+			if string.find(car:GetFullPath(), ".RT")~=nil and path[3] == "professional" and validCarFunc(i) then
+				table.insert(carlist, {index = i})
+			end
+		end
+	elseif carclass == CARCLASS_BONUSSTUNT then
+		table.insert(carlist, { index = CarIndex.StarflightSS })
+		table.insert(carlist, { index = CarIndex.TrailblazerSS })
+		table.insert(carlist, { index = CarIndex.AfterburnerSS })
+		table.insert(carlist, { index = CarIndex.RocketSS })
+		table.insert(carlist, { index = CarIndex.NucleonSS })
+	elseif carclass == CARCLASS_FWD or carclass == CARCLASS_FWDNOBONUS then
+		for i = 0, db.FlatOut2.Cars:GetPropertyArraySize("Car") - 1 do
+			local car = db.FlatOut2.Cars:GetProperty("Car", i)
+			
+			if carclass ~= CARCLASS_FWDNOBONUS or not IsCarUnfairBonus(i) then
+				if car.Body.FrontTraction and not car.Body.RearTraction and validCarFunc(i) then
+					table.insert(carlist, {index = i})
+				end
+			end
+		end
+	elseif carclass == CARCLASS_RWD or carclass == CARCLASS_RWDNOBONUS then
+		for i = 0, db.FlatOut2.Cars:GetPropertyArraySize("Car") - 1 do
+			local car = db.FlatOut2.Cars:GetProperty("Car", i)
+			
+			if carclass ~= CARCLASS_RWDNOBONUS or not IsCarUnfairBonus(i) then
+				if car.Body.RearTraction and not car.Body.FrontTraction and validCarFunc(i) then
+					table.insert(carlist, {index = i})
+				end
+			end
+		end
+	elseif carclass == CARCLASS_4WD or carclass == CARCLASS_4WDNOBONUS then
+		for i = 0, db.FlatOut2.Cars:GetPropertyArraySize("Car") - 1 do
+			local car = db.FlatOut2.Cars:GetProperty("Car", i)
+			
+			if carclass ~= CARCLASS_4WDNOBONUS or not IsCarUnfairBonus(i) then
+				if car.Body.RearTraction and car.Body.FrontTraction and validCarFunc(i) then
+					table.insert(carlist, {index = i})
+				end
+			end
+		end
+	elseif carclass == CARCLASS_PROPS then
+		for i = 0, db.FlatOut2.Cars:GetPropertyArraySize("Car") - 1 do
+			local car = db.FlatOut2.Cars:GetProperty("Car", i)
+			
+			if ((string.find(car:GetFullPath(), ".Prop")~=nil and IsValidCarIncludeTemp350(i)) or ChloeCollection_DoesCarHaveCheatCode(i)) and not ChloeCollection_GetCarMatchupInverse(i) and (propCarsEnabled or i ~= CarIndex.Freeman) then
+				table.insert(carlist, {index = i})
+			end
+		end
+	elseif carclass == CARCLASS_PROPSLIGHT then
+		for i = 0, db.FlatOut2.Cars:GetPropertyArraySize("Car") - 1 do
+			local car = db.FlatOut2.Cars:GetProperty("Car", i)
+			
+			if ((string.find(car:GetFullPath(), ".PropLight")~=nil and IsValidCarIncludeTemp350(i)) or ChloeCollection_DoesCarHaveCheatCode(i)) and not ChloeCollection_GetCarMatchupInverse(i) and (propCarsEnabled or i ~= CarIndex.Freeman) then
+				table.insert(carlist, {index = i})
+			end
+		end
+	elseif carclass == CARCLASS_PROPSMEDIUM then
+		for i = 0, db.FlatOut2.Cars:GetPropertyArraySize("Car") - 1 do
+			local car = db.FlatOut2.Cars:GetProperty("Car", i)
+			
+			if string.find(car:GetFullPath(), ".PropMedium")~=nil and IsValidCarIncludeTemp350(i) then
+				table.insert(carlist, {index = i})
+			end
+		end
+	elseif carclass == CARCLASS_PROPSHEAVY then
+		for i = 0, db.FlatOut2.Cars:GetPropertyArraySize("Car") - 1 do
+			local car = db.FlatOut2.Cars:GetProperty("Car", i)
+			
+			if string.find(car:GetFullPath(), ".PropHeavy")~=nil and IsValidCarIncludeTemp350(i) then
+				table.insert(carlist, {index = i})
+			end
+		end
+	elseif carclass == CARCLASS_PROPSRETROFOLK then
+		for i = 0, db.FlatOut2.Cars:GetPropertyArraySize("Car") - 1 do
+			local car = db.FlatOut2.Cars:GetProperty("Car", i)
+			
+			if string.find(car:GetFullPath(), ".PropLightRetroFolk")~=nil and IsValidCarIncludeTemp350(i) then
+				table.insert(carlist, {index = i})
+			end
+		end
+	elseif carclass == CARCLASS_TIERF2 then
+		--midwest ranch 1 time trial times:
+		--stunt car: 45.97, 51.73
+		--chili: 47.08, 51.50
+		--malice: 49.06, 52.71
+		--roamer: 49.38, 52.42
+		--shaker: 47.67, 52.77
+		--blaster xl: 47.43, 51.59
+		--banger: 46.56, 50.33
+		--pimpster: 46.79, 50.83
+		--truck: 48.35, 52.96
+		--cooper s: 48.31, 53.40
+		--amazon: 44.51, 48.55
+		
+		--midwest ranch 1 no props time trial times:
+		--pimpster: 49.61, 56.52
+		--roamer: 48.86, 54.05
+		--malice: 48.60, 54.68
+		--shaker: 47.73, 53.87
+		--stunt car: 46.52, 51.34
+		--banger: 45.85, 51.14
+		--amazon: 44.19, 48.71
+		--ctr: 43.72, 49.30
+		
+		--midwest ranch 1 no props time trial times without speedlimit:
+		--malice: 48.51
+		--chili: 46.84
+		--roamer: 47.83
+		--shaker: 47.44
+		--blaster xl: 45.49
+		--stunt car: 45.35, 51.51
+		--banger: 44.44
+		--insetta sport: 44.29
+		--switchblade: 43.71
+		--ctr: 43.19
+		--venom: 43.02
+		--splitter: 42.71
+	
+		table.insert(carlist, { index = CarIndex.Malice })
+		if not ChloeNet_GetUncappedSpeedLimit() then
+			table.insert(carlist, { index = CarIndex.Roamer })
+			if propCarsEnabled then
+				table.insert(carlist, { index = CarIndex.PropFarmPickup }) -- Roamer
+			end
+		end
+		-- the pimpster is awful without nitro so it's moved to F- tier
+		if nitroMult == 0.0 then
+			table.insert(carlist, { index = CarIndex.Pimpster })
+		end
+		table.insert(carlist, { index = CarIndex.RTSaab96 }) -- Malice
+		table.insert(carlist, { index = CarIndex.HLATrabant }) -- Malice
+		if propCarsEnabled then
+			table.insert(carlist, { index = CarIndex.PropRetroFolk1 }) -- Pepper
+			table.insert(carlist, { index = CarIndex.PropRetroFolk2 }) -- Blocker
+			table.insert(carlist, { index = CarIndex.PropRetroFolk3 }) -- Pepper
+			table.insert(carlist, { index = CarIndex.PropRetroFolk4 }) -- Pepper
+			if ChloeNet_GetHandlingMode() == HANDLING_PROFESSIONAL then
+				table.insert(carlist, { index = CarIndex.Freeman })
+			end
+		end
+	elseif carclass == CARCLASS_TIERF then
+		table.insert(carlist, { index = CarIndex.Chili })
+		if ChloeNet_GetUncappedSpeedLimit() then
+			table.insert(carlist, { index = CarIndex.Roamer })
+			if propCarsEnabled then
+				table.insert(carlist, { index = CarIndex.PropFarmPickup }) -- Roamer
+			end
+		end
+		table.insert(carlist, { index = CarIndex.Shaker })
+		if not ChloeNet_GetUncappedSpeedLimit() then
+			table.insert(carlist, { index = CarIndex.BlasterXL })
+			table.insert(carlist, { index = CarIndex.Banger })
+			table.insert(carlist, { index = CarIndex.Starflight })
+			table.insert(carlist, { index = CarIndex.Trailblazer })
+			table.insert(carlist, { index = CarIndex.Afterburner })
+			table.insert(carlist, { index = CarIndex.Rocket })
+			table.insert(carlist, { index = CarIndex.Nucleon })
+		end
+		if nitroMult > 0.0 and nitroMult < 1.0 then
+			table.insert(carlist, { index = CarIndex.Pimpster })
+		end
+		table.insert(carlist, { index = CarIndex.FO1Pepper }) -- Chili
+		if not ChloeNet_GetUncappedSpeedLimit() then
+			table.insert(carlist, { index = CarIndex.FO1Blocker }) -- Banger
+		end
+		table.insert(carlist, { index = CarIndex.FO1Grinder }) -- Shaker
+		if not ChloeNet_GetUncappedSpeedLimit() then
+			table.insert(carlist, { index = CarIndex.RetroBeetle }) -- modified Chili, closer to Banger
+		end
+		table.insert(carlist, { index = CarIndex.RTCooperS }) -- modified Chili
+		table.insert(carlist, { index = CarIndex.PropTrafPizza }) -- Cooper S
+		if propCarsEnabled and not ChloeNet_GetUncappedSpeedLimit() then
+			table.insert(carlist, { index = CarIndex.MonaCar }) -- Blaster XL
+		end
+	elseif carclass == CARCLASS_TIERD then
+		if ChloeNet_GetUncappedSpeedLimit() then
+			table.insert(carlist, { index = CarIndex.BlasterXL })
+			table.insert(carlist, { index = CarIndex.Banger })
+			table.insert(carlist, { index = CarIndex.Starflight })
+			table.insert(carlist, { index = CarIndex.Trailblazer })
+			table.insert(carlist, { index = CarIndex.Afterburner })
+			table.insert(carlist, { index = CarIndex.Rocket })
+			table.insert(carlist, { index = CarIndex.Nucleon })
+			table.insert(carlist, { index = CarIndex.FO1Blocker }) -- Banger
+			table.insert(carlist, { index = CarIndex.RetroBeetle }) -- modified Chili, closer to Banger
+			if propCarsEnabled then
+				table.insert(carlist, { index = CarIndex.PropRetroFolk2 }) -- Blocker
+				table.insert(carlist, { index = CarIndex.MonaCar }) -- Blaster XL
+			end
+		end
+		table.insert(carlist, { index = CarIndex.CTR })
+		table.insert(carlist, { index = CarIndex.Boxer })
+		table.insert(carlist, { index = CarIndex.MadRash })
+		table.insert(carlist, { index = CarIndex.Nevada })
+		table.insert(carlist, { index = CarIndex.InsettaSport })
+		if nitroMult == 1.0 then
+			table.insert(carlist, { index = CarIndex.Pimpster })
+		end
+		table.insert(carlist, { index = CarIndex.FO1Overrunner }) -- CTR / Mad Rash
+		table.insert(carlist, { index = CarIndex.FO1RoadKing }) -- Boxer
+		table.insert(carlist, { index = CarIndex.FO1Fasthammer }) -- Nevada
+		table.insert(carlist, { index = CarIndex.RTAmazon }) -- modified Switchblade, closer to CTR
+		table.insert(carlist, { index = CarIndex.Stratum })
+		table.insert(carlist, { index = CarIndex.TrainCar }) -- CTR
+		table.insert(carlist, { index = CarIndex.MazdaRX8 }) -- Insetta Sport
+		if propCarsEnabled then
+			table.insert(carlist, { index = CarIndex.NukeCar }) -- Insetta Sport
+			table.insert(carlist, { index = CarIndex.PropLincoln }) -- Mad Rash
+			table.insert(carlist, { index = CarIndex.PropLincolnFO2 }) -- Mad Rash
+			table.insert(carlist, { index = CarIndex.PropTarpCar }) -- Mad Rash
+			table.insert(carlist, { index = CarIndex.PropCaddy }) -- Boxer
+			table.insert(carlist, { index = CarIndex.PropCaddy2 }) -- Boxer
+			table.insert(carlist, { index = CarIndex.PropRetroPickup }) -- Nevada
+			table.insert(carlist, { index = CarIndex.PropRetroVan }) -- Nevada
+			table.insert(carlist, { index = CarIndex.PropRetroFamilyCar }) -- Nevada
+		end
+	elseif carclass == CARCLASS_TIERC then
+		table.insert(carlist, { index = CarIndex.Splitter })
+		table.insert(carlist, { index = CarIndex.Switchblade })
+		table.insert(carlist, { index = CarIndex.Lancea })
+		table.insert(carlist, { index = CarIndex.Fortune })
+		table.insert(carlist, { index = CarIndex.Daytana })
+		table.insert(carlist, { index = CarIndex.ChiliPepper })
+		table.insert(carlist, { index = CarIndex.Scorpion })
+		table.insert(carlist, { index = CarIndex.Sparrowhawk })
+		table.insert(carlist, { index = CarIndex.Crusader })
+		if nitroMult > 1.0 then
+			table.insert(carlist, { index = CarIndex.Pimpster })
+		end
+		table.insert(carlist, { index = CarIndex.FO1Blockhead }) -- Splitter
+		table.insert(carlist, { index = CarIndex.FO1Bullet }) -- Switchblade
+		table.insert(carlist, { index = CarIndex.FO1Slider }) -- Fortune
+		table.insert(carlist, { index = CarIndex.FO1Thunderbolt }) -- Scorpion
+		table.insert(carlist, { index = CarIndex.RTCortina }) -- Switchblade
+		table.insert(carlist, { index = CarIndex.RTFiat600 }) -- Chili Pepper
+		table.insert(carlist, { index = CarIndex.RTFulvia }) -- Fortune
+		table.insert(carlist, { index = CarIndex.RTKadett }) -- Lancea
+		table.insert(carlist, { index = CarIndex.RTStratos }) -- Sparrowhawk
+		table.insert(carlist, { index = CarIndex.DustCar }) -- Switchblade
+		table.insert(carlist, { index = CarIndex.DeltaHF }) -- Fortune
+		table.insert(carlist, { index = CarIndex.CivicHB }) -- Chili Pepper
+		table.insert(carlist, { index = CarIndex.CopMidSize }) -- Scorpion
+		table.insert(carlist, { index = CarIndex.S2000 }) -- Lancea
+		if propCarsEnabled then
+			table.insert(carlist, { index = CarIndex.DiabloSV }) -- Sparrowhawk
+			table.insert(carlist, { index = CarIndex.ItalyCar }) -- Chili Pepper
+			table.insert(carlist, { index = CarIndex.ReVoltBMW }) -- Scorpion
+			table.insert(carlist, { index = CarIndex.PropFO1StationWagon }) -- Scorpion
+			table.insert(carlist, { index = CarIndex.PropFO1Foerd }) -- Scorpion
+			table.insert(carlist, { index = CarIndex.PropChassis }) -- Pepper
+		end
+	elseif carclass == CARCLASS_TIERB then
+		table.insert(carlist, { index = CarIndex.Venom })
+		table.insert(carlist, { index = CarIndex.Bullet })
+		table.insert(carlist, { index = CarIndex.Ventura })
+		table.insert(carlist, { index = CarIndex.CTRSport })
+		table.insert(carlist, { index = CarIndex.VexterXS })
+		table.insert(carlist, { index = CarIndex.Bonecracker }) -- Venom
+		table.insert(carlist, { index = CarIndex.Grinder }) -- Venom
+		table.insert(carlist, { index = CarIndex.FO1Speedevil }) -- Ventura
+		table.insert(carlist, { index = CarIndex.RTAlfa }) -- Bullet
+		table.insert(carlist, { index = CarIndex.RTAlpine }) -- CTR Sport
+		table.insert(carlist, { index = CarIndex.PropModern5 }) -- Vexter XS
+		table.insert(carlist, { index = CarIndex.Supra }) -- Vexter XS
+		if propCarsEnabled then
+			table.insert(carlist, { index = CarIndex.VPVWCup }) -- CTR Sport
+			table.insert(carlist, { index = CarIndex.PropModern52 }) -- Vexter XS
+		end
+	elseif carclass == CARCLASS_TIERA then
+		table.insert(carlist, { index = CarIndex.Bullet })
+		table.insert(carlist, { index = CarIndex.Lentus })
+		table.insert(carlist, { index = CarIndex.Ventura })
+		table.insert(carlist, { index = CarIndex.Insetta })
+		table.insert(carlist, { index = CarIndex.CTRSport })
+		table.insert(carlist, { index = CarIndex.VexterXS })
+		table.insert(carlist, { index = CarIndex.Speedshifter })
+		table.insert(carlist, { index = CarIndex.Canyon })
+		table.insert(carlist, { index = CarIndex.Terrator })
+		table.insert(carlist, { index = CarIndex.Sunray })
+		table.insert(carlist, { index = CarIndex.Speedevil })
+		if not ChloeNet_GetUncappedSpeedLimit() then
+			table.insert(carlist, { index = CarIndex.MobCar })
+		end
+		table.insert(carlist, { index = CarIndex.FO1Speedevil }) -- Ventura
+		table.insert(carlist, { index = CarIndex.FO1Trasher }) -- Terrator
+		table.insert(carlist, { index = CarIndex.FO1Machine }) -- Speedevil
+		table.insert(carlist, { index = CarIndex.FO1Bonecracker }) -- Speedshifter
+		table.insert(carlist, { index = CarIndex.CopSport }) -- Speedevil
+		table.insert(carlist, { index = CarIndex.RTEscort }) -- Speedshifter
+		table.insert(carlist, { index = CarIndex.RTAlfa }) -- Bullet
+		table.insert(carlist, { index = CarIndex.RTAlpine }) -- CTR Sport
+		table.insert(carlist, { index = CarIndex.PropModern5 }) -- Vexter XS
+		table.insert(carlist, { index = CarIndex.Judge }) -- Sparrowhawk
+		table.insert(carlist, { index = CarIndex.SkylineGTR }) -- Sunray
+		table.insert(carlist, { index = CarIndex.EvoX }) -- Insetta
+		table.insert(carlist, { index = CarIndex.Supra }) -- Vexter XS
+		table.insert(carlist, { index = CarIndex.HQ350Z }) -- Sunray
+		if propCarsEnabled then
+			table.insert(carlist, { index = CarIndex.PropModern52 }) -- Vexter XS
+			table.insert(carlist, { index = CarIndex.PropFO1Police }) -- Speedshifter
+			table.insert(carlist, { index = CarIndex.PropFO1Trasher }) -- Trasher
+			table.insert(carlist, { index = CarIndex.VPVWCup }) -- CTR Sport
+			table.insert(carlist, { index = CarIndex.Toyeca }) -- Sunray
+			table.insert(carlist, { index = CarIndex.Evo5 }) -- Insetta
+			table.insert(carlist, { index = CarIndex.UG2350Z }) -- Sunray
+			table.insert(carlist, { index = CarIndex.ProStreetViper }) -- Speedevil
+		end
+	elseif carclass == CARCLASS_TIERS then
+		table.insert(carlist, { index = CarIndex.Lentus })
+		table.insert(carlist, { index = CarIndex.Insetta })
+		table.insert(carlist, { index = CarIndex.Speedshifter })
+		table.insert(carlist, { index = CarIndex.Canyon })
+		table.insert(carlist, { index = CarIndex.Terrator })
+		table.insert(carlist, { index = CarIndex.Sunray })
+		table.insert(carlist, { index = CarIndex.Speedevil })
+		table.insert(carlist, { index = CarIndex.RoadKing })
+		table.insert(carlist, { index = CarIndex.BulletGT })
+		table.insert(carlist, { index = CarIndex.MobCar })
+		table.insert(carlist, { index = CarIndex.FO1Trasher }) -- Terrator
+		table.insert(carlist, { index = CarIndex.FO1Machine }) -- Speedevil
+		table.insert(carlist, { index = CarIndex.FO1Bonecracker }) -- Speedshifter
+		table.insert(carlist, { index = CarIndex.FO1Ranker1 }) -- Road King
+		table.insert(carlist, { index = CarIndex.FO1Blade }) -- Road King
+		table.insert(carlist, { index = CarIndex.CopSport }) -- Speedevil
+		table.insert(carlist, { index = CarIndex.HQDiabloSV }) -- Road King
+		table.insert(carlist, { index = CarIndex.SkylineGTR }) -- Sunray
+		table.insert(carlist, { index = CarIndex.EvoX }) -- Insetta
+		table.insert(carlist, { index = CarIndex.RX7Drift }) -- Insetta
+		table.insert(carlist, { index = CarIndex.Tempesta }) -- Bullet GT
+		table.insert(carlist, { index = CarIndex.BMWM3GTRE46 }) -- Road King
+		table.insert(carlist, { index = CarIndex.HQ350Z }) -- Sunray
+		if propCarsEnabled then
+			table.insert(carlist, { index = CarIndex.PropFO1Police }) -- Speedshifter
+			table.insert(carlist, { index = CarIndex.PropFO1Trasher }) -- Trasher
+			table.insert(carlist, { index = CarIndex.Toyeca }) -- Sunray
+			table.insert(carlist, { index = CarIndex.Evo5 }) -- Insetta
+			table.insert(carlist, { index = CarIndex.UG2350Z }) -- Sunray
+			table.insert(carlist, { index = CarIndex.SportCar }) -- Bullet GT
+			table.insert(carlist, { index = CarIndex.ProStreetViper }) -- Speedevil
+		end
+	elseif carclass == CARCLASS_TIERS2 then
+		table.insert(carlist, { index = CarIndex.Flatmobile })
+		table.insert(carlist, { index = CarIndex.StarflightSS })
+		table.insert(carlist, { index = CarIndex.TrailblazerSS })
+		table.insert(carlist, { index = CarIndex.AfterburnerSS })
+		table.insert(carlist, { index = CarIndex.RocketSS })
+		table.insert(carlist, { index = CarIndex.NucleonSS })
+		if propCarsEnabled and ChloeNet_GetHandlingMode() ~= HANDLING_PROFESSIONAL then
+			table.insert(carlist, { index = CarIndex.Freeman })
+		end
+	elseif carclass < CARCLASS_SAMEASHOST then
+		-- A specific car class
+		carlist = CarlistFromClass(carclass, false, true)
+	elseif ChloeNet_IsServer() then
+		-- "Same as host" car setting
+		for i = 0, db.FlatOut2.Cars:GetPropertyArraySize("Car") - 1 do
+			local car = db.FlatOut2.Cars:GetProperty("Car", i)
+			
+			if validCarFunc(i) then
+				table.insert(carlist, {index = i})
+			end
+		end
+	else
+		-- "Same as host" car setting for non-hosts, can only change the car skin
+		carlist = { { index = hostCar } }
+	end
+	-- ChloeCustom: only FlatOut 2 / Ultimate Carnage cars (some classes list addon cars directly)
+	local fo2carlist = { }
+	for _,c in ipairs(carlist) do
+		if c.index and ChloeCustom_IsFO2Car(c.index) then
+			table.insert(fo2carlist, c)
+		end
+	end
+	if table.getn(fo2carlist) == 0 then
+		for i = 0, db.FlatOut2.Cars:GetPropertyArraySize("Car") - 1 do
+			if IsValidCar(i) then
+				table.insert(fo2carlist, {index = i})
+			end
+		end
+	end
+	carlist = fo2carlist
+	SortCarsByClass(carlist)
+	
+	-- 157 cars crashes the game
+	print("Car count "..table.getn(carlist))
+	if table.getn(carlist) >= 150 then
+		return GetCarListForCurrentClass(true)
+	end
+	
+	return carlist
+end
+
+local function IsPlayerCarValidForClass()
+	local carlist = GetCarListForCurrentClass()
+	
+	local playerCar = ChloeNet_GetLocalPlayerCar()
+	if ChloeNet_GetCarClass() ~= CARCLASS_RETRODEMO then
+		local playerCarMatchup = ChloeCollection_GetCarMatchupInverse(playerCar)
+		if playerCarMatchup ~= nil then
+			playerCar = playerCarMatchup
+		end
+	end
+	
+	-- Check if the player's car is still valid, and if not, make it valid
+	local carvalid = false
+	for k,car in pairs(carlist) do
+		if car.index == playerCar then
+			carvalid = true
+			break
+		end
+	end
+	
+	return carvalid
+end
+
+local function ChangeCar()
+	local carlist = GetCarListForCurrentClass()
+	local carclass = ChloeNet_GetCarClass()
+
+	ChloeNet_SetPlayerChangingCar(1)
+	EnterCarSelection(
+		function(car, skin)
+			ChloeNet_SetPlayerChangingCar(0)
+			if car ~= nil then
+				ChloeNet_SetPlayerCar(car)
+				ChloeNet_SetPlayerCarSkin(skin)
+				if ChloeNet_IsServer() and ChloeNet_GetCarClass() >= CARCLASS_SAMEASHOST then
+					ChloeNet_Host_SetCarClass(car + CARCLASS_SAMEASHOST)
+				end
+			end
+			EnterMenu("menu_chloemultiplayer_lobby")
+		end,
+		function()
+			ChloeNet_SetPlayerChangingCar(0)
+			EnterMenu("menu_chloemultiplayer_lobby")
+		end,
+		carlist,
+		false,
+		true,
+		false,
+		false,
+		nil,
+		nil,
+		true, -- show_class
+		nil, -- title
+		true, -- hide_menubar_car
+		false, -- nocolor
+		false, -- nodescription
+		carclass == CARCLASS_RETRODEMO -- noswap
+	)
+end
+
+local function TuneCar()
+	ChloeNet_SetPlayerChangingOptions(1)
+	menu_chloecartuning.backmenuname="menu_chloemultiplayer_lobby"
+	EnterMenu("menu_chloecartuning")
+end
+
+local function SetEvents(events)
+	ChloeNet_Host_SetLevelId(events[1].trackid)
+	ChloeNet_Host_SetGameRules(Levels[events[1].trackid].Rules or GR_DEFAULT)
+	ChloeNet_Host_SetDerbyType(DERBY_NONE)
+	if events[1].rules == GAMETYPE_PONGRACE then
+		ChloeNet_Host_SetGameRules(GR_PONGRACE)
+	elseif events[1].rules == GAMETYPE_ARCADE_RACE then
+		ChloeNet_Host_SetGameRules(GR_ARCADE_RACE)
+	elseif events[1].rules == GAMETYPE_TONYHAWK then
+		ChloeNet_Host_SetGameRules(GR_TONYHAWK)
+	elseif events[1].rules == GAMETYPE_DRIFT then
+		ChloeNet_Host_SetGameRules(GR_DRIFT)
+	elseif events[1].rules == GAMETYPE_LAPKNOCKOUT then
+		ChloeNet_Host_SetGameRules(GR_LAPKNOCKOUT)
+	elseif events[1].rules == GAMETYPE_KNOCKOUT then
+		ChloeNet_Host_SetGameRules(GR_KNOCKOUT)
+	elseif events[1].rules == GAMETYPE_SPEEDTRAP then
+		ChloeNet_Host_SetGameRules(GR_SPEEDTRAP)
+	elseif events[1].rules == GAMETYPE_BEAT_THE_BOMB then
+		ChloeNet_Host_SetGameRules(GR_BEAT_THE_BOMB)
+	elseif events[1].rules == GAMETYPE_DERBY_LMS then
+		ChloeNet_Host_SetGameRules(GR_DERBY)
+		ChloeNet_Host_SetDerbyType(DERBY_LMS)
+	elseif events[1].rules == GAMETYPE_DERBY_WRECKING then
+		ChloeNet_Host_SetGameRules(GR_DERBY)
+		ChloeNet_Host_SetDerbyType(DERBY_WRECKING)
+	elseif events[1].rules == GAMETYPE_DERBY_FRAG then
+		ChloeNet_Host_SetGameRules(GR_DERBY)
+		ChloeNet_Host_SetDerbyType(DERBY_FRAG)
+	end
+	ChloeNet_Host_SetLapCount(events[1].lapsOrTimeLimit)
+	ChloeNet_Host_SetWeatherId(events[1].weather)
+	if events[1].tracktype == TRACKTYPE_REVERSED then
+		ChloeNet_Host_SetTrackReversed(1)
+	else
+		ChloeNet_Host_SetTrackReversed(0)
+	end
+	ChloeNet_Host_SetIsFO2Track(0)
+	
+	if events[1].rules == GAMETYPE_ARCADE_RACE or events[1].rules == GAMETYPE_BEAT_THE_BOMB then
+		ChloeNet_Host_SetLapCount(10)
+	end
+	
+	if Levels[events[1].trackid].ForceOneLapOnly and events[1].rules ~= GAMETYPE_DRIFT then
+		ChloeNet_Host_SetLapCount(1)
+	end
+	
+	local gameRules = ChloeNet_GetGameRules()
+	if gameRules == GR_DEFAULT then
+		gameRules = Levels[ChloeNet_GetLevelId()].Rules or GR_RACE
+	end
+	
+	-- ChloeCustom: ghost mode for stunts (players start at the same point), restore the previous setting afterwards
+	if gameRules == GR_STUNT then
+		if ChloeCustom_GhostBeforeStunt == nil then
+			ChloeCustom_GhostBeforeStunt = ChloeNet_GetNoContact() and 1 or 0
+			ChloeNet_Host_SetNoContact(1)
+		end
+	elseif ChloeCustom_GhostBeforeStunt ~= nil then
+		ChloeNet_Host_SetNoContact(ChloeCustom_GhostBeforeStunt)
+		ChloeCustom_GhostBeforeStunt = nil
+	end
+	if gameRules == GR_STUNT and ChloeNet_GetCarClass() >= CARCLASS_SAMEASHOST and not IsStuntCar(ChloeNet_GetLocalPlayerCar()) then
+		ChangeCar()
+		return
+	end
+	
+	EnterMenu("menu_chloemultiplayer_lobby")
+end
+
+local function ChangeTrack()
+	ChloeNet_SetPlayerChangingTrack(1)
+	
+	local event = { }
+	event.trackid = ChloeNet_GetLevelId()
+	event.rules = GAMETYPE_RACE
+	if ChloeNet_GetGameRules() == GR_PONGRACE then
+		event.rules = GAMETYPE_PONGRACE
+	elseif ChloeNet_GetGameRules() == GR_ARCADE_RACE then
+		event.rules = GAMETYPE_ARCADE_RACE
+	elseif ChloeNet_GetGameRules() == GR_TONYHAWK then
+		event.rules = GAMETYPE_TONYHAWK
+	elseif ChloeNet_GetGameRules() == GR_DRIFT then
+		event.rules = GAMETYPE_DRIFT
+	elseif ChloeNet_GetGameRules() == GR_LAPKNOCKOUT then
+		event.rules = GAMETYPE_LAPKNOCKOUT
+	elseif ChloeNet_GetGameRules() == GR_KNOCKOUT then
+		event.rules = GAMETYPE_KNOCKOUT
+	elseif ChloeNet_GetGameRules() == GR_SPEEDTRAP then
+		event.rules = GAMETYPE_SPEEDTRAP
+	elseif ChloeNet_GetGameRules() == GR_BEAT_THE_BOMB then
+		event.rules = GAMETYPE_BEAT_THE_BOMB
+	elseif ChloeNet_GetGameRules() == GR_DERBY then
+		if ChloeNet_GetDerbyType() == DERBY_FRAG then
+			event.rules = GAMETYPE_DERBY_FRAG
+		else
+			event.rules = GAMETYPE_DERBY_WRECKING
+		end
+	end
+	event.lapsOrTimeLimit = ChloeNet_GetLapCount()
+	if ChloeNet_GetTrackReversed() then
+		event.tracktype = TRACKTYPE_REVERSED
+	else
+		event.tracktype = Levels[event.trackid].TrackType
+	end
+	event.weather = ChloeNet_GetWeatherId()
+	
+	EnterMultiplayerRaceEdit(
+		GAMETYPE_TOURNAMENT,
+		event,
+		function(event)
+			SetEvents( { event } )
+		end,
+		entermenu("menu_chloemultiplayer_lobby"),
+		ChloeNet_GetMaxPlayers()
+	)
+end
+
+local function ChangeOptions()
+	ChloeNet_SetPlayerChangingOptions(1)
+	EnterChloeChangeOptions(TITLE_MULTIPLAYER_GAMEOPTIONS, "menu_chloemultiplayer_lobby")
+end
+
+local function StartRace()
+	ChloeNet_Host_StartGame()
+end
+
+local function SetBackgroundCar()
+	if ChloeNet_GetLocalPlayerCarSkin() > ChloeSkins_GetNumSkinsForCar(ChloeNet_GetLocalPlayerCar()) then
+		ChloeNet_SetPlayerCarSkin(1)
+	end
+	UpdateCarInfo(ChloeNet_GetLocalPlayerCar(), menu_chloemultiplayer_lobby, false, ChloeNet_GetLocalPlayerCarSkin())
+end
+
+local function SetRandomCar()
+	local carlist = GetCarListForCurrentClass()
+	
+	local car = carlist[ChloeCollection_GetRandom(table.getn(carlist))+1].index
+	if ChloeCollection_GetCarMatchup(car) ~= nil and ChloeCollection_GetRandom(2) == 1 then
+		car = ChloeCollection_GetCarMatchup(car)
+	end
+	local skin = ChloeCollection_GetRandom(ChloeSkins_GetNumSkinsForCar(car))+1
+	ChloeNet_SetPlayerCar(car)
+	ChloeNet_SetPlayerCarSkin(skin)
+	if ChloeNet_IsServer() and ChloeNet_GetCarClass() >= CARCLASS_SAMEASHOST then
+		ChloeNet_Host_SetCarClass(car + CARCLASS_SAMEASHOST)
+	end
+	SetBackgroundCar()
+end
+
+local function AddLobbyMessage(title_, color_, duration_, animtype_)
+	local lobbymsg = { title = title_, color = color_, duration = duration_, animtype = animtype_ }
+	if duration_ == LOBBY_PERMANENT_MESSAGE then
+		if LobbyMessages[1]==nil or LobbyMessages[1].duration~=LOBBY_PERMANENT_MESSAGE then
+			table.insert(LobbyMessages, 1, lobbymsg)
+		elseif	LobbyMessages[1].title~=lobbymsg.title then
+			LobbyMessages[1]=lobbymsg
+		end
+	else
+		if table.getn(LobbyMessages) > MaxLobbyMessages - 1 then
+			table.remove(LobbyMessages, table.getn(LobbyMessages) - 1)
+		end
+		if table.getn(LobbyMessages) > 0 then
+			table.insert(LobbyMessages, LobbyMessages[1].duration == LOBBY_PERMANENT_MESSAGE and 2 or 1, lobbymsg)
+		else
+			table.insert(LobbyMessages, 1, lobbymsg)
+		end
+	end
+end
+
+local function RemovePermanentLobbyMessage()
+	if LobbyMessages[1] ~= nil and LobbyMessages[1].duration == LOBBY_PERMANENT_MESSAGE then
+		LobbyMessages[1].duration=0
+		LobbyMessages[1].showtime=0
+	end
+end
+
+local function SessionDetails()
+	EnterChloeSessionDetails(TITLE_MULTIPLAYER_SESSIONDETAILS, "menu_chloemultiplayer_lobby")
+end
+
+local function EnterOptionsMenu()
+	ChloeNet_SetPlayerChangingOptions(1)
+	menu_options.backmenuname="menu_chloemultiplayer_lobby"
+	EnterMenu("menu_options")
+end
+
+local function SetLobbyHelpButtons()
+	GUI:SetHelpButtons(BUTTON_OK, UI_SELECT, BUTTON_BACK, UI_BACK)
+end
+
+local function ShowPlayerProfile(playerNum)
+	Mode = PLAYER_PROFILE
+	wm.GetWindow("list"):Refresh()
+	
+	EnterChloeMultiPlayerProfile(ChloeNet_GetPlayerName(playerNum), entermenu("menu_chloemultiplayer_lobby"))
+end
+
+local function KickPlayer(playerNum)
+	GUI:HideMenuButtons()
+	if not ChloeNet_IsPlayerValid(playerNum) or ChloeNet_IsPlayerLocalPlayer(playerNum) then
+		Mode = LOBBY
+		BuildLobbyMenuButtons()
+		SetLobbyHelpButtons()
+		return
+	end
+	
+	local msg =	WStringConcat(EscapeString(ChloeNet_GetPlayerName(playerNum)), L"\n")
+	msg = WStringConcat(msg, L"Are you sure you want to kick this player?")
+
+	MessageBox(
+		msg,
+		MESSAGEBOX_YESNO,
+		function(value)
+			if value == TRUE then
+				ChloeNet_Host_KickPlayer(playerNum)
+			end
+			Mode = LOBBY
+			BuildLobbyMenuButtons()
+			SetLobbyHelpButtons()
+		end
+	)
+end
+
+local function BanPlayer(playerNum)
+	GUI:HideMenuButtons()
+	if not ChloeNet_IsPlayerValid(playerNum) or ChloeNet_IsPlayerLocalPlayer(playerNum) then
+		Mode = LOBBY
+		BuildLobbyMenuButtons()
+		SetLobbyHelpButtons()
+		return
+	end
+	
+	local msg =	WStringConcat(EscapeString(ChloeNet_GetPlayerName(playerNum)), L"\n")
+	msg = WStringConcat(msg, L"Are you sure you want to ban this player?\nThey won't be able to join your server again until you restart the game!")
+
+	MessageBox(
+		msg,
+		MESSAGEBOX_YESNO,
+		function(value)
+			if value == TRUE then
+				ChloeNet_Host_BanPlayer(playerNum)
+			end
+			Mode = LOBBY
+			BuildLobbyMenuButtons()
+			SetLobbyHelpButtons()
+		end
+	)
+end
+
+local ActivePlayerOption
+local ActiveLobbyOption
+
+local function SetSelectPlayerButtons(playerNum)
+	local playerNum = wm.GetWindow("list"):GetSelectedRow()+PLAYERLIST_SCROLL
+	
+	menu_chloemultiplayer_lobby.items = { }
+	if not ChloeNet_IsPlayerValid(playerNum) then
+		SelectedPlayerValid = false
+		GUI:HideMenuButtons()
+		return
+	end
+
+	SelectedPlayerValid = true
+
+	if MultiplayerMode == MPMODE_XBOXLIVE then
+		table.insert(menu_chloemultiplayer_lobby.items, { ICON_MULTIPLAYER_PLAYER_PROFILE, function() ShowPlayerProfile(playerNum) end, ICON(menu_chloemultiplayer_lobby, "icon_player_profile") } )
+	end
+
+	if ChloeNet_IsServer() then
+		table.insert(menu_chloemultiplayer_lobby.items, { ICON_MULTIPLAYER_PLAYER_KICK, function() KickPlayer(playerNum) end, ICON(menu_chloemultiplayer_lobby, "icon_kick_player") } )
+		table.insert(menu_chloemultiplayer_lobby.items, { L("BAN PLAYER"), function() BanPlayer(playerNum) end, ICON(menu_chloemultiplayer_lobby, "icon_kick_player") } )
+	end
+	
+	GUI:InitMenuButtons(menu_chloemultiplayer_lobby.items)
+	GUI:ShowMenuButtons()
+	ActivePlayerOption = 1
+	GUI:SetActiveItem(ActivePlayerOption)
+	
+	if table.getn(menu_chloemultiplayer_lobby.items)==0 then
+		SelectedPlayerValid=false
+		GUI:HideMenuButtons()
+	end
+end
+
+local function SelectPlayer()	
+	local list = wm.GetWindow("list")
+
+	local handler = InputHandler { Name="selectplayer_handler" }
+		
+	handler.onKeyPressed = function(Self, Character, VirtualKey, ScanCode)
+		if VirtualKey == KeyCodes["BUTTON_START"] then
+			if SelectedPlayerValid then
+				list.onSelectedRowChanged = nil
+				wm.RemoveWindow(handler)
+				menu_chloemultiplayer_lobby.items[ActivePlayerOption][2]()
+				AUDIO.PlayMenuSound(AUDIO.MENUSFX_SELECT)
+			end
+		elseif VirtualKey == KeyCodes["BUTTON_SELECT"] then
+			list.onSelectedRowChanged = nil
+			Mode = LOBBY
+			wm.RemoveWindow(handler)
+			BuildLobbyMenuButtons()
+			AUDIO.PlayMenuSound(AUDIO.MENUSFX_BACK)
+		elseif VirtualKey == KeyCodes["BUTTON_DOWN"] then
+			if list:GetSelectedRow()+PLAYERLIST_SCROLL < ChloeNet_GetNumPlayers() and list:GetSelectedRow() < NUMPLAYERS_LOBBYLIST then
+				list:MoveNext()
+				AUDIO.PlayMenuSound(AUDIO.MENUSFX_MOVE)
+			end
+		elseif VirtualKey == KeyCodes["BUTTON_UP"] then
+			if list:GetSelectedRow() > 1 then
+				list:MovePrev()
+				AUDIO.PlayMenuSound(AUDIO.MENUSFX_MOVE)
+			end
+		elseif VirtualKey == KeyCodes["BUTTON_RIGHT"] then
+			local numitems = table.getn(menu_chloemultiplayer_lobby.items)
+			if numitems > 0 then
+				ActivePlayerOption = math.mod(ActivePlayerOption, numitems) + 1
+				GUI:SetActiveItem(ActivePlayerOption)
+			end
+			AUDIO.PlayMenuSound(AUDIO.MENUSFX_MOVE)
+			handler:SetFocus()
+		elseif VirtualKey == KeyCodes["BUTTON_LEFT"] then
+			local numitems = table.getn(menu_chloemultiplayer_lobby.items)
+			if numitems > 0 then
+				ActivePlayerOption = math.mod(ActivePlayerOption - 2 + numitems, numitems) + 1
+				GUI:SetActiveItem(ActivePlayerOption)
+			end
+			AUDIO.PlayMenuSound(AUDIO.MENUSFX_MOVE)
+			handler:SetFocus()
+		end
+	end
+	
+	list.onSelectedRowChanged = function(self, row)
+		if ChloeNet_GetNumPlayers() >= row then
+			SelectedPlayerPeerId = ChloeNet_GetPlayerName(row+PLAYERLIST_SCROLL)
+			ActivePlayerOption = 1
+			SetSelectPlayerButtons()
+			handler:SetFocus()
+		else
+			list:SetSelectedRow(ChloeNet_GetNumPlayers()-PLAYERLIST_SCROLL)
+		end
+	end
+	
+	GUI:HideMenuButtons()
+
+	handler:SetFocus()
+	SelectedPlayerPeerId = ChloeNet_GetPlayerName(list:GetSelectedRow()+PLAYERLIST_SCROLL)
+	Mode = SELECT_PLAYER
+	SelectPlayerStart = 0
+	wm.GetWindow("list"):SetSelectedRow(1)
+	SetSelectPlayerButtons(1)
+	wm.GetWindow("list"):Refresh()
+end
+
+local function SwapTrackFO2()
+	if ChloeNet_GetIsFO2Track() then
+		ChloeNet_Host_SetIsFO2Track(0)
+	else
+		ChloeNet_Host_SetIsFO2Track(1)
+	end
+end
+
+BuildLobbyMenuButtons = function(creating)	
+	Mode = LOBBY
+	menu_chloemultiplayer_lobby.items = { }
+	
+	if ChloeNet_IsServer() then
+		menu_chloemultiplayer_lobby.items = { }
+		table.insert(menu_chloemultiplayer_lobby.items, { ICON_MULTIPLAYER_CHANGECAR, function() ChangeCar() end, ICON(menu_chloemultiplayer_lobby,"icon_change_car") } )
+		table.insert(menu_chloemultiplayer_lobby.items, { L("RANDOM CAR"), function() SetRandomCar() end, ICON(menu_chloemultiplayer_lobby,"icon_instant_action") } )
+		if ChloeNet_GetTuningAvailable() then
+			table.insert(menu_chloemultiplayer_lobby.items, { L("TUNE CAR"), function() TuneCar() end, ICON(menu_chloemultiplayer_lobby,"icon_change_upgrade_level") } )
+		end
+		table.insert(menu_chloemultiplayer_lobby.items, { ICON_MULTIPLAYER_PLAYERDETAILS, function() SelectPlayer() end, ICON(menu_chloemultiplayer_lobby,"icon_player_details") } )
+		table.insert(menu_chloemultiplayer_lobby.items, { ICON_MULTIPLAYER_GAMEOPTIONS, function() ChangeOptions() end, ICON(menu_chloemultiplayer_lobby,"icon_game_options") } )
+		table.insert(menu_chloemultiplayer_lobby.items, { MULTIPLAYER_ICON_CHANGETRACK, function() ChangeTrack() end, ICON(menu_chloemultiplayer_lobby,"icon_change_track") } )
+		if ChloeCollection_DoesTrackHaveFO2Variant(ChloeNet_GetLevelId()) then
+			table.insert(menu_chloemultiplayer_lobby.items, { L("TRACK VARIATION"), function() SwapTrackFO2() end, ICON(menu_chloemultiplayer_lobby,"icon_instant_action") } )
+		end
+		table.insert(menu_chloemultiplayer_lobby.items, { ICON_MAIN_OPTIONS, function() EnterOptionsMenu() end, ICON(menu_chloemultiplayer_lobby,"icon_options") } )
+		table.insert(menu_chloemultiplayer_lobby.items, { ICON_MULTIPLAYER_STARTRACE, function() StartRace() end, ICON(menu_chloemultiplayer_lobby,"icon_go_race") } )
+	elseif ChloeNet_IsLocalPlayerReady() then
+		table.insert(menu_chloemultiplayer_lobby.items, { ICON_MULTIPLAYER_PLAYERDETAILS, function() SelectPlayer() end, ICON(menu_chloemultiplayer_lobby,"icon_player_details") } )
+		table.insert(menu_chloemultiplayer_lobby.items, { ICON_MULTIPLAYER_SESSIONDETAILS, function() SessionDetails() end, ICON(menu_chloemultiplayer_lobby,"icon_session_details") } )
+		table.insert(menu_chloemultiplayer_lobby.items, { L("UNREADY"), function() ChloeNet_SetPlayerReady(0); BuildLobbyMenuButtons(); end, ICON(menu_chloemultiplayer_lobby,"icon_profile_x") } )
+	else
+		table.insert(menu_chloemultiplayer_lobby.items, { ICON_MULTIPLAYER_CHANGECAR, function() ChangeCar() end, ICON(menu_chloemultiplayer_lobby,"icon_change_car") } )
+		if ChloeNet_GetCarClass() < CARCLASS_SAMEASHOST then
+			table.insert(menu_chloemultiplayer_lobby.items, { L("RANDOM CAR"), function() SetRandomCar() end, ICON(menu_chloemultiplayer_lobby,"icon_instant_action") } )
+		end
+		if ChloeNet_GetTuningAvailable() then
+			table.insert(menu_chloemultiplayer_lobby.items, { L("TUNE CAR"), function() TuneCar() end, ICON(menu_chloemultiplayer_lobby,"icon_change_upgrade_level") } )
+		end
+		table.insert(menu_chloemultiplayer_lobby.items, { ICON_MULTIPLAYER_PLAYERDETAILS, function() SelectPlayer() end, ICON(menu_chloemultiplayer_lobby,"icon_player_details") } )
+		table.insert(menu_chloemultiplayer_lobby.items, { ICON_MULTIPLAYER_SESSIONDETAILS, function() SessionDetails() end, ICON(menu_chloemultiplayer_lobby,"icon_session_details") } )
+		table.insert(menu_chloemultiplayer_lobby.items, { ICON_MAIN_OPTIONS, function() EnterOptionsMenu() end, ICON(menu_chloemultiplayer_lobby,"icon_options") } )
+		table.insert(menu_chloemultiplayer_lobby.items, { ICON_MULTIPLAYER_READY, function() ChloeNet_SetPlayerReady(1); BuildLobbyMenuButtons(); end, ICON(menu_chloemultiplayer_lobby,"icon_ready") } )
+	end
+
+	GUI:InitMenuButtons(menu_chloemultiplayer_lobby.items)
+	GUI:ShowMenuButtons(true)
+	ActiveLobbyOption = GUI:GetActiveItem()
+	GUI:SetActiveItem(ActiveLobbyOption)
+	
+	local handler = InputHandler { Name="lobbyscroll_handler" }
+	handler.onKeyPressed = function(Self, Character, VirtualKey, ScanCode)
+		if VirtualKey == KeyCodes["BUTTON_START"] then
+			menu_chloemultiplayer_lobby.items[ActiveLobbyOption][2]()
+			AUDIO.PlayMenuSound(AUDIO.MENUSFX_SELECT)
+		elseif VirtualKey == KeyCodes["BUTTON_SELECT"] then
+			menu_chloemultiplayer_lobby.back()
+			AUDIO.PlayMenuSound(AUDIO.MENUSFX_BACK)
+		elseif VirtualKey == KeyCodes["BUTTON_DOWN"] then
+			if PLAYERLIST_SCROLL < ChloeNet_GetNumPlayers() - NUMPLAYERS_LOBBYLIST then
+				PLAYERLIST_SCROLL = PLAYERLIST_SCROLL + 1
+			end
+			handler:SetFocus()
+		elseif VirtualKey == KeyCodes["BUTTON_UP"] then
+			if PLAYERLIST_SCROLL > 0 then
+				PLAYERLIST_SCROLL = PLAYERLIST_SCROLL - 1
+			end
+			handler:SetFocus()
+		elseif VirtualKey == KeyCodes["BUTTON_RIGHT"] then
+			local numitems = table.getn(menu_chloemultiplayer_lobby.items)
+			if numitems > 0 then
+				ActiveLobbyOption = math.mod(ActiveLobbyOption, numitems) + 1
+				GUI:SetActiveItem(ActiveLobbyOption)
+			end
+			AUDIO.PlayMenuSound(AUDIO.MENUSFX_MOVE)
+			handler:SetFocus()
+		elseif VirtualKey == KeyCodes["BUTTON_LEFT"] then
+			local numitems = table.getn(menu_chloemultiplayer_lobby.items)
+			if numitems > 0 then
+				ActiveLobbyOption = math.mod(ActiveLobbyOption - 2 + numitems, numitems) + 1
+				GUI:SetActiveItem(ActiveLobbyOption)
+			end
+			AUDIO.PlayMenuSound(AUDIO.MENUSFX_MOVE)
+			handler:SetFocus()
+		end
+	end
+
+	handler:SetFocus()
+end
+
+ChloeGameModeNames = {
+	[GR_DEFAULT]			= TRANSLATOR(MULTIPLAYER_GAMEMODE_RACE),
+	[GR_RACE]				= TRANSLATOR(MULTIPLAYER_GAMETYPE_RACE),
+	[GR_PONGRACE]			= TRANSLATOR(MULTIPLAYER_GAMEMODE_PONGRACE),
+	[GR_DERBY]				= TRANSLATOR(MULTIPLAYER_GAMEMODE_WRECKINGDERBY),
+	[GR_STUNT]				= TRANSLATOR(MULTIPLAYER_GAMETYPE_STUNT),
+	[GR_ARCADE_RACE]		= TRANSLATOR(ARCADEMODE_CARNAGERACE),
+	[GR_TIME_TRIAL]			= TRANSLATOR(MULTIPLAYER_TIMETRIAL),
+	[GR_BEAT_THE_BOMB]		= TRANSLATOR(ARCADEMODE_BEATTHEBOMB),
+	[GR_TONYHAWK]			= L("STUNT SHOW"),
+	[GR_SPEEDTRAP]			= L("SPEEDTRAP"),
+	[GR_DRIFT]				= L("DRIFT"),
+	[GR_LAPKNOCKOUT]		= L("LAP KNOCKOUT"),
+	[GR_KNOCKOUT]			= L("KNOCKOUT"),
+}
+
+ChloeDerbyTypeNames = {
+	[DERBY_LMS]				= MULTIPLAYER_GAMEMODE_SURVIVORDERBY,
+	[DERBY_WRECKING]		= MULTIPLAYER_GAMEMODE_WRECKINGDERBY,
+	[DERBY_FRAG]			= MULTIPLAYER_GAMEMODE_FRAGDERBY,
+}
+
+local function UpdateGameInfo(self)
+	local gameRules = ChloeNet_GetGameRules()
+	if gameRules == GR_DEFAULT then
+		gameRules = Levels[ChloeNet_GetLevelId()].Rules or GR_RACE
+	end
+	
+	if gameRules == GR_DERBY then
+		W("eventtype"):SetTitle(WStringConcat(ChloeDerbyTypeNames[ChloeNet_GetDerbyType()], L":"))
+	else
+		W("eventtype"):SetTitle(WStringConcat(ChloeGameModeNames[gameRules], L":"))
+	end
+	
+	local msg=L""
+	
+	if gameRules == GR_RACE then
+		if ChloeNet_GetTrackReversed() then
+			msg=GetPhrase(TRANSLATOR(RACETRACKTYPE_REVERSED))
+			msg=WStringConcat(msg, L" ")
+		end
+	end
+	
+	if ChloeNet_GetIsFO2Track() and ChloeCollection_DoesTrackHaveFO2Variant(ChloeNet_GetLevelId()) then
+		msg = WStringConcat(msg, L("FO2 "))
+	end
+	msg = WStringConcat(msg, L(Levels[ChloeNet_GetLevelId()].Name))
+	if gameRules == GR_RACE or gameRules == GR_PONGRACE or gameRules == GR_SPEEDTRAP or gameRules == GR_LAPKNOCKOUT then
+		if not Levels[ChloeNet_GetLevelId()].ForceOneLapOnly then
+			msg = WStringConcat(msg, L(", "..ChloeNet_GetLapCount().." "))
+			msg = WStringConcat(msg, MULTIPLAYER_LAPS)
+		end
+	elseif gameRules == GR_DERBY or gameRules == GR_TONYHAWK or gameRules == GR_DRIFT then
+		msg = WStringConcat(msg, L(", "..ChloeNet_GetLapCount().." "))
+		msg = WStringConcat(msg, MULTIPLAYER_MINUTES)
+	end
+	local numAI = ChloeNet_GetNumAI()
+	if numAI > 0 then
+		msg = WStringConcat(msg, L(", "..numAI.." AI"))
+	end
+	W("eventinfo"):SetTitle(msg)
+	
+	local havedetails = false
+	W("eventnum_title"):HideWindow()
+	W("eventnum"):HideWindow()
+	
+	if ChloeNet_IsLobbyInGame() and (gameRules == GR_RACE or gameRules == GR_PONGRACE or gameRules == GR_ARCADE_RACE or gameRules == GR_TONYHAWK or gameRules == GR_SPEEDTRAP or gameRules == GR_BEAT_THE_BOMB) then
+		local highestLap = ChloeNet_GetHighestCurrentLap() + 1
+		if highestLap > ChloeNet_GetLapCount() then
+			W("progress_title"):SetTitle(L"FINISHED:")
+			W("progress"):SetTitle(L(ChloeNet_GetNumPlayersFinished().."/"..ChloeNet_GetNumPlayersInGame()))
+		else
+			W("progress_title"):SetTitle(WStringConcat(INGAME_SCORE_LAP_TITLE, L":"))
+			W("progress"):SetTitle(L(highestLap.."/"..ChloeNet_GetLapCount()))
+		end
+	else
+		W("progress_title"):HideWindow()
+		W("progress"):HideWindow()
+	end
+	
+	--if not ChloeNet_IsLobbyInGame() then
+	--	W("progress_title"):HideWindow()
+	--	W("progress"):HideWindow()
+	--else
+	--	havedetails = true
+	--	if gameRules == GR_RACE or gameRules == GR_PONGRACE or gameRules == GR_ARCADE_RACE or gameRules == GR_BEAT_THE_BOMB then
+	--		W("progress_title"):SetTitle(WStringConcat(INGAME_SCORE_LAP_TITLE, L":"))
+	--		W("progress"):SetTitle(L(ChloeNet_GetPlayerCurrentLap(1).."/"..ChloeNet_GetLapCount()))
+	--	elseif gameRules == GR_STUNT then
+	--		W("progress_title"):SetTitle(WStringConcat(INGAME_ROUND, L":"))
+	--		W("progress"):SetTitle(L(LatestSessionInfo.RaceStatus.Value1.."/"..LatestSessionInfo.RaceStatus.Value2))
+	--	elseif gameRules == GR_DERBY and ChloeNet_GetDerbyType() == DERBY_WRECKING then
+	--		W("progress_title"):SetTitle(WStringConcat(INGAME_REMAINING, L":"))
+	--		msg = L(LatestSessionInfo.RaceStatus.Value1.."/"..LatestSessionInfo.RaceStatus.Value2.." ")
+	--		msg = WStringConcat(msg, MULTIPLAYER_PLAYERS)
+	--		msg = WStringConcat(msg, L(", "..LatestSessionInfo.RaceStatus.Value3.." "))
+	--		msg = WStringConcat(msg, MULTIPLAYER_MINUTES)
+	--		W("progress"):SetTitle(msg)
+	--	elseif gameRules == GR_DERBY and ChloeNet_GetDerbyType() == DERBY_FRAG then
+	--		W("progress_title"):SetTitle(WStringConcat(INGAME_REMAINING, L":"))
+	--		msg = L(LatestSessionInfo.RaceStatus.Value3.." ")
+	--		msg = WStringConcat(msg, MULTIPLAYER_MINUTES)
+	--		W("progress"):SetTitle(msg)
+	--	end
+	--	W("progress_title"):ShowWindow()
+	--	W("progress"):ShowWindow()
+	--end
+	
+	if havedetails then
+		W("sessiondetails_bd"):ShowWindow()
+	else
+		W("sessiondetails_bd"):HideWindow()
+	end
+
+	if ChloeNet_IsLobbyInGame() then
+		local icon = wm.GetResource("steering_wheel")
+		local win=wm.GetWindow("racestatus")
+		local iconsize = wm.GetResourceSize(icon)
+		local w,h = wm.GetTextExtents(W("eventtype"):GetTitle(), Layout.EventTypeFont)
+		local x = Layout.EventTypePos[1] - w - iconsize[1] - 3
+		win:SetPosition(x, Layout.EventTypePos[2] + 3)
+		win:SetSize(iconsize[1], iconsize[2])
+		win:AttachResource(icon)
+		win:ShowWindow()	
+	else
+		wm.GetWindow("racestatus"):HideWindow()
+	end
+	
+	wm.GetWindow("readycounter"):SetTitle(L(ChloeNet_GetNumPlayersReady().."/"..ChloeNet_GetNumPlayers().." READY"))
+end
+
+function ExitChloeMultiplayerLobby()
+	local ok=function(value)
+		if value == TRUE then
+			ChloeCustom_HostDefaultsApplied = false -- ChloeCustom
+			ChloeCustom_GhostBeforeStunt = nil
+			ChloeNet_Disconnect()
+		else
+			GUI:ShowMenuButtons()
+			SetLobbyHelpButtons()
+		end
+	end
+
+	GUI:HideMenuButtons()
+	MessageBox(MULTIPLAYER_LOBBY_QUITGAME,MESSAGEBOX_YESNO,ok)
+end
+
+menu_chloemultiplayer_lobby = CreateMenuFromTemplate("template_multiplayer")
+menu_chloemultiplayer_lobby.options.title=ICON_MULTIPLAYER_PC
+menu_chloemultiplayer_lobby.back=ExitChloeMultiplayerLobby
+
+function menu_chloemultiplayer_lobby.create(self)
+	self.parent:create(self)
+	GameFlow.ClearRace()
+
+	self:addResource("cup_next_race_elements.tga", cup_next_race_elements, cup_next_race_elements_size)
+	self:addResource("xbox_controller.tga", xbox_controller, xbox_controller_size)
+	self:addResource("garage_elements_2.tga", garage_elements_2, garage_elements_2_size)
+	self:addResource("flags2.tga", flags2, flags2_size)
+	
+	self:loadResources()
+end
+
+local function SetArcadeRaceScore(race_nr)
+	local num1 = (race_nr-1) / 6 + 1
+	local num2 = math.mod(race_nr-1, 6) + 1
+	ChloeNet_Stats_SetPlayerArcadeCareerEventScore(num1, num2, PlayerProfile:GetArcadeLevelScore(num1, num2))
+end
+
+local function SetDefaultCarForClass()
+	local carClass = ChloeNet_GetCarClass()
+	if carClass ~= CARCLASS_ANY then
+		local carlist = GetCarListForCurrentClass()
+		ChloeNet_SetPlayerCar(carlist[1].index)
+		ChloeNet_SetPlayerCarSkin(1)
+		SetBackgroundCar()
+	end
+end
+
+function menu_chloemultiplayer_lobby.init(self)
+	self.parent:init(self)
+
+	ChloeCollection_SetIsInMultiplayer(1)
+	
+	ChloeNet_SetPlayerInLobby()
+	ChloeNet_SetPlayerChangingOptions(0)
+	ChloeNet_SetPlayerChangingTrack(0)
+	ChloeNet_SetPlayerDriverType(ChloeCollection_GetCustomPlayerModelType())
+	ChloeNet_SetPlayerDriverSkin(ChloeCollection_GetCustomPlayerModelSkinID())
+	ChloeNet_SetPlayerPortraitId(Settings["Game"]["MPPortrait"] + 1)
+	ChloeNet_SetPlayerColor(Settings["Game"]["ChatColor"] + 100)
+	ChloeNet_SetPlayerFlag(Settings["Game"]["PlayerFlag"])
+	ChloeNet_SetPlayerFlagSecret(Settings["Game"]["PlayerFlag2"])
+	for i = 1, 4 do
+		ChloeNet_SetFragDerbyRewards(i, ChloeCollection_GetFragDerbyRewardAmount(i))
+	end
+	ChloeNet_SetInterpolationEnabled(Settings["Network"]["Interpolation"])
+	ChloeNet_Stats_SetPlayerArcadeCareerScore(PlayerProfile:GetArcadeTotalScore())
+	
+	if Settings["Network"]["JoinNotifs"] then
+		ChloeNet_SetJoinNotifs(1)
+	else
+		ChloeNet_SetJoinNotifs(0)
+	end
+	
+	-- ChloeCustom: defaults for a new hosted game (handling FLATOUT 2, AI class SAME AS HOST)
+	if ChloeNet_IsServer() and not ChloeCustom_HostDefaultsApplied then
+		ChloeCustom_HostDefaultsApplied = true
+		ChloeNet_Host_SetHandlingMode(HANDLING_NORMAL_FO2DOWNFORCE)
+		ChloeNet_Host_SetAIClass(4)
+	end
+	if ChloeNet_IsServer() then
+		if ChloeNet_IsUsingZMenu() or Settings["Network"]["AllowCheats"] then
+			ChloeNet_Host_SetZMenuAllowed(1)
+		else
+			ChloeNet_Host_SetZMenuAllowed(0)
+		end
+	end
+
+	local nr = 1
+	for row_nr, row in ipairs(ArcadeClasses) do
+		for race_nr, race in ipairs(row.Races) do
+			SetArcadeRaceScore(nr)
+			nr = nr + 1
+		end
+	end
+	
+	if not IsPlayerCarValidForClass() then
+		SetDefaultCarForClass()
+	end
+	
+	SetBackgroundCar()
+	MenuScene:CameraRotate(TRUE)
+	MenuScene:AllowCameraRotate(TRUE)
+	BuildLobbyMenuButtons()
+
+	local res = self:getResource("cup_title_bd")
+	Frame { Position=Layout.TitleFramePos, Size=Layout.TitleFrameSize }:AttachResource(res)
+	StaticText { Title=TITLE_LIVE_LOBBY, Font=fonttitle(), Color=Layout.TitleColor, Position=Layout.TitlePos, Size=Layout.TitleSize, Align=FONTF_CENTER }
+	
+	res = self:getResource("optim_event_bd")
+	Frame { Position=Layout.EventFramePos, Size=Layout.EventFrameSize }:AttachResource(res)
+	local eventtype = StaticText { Name="eventtype", Font=Layout.EventTypeFont, Color=Layout.EventTypeColor, Position=Layout.EventTypePos, Size=Layout.EventTypeSize, Align=FONTF_RIGHT }
+	local eventinfo = StaticText { Name="eventinfo", Font=fontlarge(), Color=Layout.EventInfoColor, Position=Layout.EventInfoPos, Size=Layout.EventInfoSize }
+
+	Frame { Name="racestatus", Position=POS(0, 0), Size=SIZE(0, 0), Layer=2 }
+	Frame { Name="progressbar_bg", Position=Layout.ProgressBarPos, Size=Layout.ProgressBarSize, DrawBackgroundColor=TRUE, Layer=1 } : AttachResource(self:getResource("black50_bd"))
+	res  = self:getResource("general_timer_fill")
+	Frame { Name="progressbar", Position=Layout.ProgressBarPos, Size=Layout.ProgressBarSize, Layer=2 }:AttachResource(res)
+
+	wm.GetWindow("progressbar"):HideWindow()
+	wm.GetWindow("progressbar_bg"):HideWindow()
+	
+	res = self:getResource("black50_bd")
+	Frame { Name="sessiondetails_bd", Position=Layout.SessionDetailsFramePos, Size=Layout.SessionDetailsFrameSize }:AttachResource(res)
+	local eventnum_title = StaticText { Name="eventnum_title", Font=fontsmall(), Color=Layout.DetailsTitleColor, Position=Layout.EventNumTitlePos, Size=Layout.EventNumTitleSize, Align=FONTF_RIGHT }
+	StaticText { Name="progress_title", Font=fontsmall(), Color=Layout.DetailsTitleColor, Position=Layout.ProgressTitlePos, Size=Layout.ProgressTitleSize, Align=FONTF_RIGHT }
+	StaticText { Name="eventnum", Font=fontsmall(), Color=Layout.DetailsColor, Position=Layout.EventNumPos, Size=Layout.EventNumSize, Parent=frame }
+	StaticText { Name="progress", Font=fontsmall(), Color=Layout.DetailsColor, Position=Layout.ProgressPos, Size=Layout.ProgressSize, Parent=frame }
+	
+	eventnum_title:SetTitle(WStringConcat(MULTIPLAYER_EVENT, L":"))
+	eventinfo:SetTitle(L"")
+	
+	local msg = StaticText { Name="msg", Position=Layout.LobbyMessagePos, Size=Layout.LobbyMessageSize, Font=Layout.LobbyMessageFont, Color=GetPaletteColor(1), TitleCentering=TITLECENTER_Y, Align=FONTF_CENTER, Layer=2 }
+	
+	local labelTemplate={
+		Font=Layout.LabelFont,
+		Position=POS(0, Layout.LabelTop), 
+		Size=SIZE(Layout.LabelWidth, Layout.LabelHeight),
+		Layer=2,
+	}
+
+	labelTemplate.Name="readycounter"
+	labelTemplate.Title=L(ChloeNet_GetNumPlayersReady().."/"..ChloeNet_GetNumPlayers().." READY")
+	labelTemplate.Position=POS(Layout.ReadyX-12, Layout.LabelTop)
+	StaticText(labelTemplate):SetColor(Layout.LabelColor, false)
+
+	labelTemplate.Name=nil
+	labelTemplate.Title=TRANSLATOR(MULTIPLAYER_GAMERTAG)
+	labelTemplate.Position=POS(Layout.NameLeft, Layout.LabelTop)
+	StaticText(labelTemplate):SetColor(Layout.LabelColor, false)
+
+	labelTemplate.Position = POS(Layout.CarLeft, Layout.LabelTop)
+	labelTemplate.Title=MULTIPLAYER_CAR
+	StaticText(labelTemplate):SetColor(Layout.LabelColor, false)
+
+	labelTemplate.Position = POS(Layout.UpgradesX, Layout.LabelTop)
+	labelTemplate.Title=L"PING"
+	StaticText(labelTemplate):SetColor(Layout.LabelColor, false)
+	
+	--local maxpl = ChloeNet_GetMaxPlayers()
+	local maxpl = NUMPLAYERS_LOBBYLIST
+	
+	local pos = LEFTPOS(0, Layout.ListTop)
+	for i = 1, maxpl do
+		local w = Frame { Name="rowbg_row"..i, Position=pos, Size=SIZE(Layout.ListWidth, Layout.RowHeight), DrawBackgroundColor=TRUE, Layer=1 }
+		w:SetColor({0,0,0,0.5*MAX_VERTEXCOLOR_A}, false)
+		pos[2] = pos[2] + Layout.RowHeight + Layout.RowPadding
+	end
+	
+	local trueskillLeft = Layout.TrueSkillCenter - GetResourceSize(self:getResource("trueskill_bd"))[1] / 2
+	
+	local listboxParams={
+		ListBoxTemplate={Name="list", Layer=2},
+		Left=Layout.ListLeft,
+		Top=Layout.ListTop,
+		LeftPadding=0,
+		RightPadding=0,
+		TopPadding=0,
+		BottomPadding=0,
+		RowWidth=Layout.ListWidth,
+		RowHeight=Layout.RowHeight,
+		RowPadding=Layout.RowPadding,
+		RowTemplate={Layer=2},
+		RowTemplateType="Frame",
+		RowTemplateCust=function(Row, RowNr)
+		end,
+		NumRows=ChloeNet_GetMaxPlayers(),
+		--NumRows=NUMPLAYERS_LOBBYLIST,
+		Coloumns={
+			{
+			Name="flag", -- _row# is added
+			ColoumnTemplate={Position=POS(Layout.FlagLeft, Layout.FlagTop), Size=wm.GetResourceSize("check_mark"), Layer=2},
+			ColoumnTemplateType="Frame",
+			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+			end
+			},
+			{
+			Name="readyfill", -- _row# is added
+			ColoumnTemplate={Position=POS(Layout.ReadyX, Layout.ReadyTop), Size=wm.GetResourceSize("check_mark"), Layer=2},
+			ColoumnTemplateType="Frame",
+			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+			end
+			},			
+			{
+			Name="readyicon", -- _row# is added
+			ColoumnTemplate={Position=POS(Layout.ReadyX, Layout.ReadyTop), Size=wm.GetResourceSize("check_mark"), Layer=2},
+			ColoumnTemplateType="Frame",
+			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+			end
+			},
+			{
+			Name="voiceicon", -- _row# is added
+			ColoumnTemplate={Position=POS(Layout.VoiceLeft, Layout.VoiceTop), Size=wm.GetResourceSize("xbox_voice_communicator"), Layer=2},
+			ColoumnTemplateType="Frame",
+			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+			end
+			},
+			{
+			Name="playername", -- _row# is added
+			ColoumnTemplate={Position=POS(Layout.NameLeft, -1), Size=SIZE(Layout.LabelWidth, Layout.RowHeight), Font=Layout.ListFont, Layer=2},
+			ColoumnTemplateType="StaticText",
+			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+				Coloumn:SetColor(Layout.ListFontColor, false)
+			end
+			},		
+			{
+			Name="car", -- _row# is added
+			ColoumnTemplate={Position=POS(Layout.CarLeft, -1), Size=SIZE(Layout.LabelWidth, Layout.RowHeight), Font=Layout.ListFont, Layer=2},
+			ColoumnTemplateType="StaticText",
+			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+				Coloumn:SetColor(Layout.ListFontColor, false)
+			end
+			},
+			{
+			Name="upgrades", -- _row# is added
+			ColoumnTemplate={Position=POS(Layout.UpgradesX, -1), Size=SIZE(100,14), Font=Layout.ListFont, Layer=2},
+			ColoumnTemplateType="StaticText",
+			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+				Coloumn:SetColor(Layout.ListFontColor, false)
+			end
+			},	
+			{
+			Name="trueskillbg", -- _row# is added
+			ColoumnTemplate={Position=POS(trueskillLeft, 0), Size=GetResourceSize(self:getResource("trueskill_bd")), Layer=2},
+			ColoumnTemplateType="Frame",
+			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+				Coloumn:AttachResource(self:getResource("trueskill_bd"))
+			end
+			},
+			{
+			Name="trueskill_blue", -- _row# is added
+			ColoumnTemplate={Position=POS(trueskillLeft + 1, 1), Size=SIZE(Layout.TrueSkillWidth, Layout.TrueSkillHeight), Layer=2},
+			ColoumnTemplateType="Frame",
+			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+				Coloumn:AttachResource(self:getResource("trueskill_blue_fill"))
+			end
+			},	
+			{
+			Name="trueskill_red", -- _row# is added
+			ColoumnTemplate={Position=POS(trueskillLeft + 1, 1), Size=SIZE(30, 14), Layer=2},
+			ColoumnTemplateType="Frame",
+			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+				Coloumn:AttachResource(self:getResource("trueskill_red_fill"))
+			end
+			},	
+			{
+			Name="trueskill_text", -- _row# is added
+			ColoumnTemplate={Font=Layout.TrueSkillFont, Position=POS(trueskillLeft + 3, 0), Size=SIZE(30, 14), Layer=2},
+			ColoumnTemplateType="StaticText",
+			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+				Coloumn:SetColor(Layout.TrueSkillColor, false)
+			end
+			},
+		}
+	}
+
+	local list=CreateMultiColoumnListBox(listboxParams)
+	list.onNeedData=function(Self, RowObject, RowNr, ControlRowNr)
+		local rowbg=wm.GetWindow(string.format("rowbg_row%i", RowNr))
+		local ready=wm.GetWindow(string.format("readyicon_row%i", RowNr))
+		local readyfill=wm.GetWindow(string.format("readyfill_row%i", RowNr))
+		local voice=wm.GetWindow(string.format("voiceicon_row%i", RowNr))
+		local name=wm.GetWindow(string.format("playername_row%i", RowNr))
+		local car=wm.GetWindow(string.format("car_row%i", RowNr))
+		local upgrades=wm.GetWindow(string.format("upgrades_row%i", RowNr))
+		local tsbg=wm.GetWindow(string.format("trueskillbg_row%i", RowNr))
+		local tsred=wm.GetWindow(string.format("trueskill_red_row%i", RowNr))
+		local tsblue=wm.GetWindow(string.format("trueskill_blue_row%i", RowNr))
+		local tstxt=wm.GetWindow(string.format("trueskill_text_row%i", RowNr))
+		local flag=wm.GetWindow(string.format("flag_row%i", RowNr))
+		if not rowbg then
+			return
+		end
+		
+		local playerId = RowNr+PLAYERLIST_SCROLL
+		
+		local c,a
+		if (Mode == SELECT_PLAYER or Mode == PLAYER_OPTIONS) and RowNr == list:GetSelectedRow() then
+			c = GetPaletteColor(14)
+			if Mode == SELECT_PLAYER then
+				a = rowbg:GetColor(true)[4]
+			else
+				a = 0.5
+			end
+		else
+			c = {0,0,0}
+			a = 0.5
+		end
+		
+		local headsetConnected=false
+		local isTalking=false
+		local voiceThroughSpeakers=false
+			
+		if not ChloeNet_IsPlayerValid(playerId) or RowNr > NUMPLAYERS_LOBBYLIST then
+			rowbg:SetColor({0,0,0,0.3*MAX_VERTEXCOLOR_A}, false)
+			ready:HideWindow()
+			voice:HideWindow()
+			tsbg:HideWindow()
+			tsblue:HideWindow()
+			tsred:HideWindow()
+			tstxt:HideWindow()
+			flag:HideWindow()
+			name:SetTitle(L"")
+			car:SetTitle(L"")
+			upgrades:SetTitle(L"")
+		else
+			rowbg:SetColor({c[1],c[2],c[3],a*MAX_VERTEXCOLOR_A}, false)
+			
+			name:SetTitle(EscapeString(ChloeNet_GetPlayerName(playerId)))
+			
+			local r,g,b=ChloeNet_GetPlayerColor(playerId)
+			name:SetColor({r,g,b,1.0*MAX_VERTEXCOLOR_A}, false)
+		
+			local icon = nil
+			local voiceIcon = nil
+			if ChloeNet_IsPlayerInGame(playerId) then
+				icon = wm.GetResource("steering_wheel")
+			else
+				if playerId == 1 then -- host player
+					icon = wm.GetResource("yellow_star")
+				elseif ChloeNet_IsPlayerReady(playerId) then
+					icon = wm.GetResource("check_mark")
+				end
+			end
+			
+			local ping = ChloeNet_GetPlayerPing(playerId)
+			upgrades:SetTitle(ConvertToWString(ping))
+			if ChloeNet_IsPlayerChatting(playerId) then
+				voiceIcon = wm.GetResource("xbox_talking")
+			end
+			
+			
+			if icon then
+				local iconsize = wm.GetResourceSize(icon)
+				ready:SetPosition(Layout.ReadyX - iconsize[1] / 2, Layout.ReadyTop)
+				ready:SetSize(iconsize[1], iconsize[2])
+				ready:AttachResource(icon)
+				ready:ShowWindow()
+			else
+				ready:HideWindow()
+			end
+			
+			if voiceIcon then
+				local iconsize = wm.GetResourceSize(voiceIcon)
+				voice:SetPosition(Layout.VoiceCenterX - iconsize[1] / 2, Layout.VoiceTop)
+				voice:SetSize(iconsize[1], iconsize[2])
+				voice:AttachResource(voiceIcon)
+				voice:ShowWindow()
+			else
+				voice:HideWindow()
+			end
+			
+			local flagRes = GetPlayerFlagResource(self, ChloeNet_GetPlayerFlag(playerId), ChloeNet_GetPlayerFlagSecret(playerId))
+			if flagRes then
+				local flagSize=GetResourceSize(flagRes)
+				flag:SetSize(flagSize[1], flagSize[2])
+				flag:AttachResource(flagRes)
+				flag:ShowWindow()
+			else
+				flag:HideWindow()
+			end
+			
+			readyfill:HideWindow()
+			
+			if ChloeNet_IsPlayerChangingOptions(playerId) then 
+				car:SetTitle(L"CHANGING OPTIONS")
+				car:SetColor(Layout.CarChangingFontColor, false)
+			elseif ChloeNet_IsPlayerChangingTrack(playerId) then 
+				car:SetTitle(L"CHANGING TRACK")
+				car:SetColor(Layout.CarChangingFontColor, false)
+			elseif ChloeNet_IsPlayerChangingCar(playerId) then 
+				car:SetTitle(MULTIPLAYER_CHANGINGCAR)
+				car:SetColor(Layout.CarChangingFontColor, false)
+			else
+				local cardata = db.FlatOut2.Cars:GetProperty("Car", ChloeNet_GetPlayerCar(playerId))
+				car:SetTitle(L(cardata.Name))
+				car:SetColor(Layout.ListFontColor, false)
+			end
+			
+			tsbg:HideWindow()
+			tsblue:HideWindow()
+			tsred:HideWindow()
+			tstxt:HideWindow()
+		end
+	end
+	
+	wm.GetWindow("list"):SetNumRows(NUMPLAYERS_LOBBYLIST)
+	
+	LobbyMessages			= { }
+	
+	if ChloeNet_IsServer() and not ChloeNet_HasPortWarningBeenShown() and (ChloeSteam_IsAvailable == nil or not ChloeSteam_IsAvailable()) then -- ChloeCustom
+		MessageBox(L("Note: To host a multiplayer game, you have to forward UDP port 23756 on your router."),MESSAGEBOX_OK,function() end)
+	end
+	
+	GUI:ShowMenuButtons()
+	SetLobbyHelpButtons()
+end
+function menu_chloemultiplayer_lobby.deinit(self)
+	self.parent:deinit(self)
+	
+	LobbyMessages = { }
+end
+function menu_chloemultiplayer_lobby.update(self, time)
+	self.parent:update(self, time)
+	
+	if ChloeNet_IsConnected() then		
+		wm.GetWindow("list"):SetNumRows(NUMPLAYERS_LOBBYLIST)
+		UpdateGameInfo(self)
+		
+		if Mode == SELECT_PLAYER then
+			local numplayers = ChloeNet_GetNumPlayers()
+			if PrevNumPlayers > numplayers then
+				local found = false
+				for i = 1, numplayers do
+					if ChloeNet_GetPlayerName(i) == SelectedPlayerPeerId then
+						found = true
+					end
+				end
+				if found then
+					wm.GetWindow("list"):SetSelectedRow(i)
+					SetSelectPlayerButtons()
+				else
+					SetSelectPlayerButtons()
+				end
+				local win=wm.GetWindow("selectplayer_handler")
+				if win then
+					wm.SetFocus(win)
+				end
+				
+			end
+			
+			if not SelectedPlayerValid then
+				local selected = wm.GetWindow("list"):GetSelectedRow()+PLAYERLIST_SCROLL
+				if ChloeNet_IsPlayerValid(selected) then
+					SetSelectPlayerButtons()
+				end
+			end
+		else
+			local win=wm.GetWindow("lobbyscroll_handler")
+			if win then
+				wm.SetFocus(win)
+			end
+		end
+		PrevNumPlayers = ChloeNet_GetNumPlayers()
+		
+		if ChloeNet_GetTuningAvailable() then
+			ChloeTuning_SetEnabledForMultiplayer(1)
+			ChloeTuning_SetActiveCarForMultiplayer(ChloeNet_GetLocalPlayerCar())
+		else
+			ChloeTuning_SetEnabledForMultiplayer(0)
+		end
+		
+		ChloeCollection_SetHandlingMode(ChloeNet_GetHandlingMode())
+		
+		if ChloeNet_GetIsFO2Track() then
+			ChloeCollection_SetTrackFO2Variant(1)
+		else
+			ChloeCollection_SetTrackFO2Variant(0)
+		end
+		
+		if ChloeNet_GetGameRules() == GR_TONYHAWK then
+			ChloeCollection_SetSpeedtrapMode(0)
+			ChloeCollection_SetDriftMode(0)
+			ChloeCollection_SetLapKnockoutMode(0)
+			
+			ChloeCollection_SetStuntSimpleUI(1)
+			ChloeCollection_SetStuntTime(ChloeNet_GetLapCount())
+			ChloeCollection_SetStuntHandling(1)
+			ChloeCollection_SetStuntMode(1)
+		elseif ChloeNet_GetGameRules() == GR_SPEEDTRAP then
+			ChloeCollection_SetStuntMode(0)
+			ChloeCollection_SetDriftMode(0)
+			ChloeCollection_SetLapKnockoutMode(0)
+			
+			ChloeCollection_SetSpeedtrapSimpleUI(1)
+			ChloeCollection_SetSpeedtrapMode(1)
+		elseif ChloeNet_GetGameRules() == GR_DRIFT then
+			ChloeCollection_SetStuntMode(0)
+			ChloeCollection_SetSpeedtrapMode(0)
+			ChloeCollection_SetLapKnockoutMode(0)
+			
+			ChloeCollection_SetDriftSimpleUI(1)
+			ChloeCollection_SetDriftTime(ChloeNet_GetLapCount())
+			ChloeCollection_SetDriftMode(1)
+		elseif ChloeNet_GetGameRules() == GR_LAPKNOCKOUT then
+			ChloeCollection_SetStuntMode(0)
+			ChloeCollection_SetSpeedtrapMode(0)
+			ChloeCollection_SetDriftMode(0)
+			
+			ChloeCollection_SetLapKnockoutMode(1)
+		elseif ChloeNet_GetGameRules() == GR_KNOCKOUT then
+			ChloeCollection_SetStuntMode(0)
+			ChloeCollection_SetSpeedtrapMode(0)
+			ChloeCollection_SetDriftMode(0)
+			
+			ChloeCollection_SetTimedKnockoutMode(1)
+		else
+			ChloeCollection_SetStuntMode(0)
+			ChloeCollection_SetSpeedtrapMode(0)
+			ChloeCollection_SetDriftMode(0)
+			ChloeCollection_SetLapKnockoutMode(0)
+		end
+		
+		ChloeCollection_SetAirControlMode(ChloeNet_GetAirControl())
+		
+		if ChloeNet_HasAnyPlayerLeft() then
+			local msg = WStringConcat(ChloeNet_GetLeftPlayerName(), L" ")
+			msg = WStringConcat(msg, MULTIPLAYER_LEFTLOBBY)
+			AddLobbyMessage(msg, GetPaletteColor(33), LOBBY_CONNECT_MESSAGE_TIME, ANIM_FADEOUT)
+		end
+		
+		if ChloeNet_HasAnyPlayerJoined() then
+			local msg = WStringConcat(ChloeNet_GetJoinedPlayerName(), L" ")
+			msg = WStringConcat(msg, MULTIPLAYER_JOINEDTHELOBBY)
+			AddLobbyMessage(msg, GetPaletteColor(33), LOBBY_CONNECT_MESSAGE_TIME, ANIM_FADEOUT)
+		end
+		
+		if not ChloeNet_IsServer() and ChloeNet_HaveGameOptionsJustChanged() then
+		--if ChloeNet_HaveGameOptionsJustChanged() then
+			if not ChloeNet_IsServer() then
+				AddLobbyMessage(MULTIPLAYER_HOSTCHANGEOPTIONS, GetPaletteColor(33), LOBBY_OPTIONSCHANGED_MESSAGE_TIME, ANIM_BLINK)
+			end
+			ChloeNet_SetPlayerReady(0)
+			BuildLobbyMenuButtons()
+		end
+		
+		if PLAYERLIST_SCROLL > ChloeNet_GetNumPlayers() - NUMPLAYERS_LOBBYLIST then
+			PLAYERLIST_SCROLL = ChloeNet_GetNumPlayers() - NUMPLAYERS_LOBBYLIST
+		end
+		if PLAYERLIST_SCROLL < 0 then
+			PLAYERLIST_SCROLL = 0
+		end
+		
+		-- update car based on the new car class
+		if ChloeNet_HasCarClassJustChanged() and not IsPlayerCarValidForClass() then
+			SetDefaultCarForClass()
+			ChloeNet_SetPlayerCarSkin(1)
+		end
+	
+		if ChloeNet_IsClient() and ChloeNet_GetCarClass() >= CARCLASS_SAMEASHOST then
+			local hostCar = ChloeNet_GetPlayerCar(1)
+			local hostCarMatchup = ChloeCollection_GetCarMatchup(hostCar)
+			if hostCarMatchup == nil then
+				hostCarMatchup = ChloeCollection_GetCarMatchupInverse(hostCar)
+			end
+			if ChloeNet_GetLocalPlayerCar() ~= hostCar and (not hostCarMatchup or ChloeNet_GetLocalPlayerCar() ~= hostCarMatchup) then
+				ChloeNet_SetPlayerCar(ChloeNet_GetPlayerCar(1))
+				ChloeNet_SetPlayerCarSkin(1)
+				SetBackgroundCar()
+			end
+		end
+	
+		if table.getn(LobbyMessages) > 0 then
+			local msgwin = wm.GetWindow("msg")
+			local curmsg = LobbyMessages[table.getn(LobbyMessages)]
+			while curmsg~=nil and curmsg.title==nil do
+				table.remove(LobbyMessages)
+				curmsg = LobbyMessages[table.getn(LobbyMessages)]
+			end
+			if curmsg~=nil then
+				if curmsg.showtime == nil then
+					curmsg.showtime = time
+					msgwin:SetTitle(curmsg.title)
+					msgwin:SetColor(curmsg.color, false)
+				end
+				if curmsg.duration ~= LOBBY_PERMANENT_MESSAGE and time > curmsg.showtime + curmsg.duration then
+					table.remove(LobbyMessages)
+					if table.getn(LobbyMessages) > 0 then
+						curmsg = LobbyMessages[table.getn(LobbyMessages)]
+						curmsg.showtime = time
+						msgwin:SetTitle(curmsg.title)
+						msgwin:SetColor(curmsg.color, false)
+					else
+						msgwin:SetTitle(L"")
+					end
+				else
+					local c = curmsg.color
+					local a
+					if curmsg.animtype == ANIM_BLINK then
+						local d = math.mod(time - curmsg.showtime, 1.0)
+						a = math.floor(d + 0.5) * MAX_VERTEXCOLOR_A
+						msgwin:SetColor({c[1],c[2],c[3],a}, false)
+					elseif curmsg.animtype == ANIM_PULSE then
+						a = (0.75 + 0.25 * (math.cos((time - curmsg.showtime) * 3.141592 * 2) + 1.0) / 2) * MAX_VERTEXCOLOR_A
+						msgwin:SetColor({c[1],c[2],c[3],a}, false)
+					elseif curmsg.animtype == ANIM_FADEOUT then
+						local fadestart = curmsg.showtime + curmsg.duration - LOBBY_MESSAGE_FADE_TIME
+						if time >= fadestart then
+							local t = (time - fadestart) / LOBBY_MESSAGE_FADE_TIME
+							a = (1 - t) * MAX_VERTEXCOLOR_A
+							msgwin:SetColor({c[1],c[2],c[3],a}, false)
+						end
+					end
+				end
+			else
+				msgwin:SetTitle(L"")
+			end
+		end
+		
+	-- drop back to multiplayer main if disconnected
+	else
+		ChloeNet_Stats_Save()
+		EnterMenu("menu_chloemultiplayer")
+	end
+end

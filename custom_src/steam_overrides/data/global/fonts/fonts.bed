@@ -1,0 +1,102 @@
+--///////////////////////////////////////////////////////////////////////////
+--// Fonts.bed
+--///////////////////////////////////////////////////////////////////////////
+--// Copyright (c) 2003 Bugbear Entertainment ltd. 
+--// All Rights Reserved.
+--// 
+--// @date 2.5.2003 12:34:16
+--// 
+--// @Author Mikko Sivulainen (mikko.sivulainen@bugbear.fi)
+--///////////////////////////////////////////////////////////////////////////
+
+GlobalFontScale=0.5
+
+--datapath for fonts
+Fonts = {
+	DataPath = "data/global/Fonts/",
+}
+
+
+
+Fonts.FontSmall = {
+	Texture = Fonts.DataPath.."TradeGothic_LT_Bugbear_14.tga",
+	Data = Fonts.DataPath.."TradeGothic_LT_Bugbear_14.abc",
+	TopPadding = -1.0,
+}
+
+Fonts.FontSmallNumbers = {
+	Texture = Fonts.DataPath.."TradeGothic_LT_Bugbear_14_thin.tga",
+	Data = Fonts.DataPath.."TradeGothic_LT_Bugbear_14_thin.abc",
+}
+
+Fonts.FontMedium = {
+	Texture = Fonts.DataPath.."TradeGothic_LT_Bugbear_16.tga",
+	Data = Fonts.DataPath.."TradeGothic_LT_Bugbear_16.abc",
+	TopPadding = -1.0,
+}
+
+Fonts.FontLarge = {
+	Texture = Fonts.DataPath.."TradeGothic_LT_Bugbear_20.tga",
+	Data = Fonts.DataPath.."TradeGothic_LT_Bugbear_20.abc",
+	TopPadding = -1.0,	
+}
+
+Fonts.FontHuge = {
+	Texture = Fonts.DataPath.."TradeGothic_LT_Bugbear_37.tga",
+	Data = Fonts.DataPath.."TradeGothic_LT_Bugbear_37.abc",
+	TopPadding = -1.0,
+}
+
+Fonts.Title = {
+	Texture = Fonts.DataPath.."TradeGothic_LT_Bugbear_20.tga",
+	Data = Fonts.DataPath.."TradeGothic_LT_Bugbear_20.abc",
+	TopPadding = -1.0,
+}
+
+Fonts.FontExtraTiny = {
+	Texture = Fonts.DataPath.."TradeGothic_LT_Bugbear_12.tga",
+	Data = Fonts.DataPath.."TradeGothic_LT_Bugbear_12.abc",
+	TopPadding = -1.0,
+}
+
+Fonts.HUDNumbers = {
+	Texture = Fonts.DataPath.."hud_numbers.tga",
+	Data = Fonts.DataPath.."hud_numbers.abc",
+	TopPadding = -1.0,
+}
+
+Fonts.FontRank = {
+	Texture = Fonts.DataPath.."TradeGothic_LT_Bugbear_black_16.tga",
+	Data = Fonts.DataPath.."TradeGothic_LT_Bugbear_black_16.abc",
+	TopPadding = -1.0,
+}
+
+Fonts.FontTiny = {
+	Texture = Fonts.DataPath.."TradeGothic_LT_Bugbear_14_hud.tga",
+	Data = Fonts.DataPath.."TradeGothic_LT_Bugbear_14_hud.abc",
+	TopPadding = -1.0,
+}
+
+Fonts.FoucBigTitle = {
+	Texture = Fonts.DataPath.."TradeGothic_LT_Bugbear_33.tga",
+	Data = Fonts.DataPath.."TradeGothic_LT_Bugbear_33.abc",
+	TopPadding = -1.0,
+}
+
+Fonts.FontHud = {
+	Texture = Fonts.DataPath.."TradeGothic_LT_Bugbear_33_hud.tga",
+	Data = Fonts.DataPath.."TradeGothic_LT_Bugbear_33_hud.abc",
+	TopPadding = -1.0,
+}
+
+Fonts.BlingBling = {
+	Texture = Fonts.DataPath.."TradeGothic_LT_Bugbear_33_bling.tga",
+	Data = Fonts.DataPath.."TradeGothic_LT_Bugbear_33_bling.abc",
+	TopPadding = -1.0,
+}
+
+Fonts.BlingHuge = {
+	Texture = Fonts.DataPath.."TradeGothic_LT_Bugbear_37_bling.tga",
+	Data = Fonts.DataPath.."TradeGothic_LT_Bugbear_37_bling.abc",
+	TopPadding = -1.0,
+}

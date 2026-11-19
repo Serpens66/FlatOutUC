@@ -1,0 +1,552 @@
+--///////////////////////////////////////////////////////////////////////////
+--// LobbySessionDetails.bed
+--///////////////////////////////////////////////////////////////////////////
+--// Copyright (c) 2005 Bugbear Entertainment ltd. 
+--// All Rights Reserved.
+--// 
+--// Created on 28.9.2005 11:27
+--// 
+--// Authors: Pasi Matilainen (pasi.matilainen@bugbear.fi)
+--///////////////////////////////////////////////////////////////////////////
+dofile("data/menu/game_mode_selector.bed")
+dofile("data/menu/xbox_controller.bed")
+dofile("data/menu/event_type_images_wide.bed")
+dofile("data/menu/event_type_images_wide_2.bed")
+dofile("data/menu/event_type_images_wide_3.bed")
+dofile("data/menu/event_type_images_wide_tt.bed")
+dofile("data/menu/event_type_images_wide_karelia.bed")
+dofile("data/menu/event_type_images_wide_kenya.bed")
+dofile("data/menu/event_type_images_wide_finland.bed")
+dofile("data/menu/event_type_images_wide_sweden.bed")
+dofile("data/menu/event_type_images_wide_switzerland.bed")
+dofile("data/menu/event_type_images_wide_arcade.bed")
+dofile("data/menu/event_type_images_wide_extras.bed")
+dofile("data/menu/track_images_wide_1.bed")
+dofile("data/menu/track_images_wide_2.bed")
+dofile("data/menu/track_images_wide_3.bed")
+dofile("data/menu/track_images_wide_4.bed")
+dofile("data/menu/track_images_wide_5.bed")
+dofile("data/menu/track_images_wide_6.bed")
+dofile("data/menu/track_images_wide_7.bed")
+
+if USE_NETWORK then
+
+local Layout=
+{
+	ListTop=273,
+	ListFont=fontextratiny(),
+	LabelLeft=170,
+	LabelLeft2=493,
+	LabelFontColor=GetPaletteColor(33),
+	
+	OptionLeft=180,
+	OptionLeft2=504,
+	OptionWidth=200,
+	OptionFontColor=GetPaletteColor(34),
+	
+	RowHeight=14,
+	RowPadding=2,
+	NumRows=6,
+	
+	NumHelpTextRows=14,
+}
+
+local EventHelpText
+
+function EnterChloeSessionDetails(title, backmenu)
+	menu_chloemultiplayer_lobby_sessiondetails.options.title = title
+	menu_chloemultiplayer_lobby_sessiondetails.back = entermenu(backmenu)
+	EnterMenu("menu_chloemultiplayer_lobby_sessiondetails")
+end
+
+local OptionItems = {
+	{
+		MULTIPLAYER_CARTYPE,
+		-- ChloeCustom: car types with only non-FlatOut-2 cars (FO1, Retro Demo, Tough Trucks, Rally Trophy, props) removed
+		{MULTIPLAYER_CARTYPE_ANY, MULTIPLAYER_OPTION_NOBONUS, MULTIPLAYER_CARTYPE_DERBY, MULTIPLAYER_CARTYPE_RACING, MULTIPLAYER_CARTYPE_STREET, MULTIPLAYER_CARTYPE_STUNT, L("BONUS STUNT"), MULTIPLAYER_OPTION_BONUS, L("FWD"), L("RWD"), L("4WD"), L("FWD NO BONUS"), L("RWD NO BONUS"), L("4WD NO BONUS"), L("TIER F-"), L("TIER F"), L("TIER D"), L("TIER C"), L("TIER B"), L("TIER A"), L("TIER S"), L("TIER S+"), MULTIPLAYER_CAR_SAMEHOST},
+		{CARCLASS_ANY, CARCLASS_NOBONUS, CARCLASS_DERBY, CARCLASS_RACING, CARCLASS_STREET, CARCLASS_STUNT, CARCLASS_BONUSSTUNT, CARCLASS_BONUS, CARCLASS_FWD, CARCLASS_RWD, CARCLASS_4WD, CARCLASS_FWDNOBONUS, CARCLASS_RWDNOBONUS, CARCLASS_4WDNOBONUS, CARCLASS_TIERF2, CARCLASS_TIERF, CARCLASS_TIERD, CARCLASS_TIERC, CARCLASS_TIERB, CARCLASS_TIERA, CARCLASS_TIERS, CARCLASS_TIERS2, -1},
+		1,
+		true,
+		nil,
+		{MULTIPLAYER_CARTYPE_ANY_DESCRIPTION, MULTIPLAYER_OPTION_NOBONUS_DESC, MULTIPLAYER_CARTYPE_DERBY_DESCRIPTION, MULTIPLAYER_CARTYPE_RACING_DESCRIPTION, MULTIPLAYER_CARTYPE_STREET_DESCRIPTION, MULTIPLAYER_CARTYPE_STUNT_DESCRIPTION, L("Use only Stunt SS cars"), MULTIPLAYER_OPTION_BONUS_DESC, L("Use only FWD cars"), L("Use only RWD cars"), L("Use only 4WD cars"), L("Use only FWD cars"), L("Use only RWD cars"), L("Use only 4WD cars"), L("Balanced around Malice"), L("Balanced around Shaker"), L("Balanced around Mad Rash"), L("Balanced around Sparrowhawk"), L("Balanced around Ventura"), L("Balanced around Sunray"), L("Balanced around Bullet GT"), L("Balanced around Flatmobile"), MULTIPLAYER_CAR_SAMEHOST_DESC}
+	},
+	{
+		L"DAMAGE LEVEL",
+		{L"0x", L"0.5x", L"1x", L"1.5x", L"2x", L"50x"},
+		{0.0, 0.5, 1.0, 1.5, 2.0, 50.0},
+		3,
+		true,
+		nil,
+		{MULTIPLAYER_RACEDAMAGELEVEL_0_DESCRIPTION, MULTIPLAYER_RACEDAMAGELEVEL_50_DESCRIPTION, MULTIPLAYER_RACEDAMAGELEVEL_100_DESCRIPTION, MULTIPLAYER_RACEDAMAGELEVEL_150_DESCRIPTION, MULTIPLAYER_RACEDAMAGELEVEL_200_DESCRIPTION, L"50x damage dealt on collision"}
+	},
+	{
+		TRANSLATOR(MULTIPLAYER_HANDLINGDAMAGE),
+		{SETTING_OFF, SETTING_ON},
+		{0, 1},
+		1,
+		true,
+		nil,
+		{TRANSLATOR(MULTIPLAYER_HANDLINGDAMAGE_NO_DESCRIPTION), TRANSLATOR(MULTIPLAYER_HANDLINGDAMAGE_YES_DESCRIPTION)}
+	},
+	{
+		MULTIPLAYER_UPGRADES,
+		{L"0%", L"50%", L"100%"},
+		{UPGRADE_NONE, UPGRADE_50, UPGRADE_100},
+		1,
+		true,
+		nil,
+		{MULTIPLAYER_UPGRADES_0_DESCRIPTION, MULTIPLAYER_UPGRADES_50_DESCRIPTION, MULTIPLAYER_UPGRADES_100_DESCRIPTION}
+	},
+	{
+		MULTIPLAYER_NITRO,
+		{L"0x", L"0.5x", L"1x", L"2x", L"50x"},
+		{0.0, 0.5, 1.0, 2.0, 50.0},
+		3,
+		true,
+		nil,
+		{MULTIPLAYER_NITRO_0_DESCRIPTION, MULTIPLAYER_NITRO_50_DESCRIPTION, MULTIPLAYER_NITRO_100_DESCRIPTION, MULTIPLAYER_NITRO_200_DESCRIPTION, L"50x Nitro"}
+	},
+	{
+		TRANSLATOR(MULTIPLAYER_NITROREGEN),
+		{OPTIONS_DEFAULT, SETTING_ON, SETTING_OFF},
+		{NITROREGEN_DEFAULT, NITROREGEN_ON, NITROREGEN_OFF},
+		1,
+		true,
+		nil,
+		{TRANSLATOR(MULTIPLAYER_NITRO_REGEN_DEFAULT_DESCRIPTION), TRANSLATOR(MULTIPLAYER_NITRO_REGEN_ON_DESCRIPTION), TRANSLATOR(MULTIPLAYER_NITRO_REGEN_OFF_DESCRIPTION)}
+	},
+	{
+		L("HANDLING MODE"),
+		{L"NORMAL", L"FLATOUT 2", L"PROFESSIONAL", L"ALTERNATE", L"LEGACY"},
+		{HANDLING_NORMAL, HANDLING_NORMAL_FO2DOWNFORCE, HANDLING_PROFESSIONAL, HANDLING_BETA, HANDLING_NORMAL_LEGACY},
+		1,
+		true,
+		nil,
+		{L("Classic arcade handling"), L("FlatOut 2 arcade handling"), L("Less forgiving, simcadey handling with no oversteer"), L("Alternate arcadey handling based on the March 16th PS2 build"), L("Pre-1.59 handling with less downforce")}
+	},
+	{
+		L("SPEED LIMIT"),
+		{L"NORMAL", L"UNCAPPED"},
+		{0, 1},
+		1,
+		true,
+		nil,
+		{L("Normal car speed limits"), L("Uncapped car speed")}
+	},
+	{
+		L("DISABLE PROPS"),
+		{SETTING_OFF, SETTING_ON},
+		{0, 1},
+		1,
+		true,
+		nil,
+		{L("Spawn trackside props"), L("Don't spawn trackside props")}
+	},
+	{
+		L("GHOST MODE"),
+		{SETTING_OFF, SETTING_ON},
+		{0, 1},
+		1,
+		true,
+		nil,
+		{L("Players can collide with each other"), L("Players can't collide with each other")}
+	},
+	{
+		L("AI CLASS"),
+		{L"DERBY", L"RACE", L"STREET", L"SAME AS HOST"},
+		{1, 2, 3, 4},
+		1,
+		true,
+		nil,
+		{L"AI drives derby cars", L"AI drives race cars", L"AI drives street cars", L"AI drives the same car as the host"} -- ChloeCustom
+	},
+	{
+		L("ALLOW CHEATS"),
+		{SETTING_OFF, SETTING_ON},
+		{0, 1},
+		2,
+		true,
+		nil,
+		{L("Trainers cannot be used in this lobby"), L("Trainers can be used in this lobby")}
+	},
+}
+
+-- OptionItem item indexes
+local Label=1
+local ItemLabels=2
+local ItemValues=3
+local SelectedItem=4
+local Enabled=5
+local OnChanged=6
+local Descriptions=7
+
+-- OptionItem indexes
+local CarType=1
+local DamageLevel=2
+local HandlingDamage=3
+local Upgrades=4
+local NitroRegen=5
+local NitroRegenType=6
+local HandlingMode=7
+local SpeedLimit=8
+local DisableProps=9
+local GhostMode=10
+local AIClass=11
+local AllowZMenu=12
+
+local NumOptions=11
+
+local function GetEnabled(RowNr)
+	return OptionItems[RowNr][Enabled]
+end
+
+local function SetEnabled(RowNr, value)
+	OptionItems[RowNr][Enabled]=value
+end
+
+local function SetSelectedItem(RowNr, Item)
+	OptionItems[RowNr][SelectedItem]=Item
+end
+
+local function SetSelectedItemByValue(RowNr, Value)
+	for i,j in ipairs(OptionItems[RowNr][ItemValues]) do
+		if j == Value then
+			SetSelectedItem(RowNr, i)
+			break
+		end
+	end
+end
+
+local function GetSelectedItemValue(rowNr)
+	return OptionItems[rowNr][ItemValues][OptionItems[rowNr][SelectedItem] ]
+end
+
+local function GetSelectedItemLabel(rowNr)
+	return OptionItems[rowNr][ItemLabels][OptionItems[rowNr][SelectedItem] ]
+end
+
+local function GetRealRowNr(RowNr)
+	local realRowNr=nil
+	local currentRow=0
+	for i=1, table.getn(OptionItems) do
+		if GetEnabled(i) then
+			currentRow = currentRow + 1
+			if currentRow == RowNr then
+				realRowNr = i
+				break
+			end
+		end
+	end
+	return realRowNr
+end
+
+local function GetRealNumRows()
+	local currentRow=0
+	for i=1, table.getn(OptionItems) do
+		if GetEnabled(i) then
+			currentRow = currentRow + 1
+		end
+	end
+	return currentRow
+end
+
+local HelpTopRow
+local NumHelpTextRows
+
+local StuntTexts = {
+	[LevelIndex.CURLING]		= "INTRO_STUNT_CURLING",
+	[LevelIndex.HIGHJUMP]		= "INTRO_STUNT_HIGHJUMP",
+	[LevelIndex.STONESKIPPING]	= "INTRO_STUNT_STONESKIPPING",
+	[LevelIndex.RINGOFFIRE]		= "INTRO_STUNT_RING",
+	[LevelIndex.DARTS]			= "INTRO_STUNT_DARTS",
+	[LevelIndex.ROYALFLUSH]		= "INTRO_STUNT_ROYALFLUSH",
+	[LevelIndex.SKIJUMP]		= "INTRO_STUNT_SKIJUMP",
+	[LevelIndex.FIELDGOAL]		= "INTRO_STUNT_FIELDGOAL",
+	[LevelIndex.BOWLING]		= "INTRO_STUNT_BOWLING",
+	[LevelIndex.BASKETBALL]		= "INTRO_STUNT_BASKETBALL",
+	[LevelIndex.BASEBALL]		= "INTRO_STUNT_BASEBALL",
+	[LevelIndex.SOCCER]			= "INTRO_STUNT_SOCCER",
+}
+
+local EventHelpEnabled
+
+local function ShowEventHelp()
+	MessageBox(EventHelpText, MESSAGEBOX_OK,
+		function(value)
+			GUI:SetHelpButtons(BUTTON_BACK, UI_BACK, BUTTON_EXTRA, UI_EVENTHELP)
+		end
+	)
+end
+
+local function HideEventHelp()
+	wm.GetWindow("eventhelp_box"):HideWindow()
+end
+
+local function InitOptions()	
+	if ChloeNet_GetCarClass() < CARCLASS_SAMEASHOST then
+		SetSelectedItemByValue(CarType, ChloeNet_GetCarClass())
+	else
+		SetSelectedItem(CarType, table.getn(OptionItems[CarType][ItemValues]))
+	end
+	
+	SetSelectedItemByValue(DamageLevel, ChloeNet_GetDamageMult())
+	if ChloeNet_GetHandlingDamage() then
+		SetSelectedItemByValue(HandlingDamage, 1)
+	else
+		SetSelectedItemByValue(HandlingDamage, 0)
+	end
+	SetSelectedItemByValue(Upgrades, ChloeNet_GetUpgradeLevel())
+	SetSelectedItemByValue(NitroRegen, ChloeNet_GetNitroMult())
+	SetSelectedItemByValue(NitroRegenType, ChloeNet_GetNitroRegen())
+	SetSelectedItemByValue(AIClass, ChloeNet_GetAIClass())
+	SetSelectedItemByValue(HandlingMode, ChloeNet_GetHandlingMode())
+	if ChloeNet_GetNoProps() then
+		SetSelectedItemByValue(DisableProps, 1)
+	else
+		SetSelectedItemByValue(DisableProps, 0)
+	end
+	if ChloeNet_GetUncappedSpeedLimit() then
+		SetSelectedItemByValue(SpeedLimit, 1)
+	else
+		SetSelectedItemByValue(SpeedLimit, 0)
+	end
+	if ChloeNet_GetNoContact() then
+		SetSelectedItemByValue(GhostMode, 1)
+	else
+		SetSelectedItemByValue(GhostMode, 0)
+	end
+	if ChloeNet_GetZMenuAllowed() then
+		SetSelectedItemByValue(AllowZMenu, 1)
+	else
+		SetSelectedItemByValue(AllowZMenu, 0)
+	end
+end
+
+menu_chloemultiplayer_lobby_sessiondetails = CreateMenuFromTemplate("template_multiplayer")
+menu_chloemultiplayer_lobby_sessiondetails.options.title = L""
+menu_chloemultiplayer_lobby_sessiondetails.back = function() end
+
+function menu_chloemultiplayer_lobby_sessiondetails.create(self)
+	self.parent:create(self)
+
+	self:addResource("game_mode_selector_ws.tga",game_mode_selector,game_mode_selector_size)
+	self:addResource("xbox_controller.tga",xbox_controller,xbox_controller_size)	
+	self:addResource("event_type_images_wide_ws.tga",event_type_images_wide,event_type_images_wide_size)
+	self:addResource("event_type_images_wide_2.tga",event_type_images_wide_2,event_type_images_wide_2_size)
+	self:addResource("event_type_images_wide_3.tga",event_type_images_wide_3,event_type_images_wide_3_size)
+	self:addResource("event_type_images_wide_tt.tga",event_type_images_wide_tt,event_type_images_wide_tt_size)
+	self:addResource("event_type_images_wide_karelia.tga",event_type_images_wide_karelia,event_type_images_wide_karelia_size)
+	self:addResource("event_type_images_wide_kenya.tga",event_type_images_wide_kenya,event_type_images_wide_kenya_size)
+	self:addResource("event_type_images_wide_finland.tga",event_type_images_wide_finland,event_type_images_wide_finland_size)
+	self:addResource("event_type_images_wide_sweden.tga",event_type_images_wide_sweden,event_type_images_wide_sweden_size)
+	self:addResource("event_type_images_wide_switzerland.tga",event_type_images_wide_switzerland,event_type_images_wide_switzerland_size)
+	self:addResource("event_type_images_wide_arcade.tga",event_type_images_wide_arcade,event_type_images_wide_arcade_size)
+	self:addResource("event_type_images_wide_extras.tga",event_type_images_wide_extras,event_type_images_wide_extras_size)
+	self:addResource("track_images_wide_1_ws.tga",track_images_wide_1,track_images_wide_1_size)	
+	self:addResource("track_images_wide_2_ws.tga",track_images_wide_2,track_images_wide_2_size)	
+	self:addResource("track_images_wide_3_ws.tga",track_images_wide_3,track_images_wide_3_size)	
+	self:addResource("track_images_wide_4_ws.tga",track_images_wide_4,track_images_wide_4_size)	
+	self:addResource("track_images_wide_5_ws.tga",track_images_wide_5,track_images_wide_5_size)	
+	self:addResource("track_images_wide_6_ws.tga",track_images_wide_6,track_images_wide_6_size)	
+	self:addResource("track_images_wide_7_ws.tga",track_images_wide_7,track_images_wide_7_size)	
+	
+	self:loadResources()
+	self.items = { }
+end
+
+function menu_chloemultiplayer_lobby_sessiondetails.init(self)
+	self.parent:init(self)
+
+	-- Title + backdrop
+	Frame { Position=LEFTPOS(0,64), Size=SIZE(ChloeWidescreen_GetRight(),42) }:AttachResource(self:getResource("game_mode_main_bd"))
+	StaticText { Name="trackname", Title=L"", Position=POS(320,63), Font=fonttitle(), Color=GetPaletteColor(33), Align=FONTF_CENTER }
+
+	-- Mid backdrop + track image
+	Frame { Position=LEFTPOS(0,110), Size=SIZE(ChloeWidescreen_GetRight(),128) }:AttachResource(self:getResource("game_mode_main_bd_2"))
+	Frame { Name="trackimage", Position=POS(64,118), Size=SIZE(512,112) }
+	
+	-- Bottom backdrops
+	Frame { Position=LEFTPOS(0,244), Size=SIZE(ChloeWidescreen_GetRight(),20) }:AttachResource(self:getResource("black50_bd"))
+	Frame { Position=LEFTPOS(0,267), Size=SIZE(286-ChloeWidescreen_GetLeft(),105) }:AttachResource(self:getResource("session_detail_str"))
+	Frame { Position=POS(286,267), Size=SIZE(70,105) }:AttachResource(self:getResource("session_detail_mid"))
+	Frame { Position=POS(356,267), Size=SIZE(ChloeWidescreen_GetRight()-356,105) }:AttachResource(self:getResource("session_detail_str"))
+	
+	-- Labels
+	StaticText { Title=TITLE_MULTIPLAYER_SESSIONDETAILS, Position=POS(320,243), Size=SIZE(200,16), Font=fontmedium(), Color=GetPaletteColor(33), Align=FONTF_CENTER }
+
+	local rules = ChloeNet_GetGameRules()
+	if rules == GR_DEFAULT then
+		rules = Levels[ChloeNet_GetLevelId()].Rules or GR_RACE
+	end
+	
+	if rules == GR_STUNT then
+		EventHelpEnabled = true
+		
+		-- Construct event help text for the current stunt
+		local stunttype = ChloeNet_GetLevelId()
+		local textid = StuntTexts[stunttype]
+		EventHelpText = L("#33"..Levels[ChloeNet_GetLevelId()].Name.."#34\n\n")
+		for i = 1,4 do
+			if i > 1 then
+				EventHelpText = WStringConcat(EventHelpText, L"\n\n")
+			end
+			EventHelpText = WStringConcat(EventHelpText, L(i..". "))
+			EventHelpText = WStringConcat(EventHelpText, _G[textid.."_"..i])
+		end
+		EventHelpText = WStringConcat(EventHelpText, L"\n")
+	else
+		EventHelpEnabled = false
+	end
+	
+	local leveldata = Levels[ChloeNet_GetLevelId()]
+	
+	local track_type=nil
+	if rules == GR_RACE then
+		track_type=leveldata.TrackType
+		if ChloeNet_GetTrackReversed() then
+			track_type=TRACKTYPE_REVERSED
+		end
+	end
+	
+	local trackname=L""
+	if track_type and track_type==TRACKTYPE_REVERSED then
+		trackname = WStringConcat(GetPhrase(TRANSLATOR(RACETRACKTYPE_REVERSED)), L" ")
+	end
+	trackname = WStringConcat(trackname, L(leveldata.Name))
+
+	W("trackname"):SetTitle(trackname)
+
+	local image = leveldata.TrackImage or ""
+	W("trackimage"):AttachResource(self:getResource(image))
+
+	InitOptions()
+	
+	local realNumOptions = GetRealNumRows()
+	local numRows1 = math.min(realNumOptions, 6)
+	local numRows2 = math.max(realNumOptions - 6, 0)
+	
+	local listboxParams = {
+		ListBoxTemplate	= { Name="optionlist1" },
+		Left			= 0,
+		Top				= Layout.ListTop,
+		LeftPadding		= 0,
+		RightPadding	= 0,
+		TopPadding		= 0,
+		BottomPadding	= 0,
+		RowWidth		= 640,
+		RowHeight		= Layout.RowHeight,
+		RowPadding		= Layout.RowPadding,
+		RowTemplate		= { },
+		RowTemplateType	= "Button",
+		RowTemplateCust	= function(Row, RowNr)
+		end,
+		NumRows	= numRows1,
+		Coloumns = {
+			[1] = {
+				Name				= "optiontitle1", -- _row# is added
+				ColoumnTemplate		= { Font=Layout.ListFont, Color=Layout.LabelFontColor, Position=POS(Layout.LabelLeft, -1), Size=SIZE(Layout.OptionWidth, Layout.RowHeight), Align=FONTF_RIGHT, Layer=4 },
+				ColoumnTemplateType	= "StaticText",
+				ColoumnTemplateCust	= function(Coloumn, RowNr, ColoumnNr)
+				end
+			},
+			[2] = {
+				Name				= "optionvalue1", -- _row# is added
+				ColoumnTemplate		= { Font=Layout.ListFont, Color=Layout.OptionFontColor, Position=POS(Layout.OptionLeft, -1), Size=SIZE(Layout.OptionWidth, Layout.RowHeight), Layer=4 },
+				ColoumnTemplateType	= "StaticText",
+				ColoumnTemplateCust	= function(Coloumn, RowNr, ColoumnNr)
+				end
+			},
+		}
+	}
+	
+	local optionlist1 = CreateMultiColoumnListBox(listboxParams)
+	optionlist1:SetNumRows(numRows1)
+	optionlist1:SetSelectedRow(1)
+	optionlist1.onNeedData = function(Self, RowObject, RowNr, ControlRowNr)
+		local title = wm.GetWindow("optiontitle1_row"..RowNr)
+		local value = wm.GetWindow("optionvalue1_row"..RowNr)
+		
+		title:SetPosition(Layout.LabelLeft + 5 * (ControlRowNr - 1), -1)
+		value:SetPosition(Layout.OptionLeft + 5 * (ControlRowNr - 1), -1)
+		
+		local realRowNr = GetRealRowNr(RowNr)
+		
+		if realRowNr then
+			title:SetTitle(OptionItems[realRowNr][Label])
+			if OptionItems[realRowNr][Enabled] then
+				value:SetLayer(4)
+				title:SetLayer(4)
+				value:SetTitle(GetSelectedItemLabel(realRowNr))
+				value:ShowWindow()
+				title:ShowWindow()
+			else
+				value:HideWindow()
+				title:HideWindow()
+			end
+		else
+			value:HideWindow()
+			title:HideWindow()	
+		end
+	end
+	
+	listboxParams.ListBoxTemplate.Name = "optionlist2"
+	listboxParams.Coloumns[1].Name = "optiontitle2"
+	listboxParams.Coloumns[2].Name = "optionvalue2"
+
+	local optionlist2 = CreateMultiColoumnListBox(listboxParams)
+	optionlist2:SetNumRows(numRows2)
+	optionlist2:SetSelectedRow(1)
+	optionlist2.onNeedData = function(Self, RowObject, RowNr, ControlRowNr)
+		local title = wm.GetWindow("optiontitle2_row"..RowNr)
+		local value = wm.GetWindow("optionvalue2_row"..RowNr)
+		
+		title:SetPosition(Layout.LabelLeft2 + 5 * (ControlRowNr - 1), -1)
+		value:SetPosition(Layout.OptionLeft2 + 5 * (ControlRowNr - 1), -1)
+		
+		local realRowNr = GetRealRowNr(RowNr + 6)
+		
+		if realRowNr then
+			title:SetTitle(OptionItems[realRowNr][Label])
+			if OptionItems[realRowNr][Enabled] then
+				value:SetLayer(4)
+				title:SetLayer(4)
+				value:SetTitle(GetSelectedItemLabel(realRowNr))
+				value:ShowWindow()
+				title:ShowWindow()
+			else
+				value:HideWindow()
+				title:HideWindow()
+			end
+		else
+			value:HideWindow()
+			title:HideWindow()	
+		end
+	end
+
+	local handler = InputHandler { Name="inputhandler" }
+	handler.onKeyPressed = function(Self, Character, VirtualKey, ScanCode)
+		if VirtualKey == KeyCodes["BUTTON_SELECT"] then
+			menu_chloemultiplayer_lobby_sessiondetails.back()
+		elseif EventHelpEnabled and VirtualKey==KeyCodes["BUTTON_Y"] then
+			ShowEventHelp()
+		end
+	end
+	
+	if EventHelpEnabled then
+		GUI:SetHelpButtons(BUTTON_BACK, UI_BACK, BUTTON_EXTRA, UI_EVENTHELP)
+	else
+		GUI:SetHelpButtons(BUTTON_BACK, UI_BACK)
+	end
+
+	handler:SetFocus()
+end
+	
+function menu_chloemultiplayer_lobby_sessiondetails.deinit(self)
+	self.parent:deinit(self)
+end
+
+function menu_chloemultiplayer_lobby_sessiondetails.update(self,time)
+	self.parent:update(self,time)
+end
+
+end --//USE_NETWORK

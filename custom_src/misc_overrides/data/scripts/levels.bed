@@ -1,0 +1,4874 @@
+
+BaseLevelPath = "data/Tracks/"
+
+-- NOTE: !!! StagePath is used also for database mapping so it is case-sensitive !!!
+
+TRACKTYPE_FOREST = 1
+TRACKTYPE_FIELDS = 2
+TRACKTYPE_DESERT = 3
+TRACKTYPE_CANAL = 4
+TRACKTYPE_CITY = 5
+TRACKTYPE_RACING = 6
+TRACKTYPE_FO1_TOWN = 7
+TRACKTYPE_FO1_PIT = 8
+TRACKTYPE_FO1_WINTER = 9
+TRACKTYPE_TOUGHTRUCKS = 10
+TRACKTYPE_RALLYTROPHY = 11
+TRACKTYPE_RALLYTROPHYARCADE = 12
+TRACKTYPE_EVENT = 13
+TRACKTYPE_STUNT = 14
+TRACKTYPE_DERBY = 15
+TRACKTYPE_REVERSED = 16
+TRACKTYPE_ARCADERACE = 17
+TRACKTYPE_BEATTHEBOMB = 18
+TRACKTYPE_TONYHAWK = 19
+TRACKTYPE_SPEEDTRAP = 20
+TRACKTYPE_GARAGETEST = 21
+
+RACETRACKTYPE_FO1_WINTER = "WINTER"
+TRACK_DESCRIPTION_FO1_WINTER = "The ever-so-narrowing lines of these snowy and frozen roads are sure to give you little panic attacks. Prepare yourself for threading the needle."
+RACETRACKTYPE_FO1_PIT = "PIT"
+TRACK_DESCRIPTION_FO1_PIT = "There is enjoyment to be had struggling in mud and sand in these quarrel pits. Do not underestimate the jumps or you might meet your maker."
+RACETRACKTYPE_FO1_TOWN = "TOWN"
+TRACK_DESCRIPTION_FO1_TOWN = "This small cozy town of Whattahoo has never felt this vicious after local racers have taken it a mission to destroy themselves on the curbs."
+RACETRACKTYPE_TOUGHTRUCKS = "TOUGH TRUCKS"
+TRACK_DESCRIPTION_TOUGHTRUCKS = "Supercross tracks designed for monster trucks repurposed for good ol' destruction racing."
+RACETRACKTYPE_RALLYTROPHY = "RALLY TROPHY"
+TRACK_DESCRIPTION_RALLYTROPHY = "Various classic and challenging point-to-point rally stages located across 5 different countries."
+RACETRACKTYPE_RALLYTROPHYARCADE = "RALLY TROPHY ARCADE"
+TRACK_DESCRIPTION_RALLYTROPHYARCADE = "Offroad multilap courses located across 5 different countries."
+
+WEATHER_SUNRISE = 0
+WEATHER_DAY = 1
+WEATHER_CLOUDYDAY = 2
+WEATHER_SUNSET = 3
+WEATHER_NIGHT = 4
+
+Levels = {
+
+	[1] = {
+			Name = "TIMBERLANDS 1",
+			Description = TRACK_DESCRIPTION_FOREST_1A,
+
+			Laps = 4,
+			AIHandicapLevel = 48,
+
+			Weathers = { WEATHER_DAY, WEATHER_SUNSET },			
+
+			TrackType = TRACKTYPE_FOREST,
+
+			TrackIcon  = "track_images_forest1",
+			TrackImage = "track_forest_1a",
+			TrackLogo  = "track_forest_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Forest/",
+			TrackPath	= BaseLevelPath.."Forest/Forest1/",
+			StagePath	= BaseLevelPath.."Forest/Forest1/A/",
+	},
+	[2] = {
+			Name = "TIMBERLANDS 2",
+			Description = TRACK_DESCRIPTION_FOREST_1B,
+
+			Laps = 4,
+			AIHandicapLevel = 49,
+			
+			Weathers = { WEATHER_NIGHT, WEATHER_DAY },
+
+			TrackType = TRACKTYPE_FOREST,			
+
+			TrackIcon  = "track_images_forest2",
+			TrackImage = "track_forest_1b",
+			TrackLogo  = "track_forest_1b_logo",
+
+			GfxSetPath	= BaseLevelPath.."Forest/",
+			TrackPath	= BaseLevelPath.."Forest/Forest1/",
+			StagePath	= BaseLevelPath.."Forest/Forest1/B/",
+			
+	},
+	[3] = {
+			Name = "TIMBERLANDS 3",
+			Description = TRACK_DESCRIPTION_FOREST_1C,
+			
+			Laps = 4,
+			AIHandicapLevel = 50,
+
+			Weathers = { WEATHER_SUNSET, WEATHER_DAY },
+
+			TrackType = TRACKTYPE_FOREST,			
+
+			TrackIcon  = "track_images_forest3",
+			TrackImage = "track_forest_1c",
+			TrackLogo  = "track_forest_1c_logo",
+
+			GfxSetPath	= BaseLevelPath.."Forest/",
+			TrackPath	= BaseLevelPath.."Forest/Forest1/",
+			StagePath	= BaseLevelPath.."Forest/Forest1/C/",
+			
+	},
+	[4] = {
+			Name = "PINEGROVE 1",
+			Description = TRACK_DESCRIPTION_FOREST_2A,
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_CLOUDYDAY, WEATHER_NIGHT },
+			
+			TrackType = TRACKTYPE_FOREST,
+
+			TrackIcon  = "track_images_forest4",
+			TrackImage = "track_forest_2a",
+			TrackLogo  = "track_forest_2a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Forest/",
+			TrackPath	= BaseLevelPath.."Forest/Forest2/",
+			StagePath	= BaseLevelPath.."Forest/Forest2/A/",
+			
+			AllowReversed = true,
+	},
+	[5] = {
+			Name = "PINEGROVE 2",
+			Description = TRACK_DESCRIPTION_FOREST_2B,
+
+			Laps = 4,
+			AIHandicapLevel = 52,
+
+			Weathers = { WEATHER_CLOUDYDAY, WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_FOREST,
+
+			TrackIcon  = "track_images_forest5",
+			TrackImage = "track_forest_2b",
+			TrackLogo  = "track_forest_2b_logo",
+
+			GfxSetPath	= BaseLevelPath.."Forest/",
+			TrackPath	= BaseLevelPath.."Forest/Forest2/",
+			StagePath	= BaseLevelPath.."Forest/Forest2/B/",
+			
+			AllowReversed = true,
+	},
+	[6] = {
+			Name = "PINEGROVE 3",
+			Description = TRACK_DESCRIPTION_FOREST_2C,
+			
+			Laps = 4,
+			AIHandicapLevel = 53,
+
+			Weathers = { WEATHER_DAY, WEATHER_NIGHT },
+			
+			TrackType = TRACKTYPE_FOREST,
+
+			TrackIcon  = "track_images_forest6",
+			TrackImage = "track_forest_2c",
+			TrackLogo  = "track_forest_2c_logo",
+
+			GfxSetPath	= BaseLevelPath.."Forest/",
+			TrackPath	= BaseLevelPath.."Forest/Forest2/",
+			StagePath	= BaseLevelPath.."Forest/Forest2/C/",
+			
+			AllowReversed = true,
+	},
+	[7] = {
+			Name = "CITY CENTRAL 1",
+			Description = TRACK_DESCRIPTION_CITY_1A,
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+
+			Weathers = { WEATHER_DAY, WEATHER_SUNSET },
+			
+			TrackType = TRACKTYPE_CITY,
+
+			TrackIcon  = "track_images_city1",
+			TrackImage = "track_city_1a",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."City/",
+			TrackPath	= BaseLevelPath.."City/City1/",
+			StagePath	= BaseLevelPath.."City/City1/A/",
+			
+	},
+	[8] = {
+			Name = "CITY CENTRAL 2",
+			Description = TRACK_DESCRIPTION_CITY_1B,
+
+			Laps = 4,
+			AIHandicapLevel = 55,
+
+			Weathers = { WEATHER_SUNSET, WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_CITY,
+
+			TrackIcon  = "track_images_city2",
+			TrackImage = "track_city_1b",
+			TrackLogo  = "track_city_1b_logo",
+
+			GfxSetPath	= BaseLevelPath.."City/",
+			TrackPath	= BaseLevelPath.."City/City1/",
+			StagePath	= BaseLevelPath.."City/City1/B/",
+			
+	},
+	[9] = {
+			Name = "CITY CENTRAL 3",
+			Description = TRACK_DESCRIPTION_CITY_1C,
+			
+			Laps = 4,
+			AIHandicapLevel = 56,
+
+			Weathers = { WEATHER_DAY, WEATHER_SUNSET },
+			
+			TrackType = TRACKTYPE_CITY,
+
+			TrackIcon  = "track_images_city3",
+			TrackImage = "track_city_1c",
+			TrackLogo  = "track_city_1c_logo",
+
+			GfxSetPath	= BaseLevelPath.."City/",
+			TrackPath	= BaseLevelPath.."City/City1/",
+			StagePath	= BaseLevelPath.."City/City1/C/",
+	},
+	[10] = {
+			Name = "DOWNTOWN 1",
+			Description = TRACK_DESCRIPTION_CITY_2A,
+			
+			Laps = 4,
+			AIHandicapLevel = 57,
+
+			Weathers = { WEATHER_DAY, WEATHER_NIGHT },
+			
+			TrackType = TRACKTYPE_CITY,
+
+			TrackIcon  = "track_images_city4",
+			TrackImage = "track_city_2a",
+			TrackLogo  = "track_city_2a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."City/",
+			TrackPath	= BaseLevelPath.."City/City2/",
+			StagePath	= BaseLevelPath.."City/City2/A/",
+	},
+	[11] = {
+			Name = "DOWNTOWN 2",
+			Description = TRACK_DESCRIPTION_CITY_2B,
+			
+			Laps = 4,
+			AIHandicapLevel = 58,
+
+			Weathers = { WEATHER_DAY, WEATHER_NIGHT },
+			
+			TrackType = TRACKTYPE_CITY,
+
+			TrackIcon  = "track_images_city5",
+			TrackImage = "track_city_2b",
+			TrackLogo  = "track_city_2b_logo",
+
+			GfxSetPath	= BaseLevelPath.."City/",
+			TrackPath	= BaseLevelPath.."City/City2/",
+			StagePath	= BaseLevelPath.."City/City2/B/",
+	},
+	[12] = {
+			Name = "DOWNTOWN 3",
+			Description = TRACK_DESCRIPTION_CITY_2C,
+			
+			Laps = 4,
+			AIHandicapLevel = 59,
+
+			Weathers = { WEATHER_NIGHT, WEATHER_SUNSET },
+			
+			TrackType = TRACKTYPE_CITY,
+
+			TrackIcon  = "track_images_city6",
+			TrackImage = "track_city_2c",
+			TrackLogo  = "track_city_2c_logo",
+
+			GfxSetPath	= BaseLevelPath.."City/",
+			TrackPath	= BaseLevelPath.."City/City2/",
+			StagePath	= BaseLevelPath.."City/City2/C/",
+	},
+	[13] = {
+			Name = "WATER CANAL 1",
+			Description = TRACK_DESCRIPTION_CANAL_1A,
+			
+			Laps = 4,
+			AIHandicapLevel = 60,
+
+			Weathers = { WEATHER_DAY, WEATHER_SUNRISE },
+			
+			TrackType = TRACKTYPE_CANAL,
+
+			TrackIcon  = "track_images_canals1",
+			TrackImage = "track_canal_1a",
+			TrackLogo  = "track_canal_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Canal/",
+			TrackPath	= BaseLevelPath.."Canal/Canal1/",
+			StagePath	= BaseLevelPath.."Canal/Canal1/A/",
+	},
+	[14] = {
+			Name = "WATER CANAL 2",
+			Description = TRACK_DESCRIPTION_CANAL_1B,
+			
+			Laps = 4,
+			AIHandicapLevel = 61,
+
+			Weathers = { WEATHER_SUNSET, WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_CANAL,
+
+			TrackIcon  = "track_images_canals2",
+			TrackImage = "track_canal_1b",
+			TrackLogo  = "track_canal_1b_logo",
+
+			GfxSetPath	= BaseLevelPath.."Canal/",
+			TrackPath	= BaseLevelPath.."Canal/Canal1/",
+			StagePath	= BaseLevelPath.."Canal/Canal1/B/",
+	},
+	[15] = {
+			Name = "WATER CANAL 3",
+			Description = TRACK_DESCRIPTION_CANAL_1C,
+			
+			Laps = 4,
+			AIHandicapLevel = 62,
+
+			Weathers = { WEATHER_CLOUDYDAY, WEATHER_SUNSET },
+			
+			TrackType = TRACKTYPE_CANAL,
+
+			TrackIcon  = "track_images_canals3",
+			TrackImage = "track_canal_1c",
+			TrackLogo  = "track_canal_1c_logo",
+
+			GfxSetPath	= BaseLevelPath.."Canal/",
+			TrackPath	= BaseLevelPath.."Canal/Canal1/",
+			StagePath	= BaseLevelPath.."Canal/Canal1/C/",
+			
+			AllowReversed = true,
+	},
+	[16] = {
+			Name = "DESERT OIL FIELD",
+			Description = TRACK_DESCRIPTION_DESERT_1A,
+			
+			Laps = 4,
+			AIHandicapLevel = 63,
+
+			Weathers = { WEATHER_SUNSET, WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_DESERT,
+
+			TrackIcon  = "track_images_desert1",
+			TrackImage = "track_desert_1a",
+			TrackLogo  = "track_desert_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Desert/",
+			TrackPath	= BaseLevelPath.."Desert/Desert1/",
+			StagePath	= BaseLevelPath.."Desert/Desert1/A/",
+	},
+	[17] = {
+			Name = "DESERT SCRAP YARD",
+			Description = TRACK_DESCRIPTION_DESERT_1B,
+			
+			Laps = 4,
+			AIHandicapLevel = 64,
+
+			Weathers = { WEATHER_DAY, WEATHER_SUNSET },
+			
+			TrackType = TRACKTYPE_DESERT,
+
+			TrackIcon  = "track_images_desert2",
+			TrackImage = "track_desert_1b",
+			TrackLogo  = "track_desert_1b_logo",
+
+			GfxSetPath	= BaseLevelPath.."Desert/",
+			TrackPath	= BaseLevelPath.."Desert/Desert1/",
+			StagePath	= BaseLevelPath.."Desert/Desert1/B/",
+			
+			AllowReversed = true,
+	},
+	[18] = {
+			Name = "DESERT TOWN",
+			Description = TRACK_DESCRIPTION_DESERT_1C,
+			Laps = 4,
+			AIHandicapLevel = 65,
+
+			Weathers = { WEATHER_SUNRISE, WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_DESERT,
+
+			TrackIcon  = "track_images_desert3",
+			TrackImage = "track_desert_1c",
+			TrackLogo  = "track_desert_1c_logo",
+
+			GfxSetPath	= BaseLevelPath.."Desert/",
+			TrackPath	= BaseLevelPath.."Desert/Desert1/",
+			StagePath	= BaseLevelPath.."Desert/Desert1/C/",
+			
+			AllowReversed = true,
+	},
+	[19] = {
+			Name = "MIDWEST RANCH 1",
+			Description = "Race track running along the outskirts of the grand Whattahoo Ranch. The route takes you along country roads hemmed in by farm machinery and hay bales.",
+			
+			Laps = 4,
+			AIHandicapLevel = 66,
+
+			Weathers = { WEATHER_DAY, WEATHER_SUNSET },
+			
+			TrackType = TRACKTYPE_FIELDS,
+
+			TrackIcon  = "track_images_fields1",
+			TrackImage = "track_fields_1a",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Fields/",
+			TrackPath	= BaseLevelPath.."Fields/Fields1/",
+			StagePath	= BaseLevelPath.."Fields/Fields1/A/",
+			
+			ForceWaterPlaneFO2 = true,
+			ForceInvisibleWaterPlane = true,
+			WaterPlaneY = 0.0,
+	},
+	[20] = {
+			Name = "MIDWEST RANCH 2",
+			Description = TRACK_DESCRIPTION_FIELDS_1B,
+			
+			Laps = 4,
+			AIHandicapLevel = 67,
+
+			Weathers = { WEATHER_SUNSET, WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_FIELDS,
+
+			TrackIcon  = "track_images_fields2",
+			TrackImage = "track_fields_1b",
+			TrackLogo  = "track_fields_1b_logo",
+
+			GfxSetPath	= BaseLevelPath.."Fields/",
+			TrackPath	= BaseLevelPath.."Fields/Fields1/",
+			StagePath	= BaseLevelPath.."Fields/Fields1/B/",
+			
+			ForceWaterPlaneFO2 = true,
+			ForceInvisibleWaterPlane = true,
+			WaterPlaneY = 0.0,
+			AllowReversed = true,
+	},
+	[21] = {
+			Name = "MIDWEST RANCH 3",
+			Description = "Farm run through the large Whattahoo Ranch along with some tight turns and nice long straights. Prepare to crash through an old farm house in the middle of the hay fields.",
+			
+			Laps = 4,
+			AIHandicapLevel = 68,
+
+			Weathers = { WEATHER_DAY, WEATHER_CLOUDYDAY },
+			
+			TrackType = TRACKTYPE_FIELDS,
+
+			TrackIcon  = "track_images_fields3",
+			TrackImage = "track_fields_1c",
+			TrackLogo  = "track_fields_1c_logo",
+
+			GfxSetPath	= BaseLevelPath.."Fields/",
+			TrackPath	= BaseLevelPath.."Fields/Fields1/",
+			StagePath	= BaseLevelPath.."Fields/Fields1/C/",
+			
+			ForceWaterPlaneFO2 = true,
+			ForceInvisibleWaterPlane = true,
+			WaterPlaneY = 0.0,
+			AllowReversed = true,
+	},
+	[22] = {
+			Name = "FARMLANDS 1",
+			Description = TRACK_DESCRIPTION_FIELDS_2A,
+			
+			Laps = 4,
+			AIHandicapLevel = 69,
+
+			Weathers = { WEATHER_CLOUDYDAY, WEATHER_SUNSET },
+			
+			TrackType = TRACKTYPE_FIELDS,
+
+			TrackIcon  = "track_images_fields4",
+			TrackImage = "track_fields_2a",
+			TrackLogo  = "track_fields_2a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Fields/",
+			TrackPath	= BaseLevelPath.."Fields/Fields2/",
+			StagePath	= BaseLevelPath.."Fields/Fields2/A/",
+			
+			ForceWaterPlaneFO2 = true,
+			ForceInvisibleWaterPlane = true,
+			WaterPlaneY = 0.0,
+			AllowReversed = true,
+	},
+	[23] = {
+			Name = "FARMLANDS 2",
+			Description = TRACK_DESCRIPTION_FIELDS_2B,
+			
+			Laps = 4,
+			AIHandicapLevel = 70,
+
+			Weathers = { WEATHER_DAY, WEATHER_CLOUDYDAY },
+			
+			TrackType = TRACKTYPE_FIELDS,
+
+			TrackIcon  = "track_images_fields5",
+			TrackImage = "track_fields_2b",
+			TrackLogo  = "track_fields_2b_logo",
+
+			GfxSetPath	= BaseLevelPath.."Fields/",
+			TrackPath	= BaseLevelPath.."Fields/Fields2/",
+			StagePath	= BaseLevelPath.."Fields/Fields2/B/",
+			
+			ForceWaterPlaneFO2 = true,
+			ForceInvisibleWaterPlane = true,
+			WaterPlaneY = 0.0,
+	},
+	[24] = {
+			Name = "FARMLANDS 3",
+			Description = TRACK_DESCRIPTION_FIELDS_2C,
+			
+			Laps = 4,
+			AIHandicapLevel = 71,
+
+			Weathers = { WEATHER_SUNSET, WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_FIELDS,
+
+			TrackIcon  = "track_images_fields6",
+			TrackImage = "track_fields_2c",
+			TrackLogo  = "track_fields_2c_logo",
+
+			GfxSetPath	= BaseLevelPath.."Fields/",
+			TrackPath	= BaseLevelPath.."Fields/Fields2/",
+			StagePath	= BaseLevelPath.."Fields/Fields2/C/",
+			
+			ForceWaterPlaneFO2 = true,
+			ForceInvisibleWaterPlane = true,
+			WaterPlaneY = 0.0,
+			AllowReversed = true,
+	},
+	[25] = {
+			Name = "RIVERBAY CIRCUIT 1",
+			Description = TRACK_DESCRIPTION_RACING_1A,
+			
+			Laps = 4,
+			AIHandicapLevel = 72,
+
+			Weathers = { WEATHER_DAY, WEATHER_SUNSET },
+			
+			TrackType = TRACKTYPE_RACING,
+
+			TrackIcon  = "track_images_racing1",
+			TrackImage = "track_racing_1a",
+			TrackLogo  = "track_racing_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Racing/",
+			TrackPath	= BaseLevelPath.."Racing/Racing1/",
+			StagePath	= BaseLevelPath.."Racing/Racing1/A/",
+	},
+	[26] = {
+			Name = "RIVERBAY CIRCUIT 2",
+			Description = TRACK_DESCRIPTION_RACING_1B,
+			
+			Laps = 4,
+			AIHandicapLevel = 73,
+
+			Weathers = { WEATHER_SUNSET, WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RACING,
+
+			TrackIcon  = "track_images_racing2",
+			TrackImage = "track_racing_1b",
+			TrackLogo  = "track_racing_1b_logo",
+
+			GfxSetPath	= BaseLevelPath.."Racing/",
+			TrackPath	= BaseLevelPath.."Racing/Racing1/",
+			StagePath	= BaseLevelPath.."Racing/Racing1/B/",
+			
+	},
+	[27] = {
+			Name = "RIVERBAY CIRCUIT 3",
+			Description = TRACK_DESCRIPTION_RACING_1C,
+			
+			Laps = 4,
+			AIHandicapLevel = 74,
+
+			Weathers = { WEATHER_SUNRISE, WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RACING,
+
+			TrackIcon  = "track_images_racing3",
+			TrackImage = "track_racing_1c",
+			TrackLogo  = "track_racing_1c_logo",
+
+			GfxSetPath	= BaseLevelPath.."Racing/",
+			TrackPath	= BaseLevelPath.."Racing/Racing1/",
+			StagePath	= BaseLevelPath.."Racing/Racing1/C/",
+	},
+	[28] = {
+			Name = "MOTOR RACEWAY 1",
+			Description = TRACK_DESCRIPTION_RACING_2A,
+			
+			Laps = 4,
+			AIHandicapLevel = 75,
+
+			Weathers = { WEATHER_DAY, WEATHER_SUNRISE },
+			
+			TrackType = TRACKTYPE_RACING,
+
+			TrackIcon  = "track_images_racing4",
+			TrackImage = "track_racing_2a",
+			TrackLogo  = "track_racing_2a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Racing/",
+			TrackPath	= BaseLevelPath.."Racing/Racing2/",
+			StagePath	= BaseLevelPath.."Racing/Racing2/A/",
+	},
+	[29] = {
+			Name = "MOTOR RACEWAY 2",
+			Description = TRACK_DESCRIPTION_RACING_2B,
+			
+			Laps = 4,
+			AIHandicapLevel = 76,
+
+			Weathers = { WEATHER_SUNSET, WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RACING,
+
+			TrackIcon  = "track_images_racing5",
+			TrackImage = "track_racing_2b",
+			TrackLogo  = "track_racing_2b_logo",
+
+			GfxSetPath	= BaseLevelPath.."Racing/",
+			TrackPath	= BaseLevelPath.."Racing/Racing2/",
+			StagePath	= BaseLevelPath.."Racing/Racing2/B/",
+	},
+	[30] = {
+			Name = "MOTOR RACEWAY 3",
+			Description = TRACK_DESCRIPTION_RACING_2C,
+			
+			Laps = 4,
+			AIHandicapLevel = 89,
+
+			Weathers = { WEATHER_NIGHT, WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RACING,
+
+			TrackIcon  = "track_images_racing6",
+			TrackImage = "track_racing_2c",
+			TrackLogo  = "track_racing_2c_logo",
+
+			GfxSetPath	= BaseLevelPath.."Racing/",
+			TrackPath	= BaseLevelPath.."Racing/Racing2/",
+			StagePath	= BaseLevelPath.."Racing/Racing2/C/",
+	},
+	[31] = {
+			Name = "GAS STATION DERBY",
+			Description = TRACK_DESCRIPTION_DERBY_1,
+			
+			Rules = GR_DERBY,
+			
+			AIHandicapLevel = 42,
+			
+			TrackType = TRACKTYPE_DERBY,
+			
+			TrackIcon  = "track_images_derby1",
+			TrackImage = "track_derby_1",
+			TrackLogo  = "track_derby_1_logo",
+
+			GfxSetPath	= BaseLevelPath.."Derby/",
+			TrackPath	= BaseLevelPath.."Derby/Derby1/",
+			StagePath	= BaseLevelPath.."Derby/Derby1/A/",
+	},
+	[32] = {
+			Name = "PARKING LOT DERBY",
+			Description = TRACK_DESCRIPTION_DERBY_2,
+			
+			Rules = GR_DERBY,
+			
+			AIHandicapLevel = 42,
+			
+			TrackIcon  = "track_images_derby2",
+			TrackImage = "track_derby_2",
+			TrackLogo  = "track_derby_2_logo",
+			
+			TrackType = TRACKTYPE_DERBY,
+			
+			GfxSetPath	= BaseLevelPath.."Derby/",
+			TrackPath	= BaseLevelPath.."Derby/Derby2/",
+			StagePath	= BaseLevelPath.."Derby/Derby2/A/",
+	},
+	[33] = {
+			Name = "SKYSCRAPER DERBY",
+			Description = TRACK_DESCRIPTION_DERBY_3,
+			
+			Rules = GR_DERBY,
+			
+			AIHandicapLevel = 42,
+
+			TrackIcon  = "track_images_derby3",
+			TrackImage = "track_derby_3",
+			TrackLogo  = "track_derby_3_logo",
+			
+			TrackType = TRACKTYPE_DERBY,
+	
+			GfxSetPath	= BaseLevelPath.."Derby/",
+			TrackPath	= BaseLevelPath.."Derby/Derby3/",
+			StagePath	= BaseLevelPath.."Derby/Derby3/A/",
+	},
+	[34] = {
+			Name = "DERBY BOWL 1",
+			Description = TRACK_DESCRIPTION_DERBY_4,
+			
+			Rules = GR_DERBY,
+			
+			AIHandicapLevel = 42,
+
+			TrackIcon  = "track_images_derby4",
+			TrackImage = "track_derby_4",
+			TrackLogo  = "track_derby_4_logo",
+			
+			TrackType = TRACKTYPE_DERBY,
+
+			GfxSetPath	= BaseLevelPath.."Derby/",
+			TrackPath	= BaseLevelPath.."Derby/Derby4/",
+			StagePath	= BaseLevelPath.."Derby/Derby4/A/",
+	},
+	[35] = {
+			Name = "DERBY BOWL 2",
+			Description = TRACK_DESCRIPTION_DERBY_5,
+			
+			Rules = GR_DERBY,
+			
+			AIHandicapLevel = 42,
+
+			TrackIcon  = "track_images_derby5",
+			TrackImage = "track_derby_5",
+			TrackLogo  = "track_derby_5_logo",
+			
+			TrackType = TRACKTYPE_DERBY,
+
+			GfxSetPath	= BaseLevelPath.."Derby/",
+			TrackPath	= BaseLevelPath.."Derby/Derby5/",
+			StagePath	= BaseLevelPath.."Derby/Derby5/A/",
+	},
+	[36] = {
+			Name = "DERBY BOWL 3",
+			Description = TRACK_DESCRIPTION_DERBY_6,
+			
+			Rules = GR_DERBY,
+
+			TrackIcon  = "track_images_derby6",
+			TrackImage = "track_derby_6",
+			TrackLogo  = "track_derby_6_logo",
+			
+			TrackType = TRACKTYPE_DERBY,
+
+			AIHandicapLevel = 42,
+			
+			GfxSetPath	= BaseLevelPath.."Derby/",
+			TrackPath	= BaseLevelPath.."Derby/Derby6/",
+			StagePath	= BaseLevelPath.."Derby/Derby6/A/",
+			
+			--ForceWaterPlaneFO2 = true,
+	},
+	[37] = {
+		    Name = "FIGURE OF EIGHT 1",
+		    Description = TRACK_DESCRIPTION_ARENA_1,
+			
+			Laps = 4,
+			AIHandicapLevel = 12,
+		    NitroRegen = true,
+
+			TrackIcon  = "track_images_dirt1",
+			TrackImage = "track_arena_1",
+			TrackLogo  = "track_arena_1_logo",
+			
+			TrackType = TRACKTYPE_EVENT,
+	
+			GfxSetPath	= BaseLevelPath.."Arena/",
+			TrackPath	= BaseLevelPath.."Arena/Arena1/",
+			StagePath	= BaseLevelPath.."Arena/Arena1/A/",
+	},
+	[38] = {
+			Name = "TRILOOP SPECIAL",
+			Description = TRACK_DESCRIPTION_ARENA_2,
+			
+			Laps = 4,
+			AIHandicapLevel = 15,
+		    NitroRegen = true,
+			
+			TrackIcon  = "track_images_dirt2",
+			TrackImage = "track_arena_2",
+			TrackLogo  = "track_arena_2_logo",
+			
+			TrackType = TRACKTYPE_EVENT,
+
+			GfxSetPath	= BaseLevelPath.."Arena/",
+			TrackPath	= BaseLevelPath.."Arena/Arena2/",
+			StagePath	= BaseLevelPath.."Arena/Arena2/A/",
+			
+			AllowReversed = true,
+	},
+	[39] = {
+			Name = "SPEEDBOWL",
+			Description = TRACK_DESCRIPTION_ARENA_3,
+			
+			Laps = 4,
+			AIHandicapLevel = 17,
+		    NitroRegen = true,
+
+			TrackIcon  = "track_images_dirt3",
+			TrackImage = "track_arena_3",
+			TrackLogo  = "track_arena_3_logo",
+			
+			TrackType = TRACKTYPE_EVENT,
+
+			GfxSetPath	= BaseLevelPath.."Arena/",
+			TrackPath	= BaseLevelPath.."Arena/Arena3/",
+			StagePath	= BaseLevelPath.."Arena/Arena3/A/",
+	},
+	[40] = {
+			Name = "SAND SPEEDWAY",
+			Description = TRACK_DESCRIPTION_ARENA_4,
+			
+			Laps = 4,
+			AIHandicapLevel = 20,
+		    NitroRegen = true,
+			
+			TrackIcon  = "track_images_dirt4",
+			TrackImage = "track_arena_4",
+			TrackLogo  = "track_arena_4_logo",
+			
+			TrackType = TRACKTYPE_EVENT,
+
+			GfxSetPath	= BaseLevelPath.."Arena/",
+			TrackPath	= BaseLevelPath.."Arena/Arena4/",
+			StagePath	= BaseLevelPath.."Arena/Arena4/A/",
+			
+			AllowReversed = true,
+	},
+	[41] = {
+			Name = "FIGURE OF EIGHT 2",
+			Description = TRACK_DESCRIPTION_ARENA_5,
+			
+			Laps = 4,
+			AIHandicapLevel = 22,
+		    NitroRegen = true,
+			
+			TrackIcon  = "track_images_dirt5",
+			TrackImage = "track_arena_5",
+			TrackLogo  = "track_arena_5_logo",
+			
+			TrackType = TRACKTYPE_EVENT,
+
+			GfxSetPath	= BaseLevelPath.."Arena/",
+			TrackPath	= BaseLevelPath.."Arena/Arena5/",
+			StagePath	= BaseLevelPath.."Arena/Arena5/A/",
+			
+			AllowReversed = true,
+	},
+	[42] = {
+			Name = "CRASH ALLEY",
+			Description = TRACK_DESCRIPTION_ARENA_6,
+			
+			Laps = 4,
+			AIHandicapLevel = 25,
+		    NitroRegen = true,
+
+			TrackIcon  = "track_images_dirt6",
+			TrackImage = "track_arena_6",
+			TrackLogo  = "track_arena_6_logo",
+			
+			TrackType = TRACKTYPE_EVENT,
+
+			GfxSetPath	= BaseLevelPath.."Arena/",
+			TrackPath	= BaseLevelPath.."Arena/Arena6/",
+			StagePath	= BaseLevelPath.."Arena/Arena6/A/",
+	},
+	[43] = {
+			Name = "SPEEDWAY LEFT",
+			Description = TRACK_DESCRIPTION_NASCAR_1A,
+			
+			Laps = 4,
+			AIHandicapLevel = 30,
+		    NitroRegen = true,
+			
+			TrackIcon  = "track_images_oval1",
+			TrackImage = "track_oval_1",
+			TrackLogo  = "track_oval_1_logo",
+			
+			TrackType = TRACKTYPE_EVENT,
+
+			GfxSetPath	= BaseLevelPath.."Nascar/",
+			TrackPath	= BaseLevelPath.."Nascar/Nascar1/",
+			StagePath	= BaseLevelPath.."Nascar/Nascar1/A/",
+			
+			AllowReversed = true,
+	},
+	[44] = {
+			Name = "SPEEDWAY RIGHT",
+			Description = TRACK_DESCRIPTION_NASCAR_1B,
+			
+			Laps = 4,
+			AIHandicapLevel = 34,
+		    NitroRegen = true,
+			
+			TrackIcon  = "track_images_oval2",
+			TrackImage = "track_oval_2",
+			TrackLogo  = "track_oval_2_logo",
+			
+			TrackType = TRACKTYPE_EVENT,
+
+			GfxSetPath	= BaseLevelPath.."Nascar/",
+			TrackPath	= BaseLevelPath.."Nascar/Nascar1/",
+			StagePath	= BaseLevelPath.."Nascar/Nascar1/B/",
+			
+	},
+	[45] = {
+			Name = "SPEEDWAY SPECIAL",
+			Description = TRACK_DESCRIPTION_NASCAR_1C,
+			
+			Laps = 4,
+			AIHandicapLevel = 39,
+		    NitroRegen = true,
+
+			TrackIcon  = "track_images_oval3",
+			TrackImage = "track_oval_3",
+			TrackLogo  = "track_oval_3_logo",
+			
+			TrackType = TRACKTYPE_EVENT,
+			
+			GfxSetPath	= BaseLevelPath.."Nascar/",
+			TrackPath	= BaseLevelPath.."Nascar/Nascar1/",
+			StagePath	= BaseLevelPath.."Nascar/Nascar1/C/",
+	},
+	[46] = {
+			Name = "GARAGE TEST TRACK",
+			Description = "",
+			
+			Rules = GR_TEST,
+
+			Laps = 4,
+			AIHandicapLevel = 42,
+			
+			TrackIcon  = "track_images_oval1",
+			TrackImage = "track_oval_1",
+			TrackLogo  = "track_oval_1_logo",
+			
+			TrackType = TRACKTYPE_GARAGETEST,
+			
+			GfxSetPath	= BaseLevelPath.."GarageTest/",
+			TrackPath	= BaseLevelPath.."GarageTest/GarageTest1/",
+			StagePath	= BaseLevelPath.."GarageTest/GarageTest1/A/",
+	},
+	[47] = {
+			Name = "HIGH JUMP",
+			Description = TRACK_DESCRIPTION_HIGHJUMP,
+
+			Rules 			= GR_STUNT,
+			StuntType		= STUNT_HIGHJUMP,
+			StartPosition	= 2,
+			Weather			= 5,
+
+			TrackIcon  = "track_images_stunt6",
+			TrackImage = "stunt_A2_image",
+			TrackLogo  = "stunt_A2_logo",
+			
+			TrackType = TRACKTYPE_STUNT,
+
+			GfxSetPath	= BaseLevelPath.."Stunt/",
+			TrackPath	= BaseLevelPath.."Stunt/Stunt1/",
+			StagePath	= BaseLevelPath.."Stunt/Stunt1/A/",
+			
+			ForceNoWaterPlaneFO2 = true,
+	},
+	[48] = {
+			Name = "BOWLING",
+			Description = TRACK_DESCRIPTION_BOWLING,
+			
+			Rules 			= GR_STUNT,
+			StuntType		= STUNT_BOWLING,
+			StartPosition	= 3,
+			Weather			= 1,
+
+			TrackIcon  = "track_images_stunt10",
+			TrackImage = "stunt_B3_image",
+			TrackLogo  = "stunt_B3_logo",
+			
+			TrackType = TRACKTYPE_STUNT,
+			
+			GfxSetPath	= BaseLevelPath.."Stunt/",
+			TrackPath	= BaseLevelPath.."Stunt/Stunt2/",
+			StagePath	= BaseLevelPath.."Stunt/Stunt2/A/",
+	},
+	[49] = {
+			Name = "SKI JUMP",
+			Description = TRACK_DESCRIPTION_SKIJUMP,
+			
+			Rules 			= GR_STUNT,
+			StuntType		= STUNT_SKIJUMP,
+			StartPosition	= 1,
+			Weather			= 3,
+
+			TrackIcon  = "track_images_stunt12",
+			TrackImage = "stunt_B1_image",
+			TrackLogo  = "stunt_B1_logo",
+			
+			TrackType = TRACKTYPE_STUNT,
+			
+			GfxSetPath	= BaseLevelPath.."Stunt/",
+			TrackPath	= BaseLevelPath.."Stunt/Stunt2/",
+			StagePath	= BaseLevelPath.."Stunt/Stunt2/A/",
+	},
+	[50] = {
+			Name = "CURLING",
+			Description = TRACK_DESCRIPTION_CURLING,
+			Rules 			= GR_STUNT,
+			StuntType		= STUNT_CURLING,
+			StartPosition	= 1,
+			Weather			= 4,
+			
+			TrackIcon  = "track_images_stunt1",
+			TrackImage = "stunt_A1_image",
+			TrackLogo  = "stunt_A1_logo",
+			
+			TrackType = TRACKTYPE_STUNT,
+
+			GfxSetPath	= BaseLevelPath.."Stunt/",
+			TrackPath	= BaseLevelPath.."Stunt/Stunt1/",
+			StagePath	= BaseLevelPath.."Stunt/Stunt1/A/",
+			
+			ForceNoWaterPlaneFO2 = true,
+	},
+	[51] = {
+			Name = "STONE-SKIPPING",
+			Description = TRACK_DESCRIPTION_STONESKIPPING,
+			
+			Rules 			= GR_STUNT,
+			StuntType		= STUNT_STONESKIPPING,
+			StartPosition	= 3,
+			Weather			= 3,
+
+			TrackIcon  = "track_images_stunt2",
+			TrackImage = "stunt_A3_image",
+			TrackLogo  = "stunt_A3_logo",
+			
+			TrackType = TRACKTYPE_STUNT,
+			
+			GfxSetPath	= BaseLevelPath.."Stunt/",
+			TrackPath	= BaseLevelPath.."Stunt/Stunt1/",
+			StagePath	= BaseLevelPath.."Stunt/Stunt1/A/",
+			
+			ForceNoWaterPlaneFO2 = true,
+	},
+	[52] = {
+			Name = "RING OF FIRE",
+			Description = TRACK_DESCRIPTION_RINGOFFIRE,
+			
+			Rules 			= GR_STUNT,
+			StuntType		= STUNT_RINGOFFIRE,
+			StartPosition	= 4,
+			Weather			= 2,
+
+			TrackIcon  = "track_images_stunt3",
+			TrackImage = "stunt_A4_image",
+			TrackLogo  = "stunt_A4_logo",
+			
+			TrackType = TRACKTYPE_STUNT,
+			
+			GfxSetPath	= BaseLevelPath.."Stunt/",
+			TrackPath	= BaseLevelPath.."Stunt/Stunt1/",
+			StagePath	= BaseLevelPath.."Stunt/Stunt1/A/",
+			
+			ForceNoWaterPlaneFO2 = true,
+	},
+	[53] = {
+			Name = "FIELD GOAL",
+			Description = TRACK_DESCRIPTION_FIELDGOAL,
+			
+			Rules 			= GR_STUNT,
+			StuntType		= STUNT_FIELDGOAL,
+			StartPosition	= 2,
+			Weather			= 0,
+
+			TrackIcon  = "track_images_stunt11",
+			TrackImage = "stunt_B2_image",
+			TrackLogo  = "stunt_B2_logo",
+			
+			TrackType = TRACKTYPE_STUNT,
+			
+			GfxSetPath	= BaseLevelPath.."Stunt/",
+			TrackPath	= BaseLevelPath.."Stunt/Stunt2/",
+			StagePath	= BaseLevelPath.."Stunt/Stunt2/A/",
+	},
+	[54] = {
+			Name = "ROYAL FLUSH",
+			Description = TRACK_DESCRIPTION_ROYALFLUSH,
+			
+			Rules 			= GR_STUNT,
+			StuntType		= STUNT_BLACKDANNY,
+			StartPosition	= 6,
+			Weather			= 0,
+
+			TrackIcon  = "track_images_stunt4",
+			TrackImage = "stunt_A6_image",
+			TrackLogo  = "stunt_A6_logo",
+			
+			TrackType = TRACKTYPE_STUNT,
+			
+			GfxSetPath	= BaseLevelPath.."Stunt/",
+			TrackPath	= BaseLevelPath.."Stunt/Stunt1/",
+			StagePath	= BaseLevelPath.."Stunt/Stunt1/A/",
+			
+			ForceNoWaterPlaneFO2 = true,
+	},
+	[55] = {
+			Name = "BASKETBALL",
+			Description = TRACK_DESCRIPTION_BASKETBALL,
+			
+			Rules 			= GR_STUNT,
+			StuntType		= STUNT_BASKETBALL,
+			StartPosition	= 4,
+			Weather			= 4,
+
+			TrackIcon  = "track_images_stunt9",
+			TrackImage = "stunt_B4_image",
+			TrackLogo  = "stunt_B4_logo",
+			
+			TrackType = TRACKTYPE_STUNT,
+			
+			GfxSetPath	= BaseLevelPath.."Stunt/",
+			TrackPath	= BaseLevelPath.."Stunt/Stunt2/",
+			StagePath	= BaseLevelPath.."Stunt/Stunt2/A/",
+	},
+	[56] = {
+			Name = "DARTS",
+			Description = TRACK_DESCRIPTION_DARTS,
+			
+			Rules 			= GR_STUNT,
+			StuntType		= STUNT_DARTS,
+			StartPosition	= 5,
+			Weather			= 5,
+
+			TrackIcon  = "track_images_stunt5",
+			TrackImage = "stunt_A5_image",
+			TrackLogo  = "stunt_A5_logo",
+			
+			TrackType = TRACKTYPE_STUNT,
+			
+			GfxSetPath	= BaseLevelPath.."Stunt/",
+			TrackPath	= BaseLevelPath.."Stunt/Stunt1/",
+			StagePath	= BaseLevelPath.."Stunt/Stunt1/A/",
+			
+			ForceNoWaterPlaneFO2 = true,
+	},
+	[57] = {
+			Name = "BASEBALL",
+			Description = TRACK_DESCRIPTION_BASEBALL,
+			
+			Rules 			= GR_STUNT,
+			StuntType		= STUNT_BASEBALL,
+			StartPosition	= 5,
+			Weather			= 0,
+
+			TrackIcon  = "track_images_stunt7",
+			TrackImage = "stunt_B5_image",
+			TrackLogo  = "stunt_B5_logo",	
+			
+			TrackType = TRACKTYPE_STUNT,		
+
+			GfxSetPath	= BaseLevelPath.."Stunt/",
+			TrackPath	= BaseLevelPath.."Stunt/Stunt2/",
+			StagePath	= BaseLevelPath.."Stunt/Stunt2/A/",
+	},
+	[58] = {
+			Name = "SOCCER",
+			Description = TRACK_DESCRIPTION_SOCCER,
+			
+			Rules 			= GR_STUNT,
+			StuntType		= STUNT_SOCCER,
+			StartPosition	= 6,
+			Weather			= 0,
+
+			TrackIcon  = "track_images_stunt8",
+			TrackImage = "stunt_B6_image",
+			TrackLogo  = "stunt_B6_logo",
+			
+			TrackType = TRACKTYPE_STUNT,
+			
+			GfxSetPath	= BaseLevelPath.."Stunt/",
+			TrackPath	= BaseLevelPath.."Stunt/Stunt2/",
+			StagePath	= BaseLevelPath.."Stunt/Stunt2/A/",
+	},
+	[59] = {
+			Name = "WHATTAHOO WHAM",
+			Description = "This short route takes you from the town center to a small bit of the nearby forest, passing by a gas station on the way.",
+
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_FO1_TOWN,
+
+			TrackIcon  = "race_type_fo1_town2",
+			TrackImage = "event_fo1_town2",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Town/",
+			TrackPath	= BaseLevelPath.."Town/Town2/",
+			StagePath	= BaseLevelPath.."Town/Town2/A/",
+			
+			UseFO1Soundtrack = true,
+			AllowReversed = true,
+	},
+	[60] = {
+			Name = "WHATTAHOO RUSH HOUR",
+			Description = "A race from the local police station to the outskirts of town. Prepare to crash through an under-construction house.",
+
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_FO1_TOWN,
+
+			TrackIcon  = "race_type_fo1_town2",
+			TrackImage = "event_fo1_town2",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Town/",
+			TrackPath	= BaseLevelPath.."Town/Town2/",
+			StagePath	= BaseLevelPath.."Town/Town2/B/",
+			
+			UseFO1Soundtrack = true,
+			AllowReversed = true,
+	},
+	[61] = {
+			Name = "WHATTAHOO ROADRUN",
+			Description = "Passing by a motel and crashing through a barn, this route is sure to give you a taste of everything this town has to offer.",
+
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_FO1_TOWN,
+
+			TrackIcon  = "race_type_fo1_town2",
+			TrackImage = "event_fo1_town2",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Town/",
+			TrackPath	= BaseLevelPath.."Town/Town2/",
+			StagePath	= BaseLevelPath.."Town/Town2/C/",
+			
+			UseFO1Soundtrack = true,
+			AllowReversed = true,
+	},
+	[62] = {
+			Name = "BUNKER CHALLENGE",
+			Description = "Race around the rim of F.Johnson's Sand Pit Inc. dig site with large elevation changes, jumps and construction machines.",
+
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_FO1_PIT,
+
+			TrackIcon  = "race_type_fo1_pit1",
+			TrackImage = "event_fo1_pit1",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Pit/",
+			TrackPath	= BaseLevelPath.."Pit/Pit1/",
+			StagePath	= BaseLevelPath.."Pit/Pit1/A/",
+			
+			UseFO1Soundtrack = true,
+	},
+	[63] = {
+			Name = "BUNKER HILL HAVOC",
+			Description = "Race through the busiest sections of F.Johnson's sand pit with ample heavy machinery in the way.",
+
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_FO1_PIT,
+
+			TrackIcon  = "race_type_fo1_pit1",
+			TrackImage = "event_fo1_pit1",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Pit/",
+			TrackPath	= BaseLevelPath.."Pit/Pit1/",
+			StagePath	= BaseLevelPath.."Pit/Pit1/B/",
+			
+			UseFO1Soundtrack = true,
+	},
+	[64] = {
+			Name = "BUNKER BIGBANG RUN",
+			Description = "Highly technical route around the sand pits. Wonder where the name 'Bigbang' comes from? Hit the hairpin and find out.",
+
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_FO1_PIT,
+
+			TrackIcon  = "race_type_fo1_pit1",
+			TrackImage = "event_fo1_pit1",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Pit/",
+			TrackPath	= BaseLevelPath.."Pit/Pit1/",
+			StagePath	= BaseLevelPath.."Pit/Pit1/C/",
+			
+			UseFO1Soundtrack = true,
+	},
+	[65] = {
+			Name = "BRAD'S PIT CRASH",
+			Description = "Broad paths cutting through sand mountains. Don't get too awestruck or the technical sections will get you.",
+
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_FO1_PIT,
+
+			TrackIcon  = "race_type_fo1_pit2",
+			TrackImage = "event_fo1_pit2",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Pit/",
+			TrackPath	= BaseLevelPath.."Pit/Pit2/",
+			StagePath	= BaseLevelPath.."Pit/Pit2/A/",
+			
+			UseFO1Soundtrack = true,
+	},
+	[66] = {
+			Name = "BRAD'S SANDRUN",
+			Description = "This route takes you around the outer edges of Brad's sandpit, where the Flatmobile landed its first 900.",
+
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_FO1_PIT,
+
+			TrackIcon  = "race_type_fo1_pit2",
+			TrackImage = "event_fo1_pit2",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Pit/",
+			TrackPath	= BaseLevelPath.."Pit/Pit2/",
+			StagePath	= BaseLevelPath.."Pit/Pit2/B/",
+			
+			UseFO1Soundtrack = true,
+	},
+	[67] = {
+			Name = "BRAD'S SUPER DUSTUP",
+			Description = "Brad's engineers invented a new 'super dust' that's coarse, rough and gets everywhere...dust it off the outer edges of this pit.",
+
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_FO1_PIT,
+
+			TrackIcon  = "race_type_fo1_pit2",
+			TrackImage = "event_fo1_pit2",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Pit/",
+			TrackPath	= BaseLevelPath.."Pit/Pit2/",
+			StagePath	= BaseLevelPath.."Pit/Pit2/C/",
+			
+			UseFO1Soundtrack = true,
+	},
+	[68] = {
+			Name = "MOUND MAYHEM",
+			Description = "Long corners and massive roadside dirt mounds define this route. The road's lined with heavy machinery ready for any opponent you send into it.",
+
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_FO1_PIT,
+
+			TrackIcon  = "race_type_fo1_pit3",
+			TrackImage = "event_fo1_pit3",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Pit/",
+			TrackPath	= BaseLevelPath.."Pit/Pit3/",
+			StagePath	= BaseLevelPath.."Pit/Pit3/A/",
+			
+			UseFO1Soundtrack = true,
+			AllowReversed = true,
+	},
+	[69] = {
+			Name = "GRAVEL SUPERSMASH",
+			Description = "Diverse set of corners and crests make this route a smash hit. Unexpected turns, on-road obstacles and destructibles make races unpredictable.",
+
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_FO1_PIT,
+
+			TrackIcon  = "race_type_fo1_pit3",
+			TrackImage = "event_fo1_pit3",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Pit/",
+			TrackPath	= BaseLevelPath.."Pit/Pit3/",
+			StagePath	= BaseLevelPath.."Pit/Pit3/B/",
+			
+			UseFO1Soundtrack = true,
+			AllowReversed = true,
+	},
+	[70] = {
+			Name = "GRAVEL ROCK RUN",
+			Description = "If, and only if, you survive turn 1, you get to experience a mix of the previous two routes of this pit in reverse.",
+
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_FO1_PIT,
+
+			TrackIcon  = "race_type_fo1_pit3",
+			TrackImage = "event_fo1_pit3",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Pit/",
+			TrackPath	= BaseLevelPath.."Pit/Pit3/",
+			StagePath	= BaseLevelPath.."Pit/Pit3/C/",
+			
+			UseFO1Soundtrack = true,
+			AllowReversed = true,
+	},
+	[71] = {
+			Name = "HAYVILLE HAVOC",
+			Description = "See an old bridge, crash through barns, drive through a yard, and avoid the water tower in front of Honest John's used car dealership.",
+
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_FIELDS,
+
+			TrackIcon  = "race_type_fo1_town3",
+			TrackImage = "event_fo1_town3",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Town/",
+			TrackPath	= BaseLevelPath.."Town/Town3/",
+			StagePath	= BaseLevelPath.."Town/Town3/A/",
+			
+			UseFO1Soundtrack = true,
+	},
+	[72] = {
+			Name = "HAYVILLE FARMDASH",
+			Description = "Pass the remains of Honest John's used car dealership, then snake your way around a bunch of local barnhouses.",
+
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_FIELDS,
+
+			TrackIcon  = "race_type_fo1_town3",
+			TrackImage = "event_fo1_town3",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Town/",
+			TrackPath	= BaseLevelPath.."Town/Town3/",
+			StagePath	= BaseLevelPath.."Town/Town3/B/",
+			
+			UseFO1Soundtrack = true,
+	},
+	[73] = {
+			Name = "HAYVILLE HAYSTAKKER",
+			Description = "Note: The water tower in front of Honest John's can't be used to end cop chases. Otherwise, this here's Hayville Havoc in reverse.",
+
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_FIELDS,
+
+			TrackIcon  = "race_type_fo1_town3",
+			TrackImage = "event_fo1_town3",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Town/",
+			TrackPath	= BaseLevelPath.."Town/Town3/",
+			StagePath	= BaseLevelPath.."Town/Town3/C/",
+			
+			UseFO1Soundtrack = true,
+	},
+	[74] = {
+			Name = "WOODLAND HAVOC",
+			Description = "Simple circuit carved through hacked woodlands. The semi-trailer shortcuts might chop your top.",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_FOREST,
+
+			TrackIcon  = "race_type_fo1_forest1",
+			TrackImage = "event_fo1_forest1",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."FO1Forest/",
+			TrackPath	= BaseLevelPath.."FO1Forest/FO1Forest1/",
+			StagePath	= BaseLevelPath.."FO1Forest/FO1Forest1/A/",
+			
+			UseFO1Soundtrack = true,
+	},
+	[75] = {
+			Name = "WOODLAND MAYHEM",
+			Description = "Running clockwise, this alternate route offers more complicated corners for fair and balanced racing.",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_FOREST,
+
+			TrackIcon  = "race_type_fo1_forest1",
+			TrackImage = "event_fo1_forest1",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."FO1Forest/",
+			TrackPath	= BaseLevelPath.."FO1Forest/FO1Forest1/",
+			StagePath	= BaseLevelPath.."FO1Forest/FO1Forest1/B/",
+			
+			UseFO1Soundtrack = true,
+	},
+	[76] = {
+			Name = "WOODLAND CHALLENGE",
+			Description = "Cutting through the woods at the start, this route rejoins the alternate path, but counter-clockwise.",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_FOREST,
+
+			TrackIcon  = "race_type_fo1_forest1",
+			TrackImage = "event_fo1_forest1",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."FO1Forest/",
+			TrackPath	= BaseLevelPath.."FO1Forest/FO1Forest1/",
+			StagePath	= BaseLevelPath.."FO1Forest/FO1Forest1/C/",
+			
+			UseFO1Soundtrack = true,
+	},
+	[77] = {
+			Name = "FINCHLEY TRIAL RUN",
+			Description = "The starting stadium's the one built up thing around here. Only thing you'll put enemies into is trees. A million trees.",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_FOREST,
+
+			TrackIcon  = "race_type_fo1_forest2",
+			TrackImage = "event_fo1_forest2",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."FO1Forest/",
+			TrackPath	= BaseLevelPath.."FO1Forest/FO1Forest2/",
+			StagePath	= BaseLevelPath.."FO1Forest/FO1Forest2/A/",
+			
+			UseFO1Soundtrack = true,
+	},
+	[78] = {
+			Name = "FINCHLEY CHALLENGE",
+			Description = "Challenge your sense of direction with this compacted route of half a dozen U-turns before rejoining a normal race track.",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_FOREST,
+
+			TrackIcon  = "race_type_fo1_forest2",
+			TrackImage = "event_fo1_forest2",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."FO1Forest/",
+			TrackPath	= BaseLevelPath.."FO1Forest/FO1Forest2/",
+			StagePath	= BaseLevelPath.."FO1Forest/FO1Forest2/B/",
+			
+			UseFO1Soundtrack = true,
+	},
+	[79] = {
+			Name = "FINCHLEY TIMBERDASH",
+			Description = "Run the place in reverse and experience one of the nastiest S-turns this side of Whattahoo. Keep middle and watch out for blind jumps.",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_FOREST,
+
+			TrackIcon  = "race_type_fo1_forest2",
+			TrackImage = "event_fo1_forest2",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."FO1Forest/",
+			TrackPath	= BaseLevelPath.."FO1Forest/FO1Forest2/",
+			StagePath	= BaseLevelPath.."FO1Forest/FO1Forest2/C/",
+			
+			UseFO1Soundtrack = true,
+	},
+	[80] = {
+			Name = "PINEWOOD CRASHCUP",
+			Description = "Host of motor racing for decades, Pinewood's prominent path is easy to follow, but running wide usually results in a nasty rollover.",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_FOREST,
+
+			TrackIcon  = "race_type_fo1_forest3",
+			TrackImage = "event_fo1_forest3",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."FO1Forest/",
+			TrackPath	= BaseLevelPath.."FO1Forest/FO1Forest3/",
+			StagePath	= BaseLevelPath.."FO1Forest/FO1Forest3/A/",
+			
+			UseFO1Soundtrack = true,
+	},
+	[81] = {
+			Name = "PINEWOOD QUALIFIER",
+			Description = "Detour from the main path to drive around the service area, then experience Pinewood's notorious alternate route.",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_FOREST,
+
+			TrackIcon  = "race_type_fo1_forest3",
+			TrackImage = "event_fo1_forest3",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."FO1Forest/",
+			TrackPath	= BaseLevelPath.."FO1Forest/FO1Forest3/",
+			StagePath	= BaseLevelPath.."FO1Forest/FO1Forest3/B/",
+			
+			UseFO1Soundtrack = true,
+	},
+	[82] = {
+			Name = "PINEWOOD CHALLENGE",
+			Description = "Run Pinewood in reverse (which is illegal), and experience the alternate route that Jason cooked up in his garage.",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_FOREST,
+
+			TrackIcon  = "race_type_fo1_forest3",
+			TrackImage = "event_fo1_forest3",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."FO1Forest/",
+			TrackPath	= BaseLevelPath.."FO1Forest/FO1Forest3/",
+			StagePath	= BaseLevelPath.."FO1Forest/FO1Forest3/C/",
+			
+			UseFO1Soundtrack = true,
+	},
+	[83] = {
+			Name = "REDPINE RACE DASH",
+			Description = "Beautiful Redpine River with the streams frozen over. Start on the ice, drive over the dam and circle back around.",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_FO1_WINTER,
+
+			TrackIcon  = "race_type_fo1_winter1",
+			TrackImage = "event_fo1_winter1",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Winter/",
+			TrackPath	= BaseLevelPath.."Winter/Winter1/",
+			StagePath	= BaseLevelPath.."Winter/Winter1/A/",
+			
+			UseFO1Soundtrack = true,
+			AllowReversed = true,
+	},
+	[84] = {
+			Name = "REDPINE RUN",
+			Description = "Experience the tarmac roads around the river, blast past a fishing house usually not accessible by car, and go round again.",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_FO1_WINTER,
+
+			TrackIcon  = "race_type_fo1_winter1",
+			TrackImage = "event_fo1_winter1",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Winter/",
+			TrackPath	= BaseLevelPath.."Winter/Winter1/",
+			StagePath	= BaseLevelPath.."Winter/Winter1/B/",
+			
+			UseFO1Soundtrack = true,
+			AllowReversed = true,
+	},
+	[85] = {
+			Name = "REDPINE ZERO COURSE",
+			Description = "Technical route snaking around the frozen river rapids. Make sure your cornering isn't on thin ice.",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_FO1_WINTER,
+
+			TrackIcon  = "race_type_fo1_winter1",
+			TrackImage = "event_fo1_winter1",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Winter/",
+			TrackPath	= BaseLevelPath.."Winter/Winter1/",
+			StagePath	= BaseLevelPath.."Winter/Winter1/C/",
+			
+			UseFO1Soundtrack = true,
+			AllowReversed = true,
+	},
+	[86] = {
+			Name = "WHITEFISH RALLY",
+			Description = "Set on a frozen lake, Whitefish is adorned by stricken fishing boats and shortcuts around every turn.",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_FO1_WINTER,
+
+			TrackIcon  = "race_type_fo1_winter2",
+			TrackImage = "event_fo1_winter2",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Winter/",
+			TrackPath	= BaseLevelPath.."Winter/Winter2/",
+			StagePath	= BaseLevelPath.."Winter/Winter2/A/",
+			
+			UseFO1Soundtrack = true,
+			AllowReversed = true,
+	},
+	[87] = {
+			Name = "WHITEFISH RUN",
+			Description = "Starting on the ice, this route takes you to a lakeside path and an ever-so-narrow section of the icy lake.",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_FO1_WINTER,
+
+			TrackIcon  = "race_type_fo1_winter2",
+			TrackImage = "event_fo1_winter2",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Winter/",
+			TrackPath	= BaseLevelPath.."Winter/Winter2/",
+			StagePath	= BaseLevelPath.."Winter/Winter2/B/",
+			
+			UseFO1Soundtrack = true,
+			AllowReversed = true,
+	},
+	[88] = {
+			Name = "WHITEFISH ZERO COURSE",
+			Description = "You thought Whitefish Rally was cool? Experience it in reverse!",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_FO1_WINTER,
+
+			TrackIcon  = "race_type_fo1_winter2",
+			TrackImage = "event_fo1_winter2",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Winter/",
+			TrackPath	= BaseLevelPath.."Winter/Winter2/",
+			StagePath	= BaseLevelPath.."Winter/Winter2/C/",
+			
+			UseFO1Soundtrack = true,
+			AllowReversed = true,
+	},
+	[89] = {
+			Name = "BAY AMATEUR RUN",
+			Description = "Bay Circuit's under maintenance, there's nobody to stop some hooligans from trashing the place.",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RACING,
+
+			TrackIcon  = "race_type_fo1_racing1",
+			TrackImage = "event_fo1_racing1",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."FO1Racing/",
+			TrackPath	= BaseLevelPath.."FO1Racing/FO1Racing1/",
+			StagePath	= BaseLevelPath.."FO1Racing/FO1Racing1/A/",
+			
+			UseFO1Soundtrack = true,
+	},
+	[90] = {
+			Name = "BAY CUP RUN",
+			Description = "Starts as a short layout and finishes with the infamous 'boot' section of the Bay. So it's short and it's long.",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RACING,
+
+			TrackIcon  = "race_type_fo1_racing1",
+			TrackImage = "event_fo1_racing1",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."FO1Racing/",
+			TrackPath	= BaseLevelPath.."FO1Racing/FO1Racing1/",
+			StagePath	= BaseLevelPath.."FO1Racing/FO1Racing1/B/",
+			
+			UseFO1Soundtrack = true,
+	},
+	[91] = {
+			Name = "BAY CHALLENGE",
+			Description = "Only thing challenged is your ability to stomach driving around the place backwards.",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RACING,
+
+			TrackIcon  = "race_type_fo1_racing1",
+			TrackImage = "event_fo1_racing1",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."FO1Racing/",
+			TrackPath	= BaseLevelPath.."FO1Racing/FO1Racing1/",
+			StagePath	= BaseLevelPath.."FO1Racing/FO1Racing1/C/",
+			
+			UseFO1Soundtrack = true,
+	},
+	[92] = {
+			Name = "FAIRGRASS CUP",
+			Description = "Fairgrass Grounds, perfect showcase of pure driving skills. Demolish the signs and ignore the chicane.",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RACING,
+
+			TrackIcon  = "race_type_fo1_racing2",
+			TrackImage = "event_fo1_racing2",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."FO1Racing/",
+			TrackPath	= BaseLevelPath.."FO1Racing/FO1Racing2/",
+			StagePath	= BaseLevelPath.."FO1Racing/FO1Racing2/A/",
+			
+			UseFO1Soundtrack = true,
+	},
+	[93] = {
+			Name = "FAIRGRASS RUN",
+			Description = "This route takes you into the newly built section past the lake. It's not up to the same standards yet.",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RACING,
+
+			TrackIcon  = "race_type_fo1_racing2",
+			TrackImage = "event_fo1_racing2",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."FO1Racing/",
+			TrackPath	= BaseLevelPath.."FO1Racing/FO1Racing2/",
+			StagePath	= BaseLevelPath.."FO1Racing/FO1Racing2/B/",
+			
+			UseFO1Soundtrack = true,
+	},
+	[94] = {
+			Name = "FAIRGRASS CHALLENGE",
+			Description = "Some say crossing the line in the pits is a rite of passage. Jack did it first try. So did Frank. Will you?",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RACING,
+
+			TrackIcon  = "race_type_fo1_racing2",
+			TrackImage = "event_fo1_racing2",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."FO1Racing/",
+			TrackPath	= BaseLevelPath.."FO1Racing/FO1Racing2/",
+			StagePath	= BaseLevelPath.."FO1Racing/FO1Racing2/C/",
+			
+			UseFO1Soundtrack = true,
+	},
+	[95] = {
+			Name = "RETRO FOREST 1",
+			Description = "The forest track from the 2002 BugBear Retro Demo. It features a vast staging area and great corners for real racing.",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_FOREST,
+
+			TrackIcon  = "race_type_retrodemo1",
+			TrackImage = "event_retrodemo1",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."RetroDemo/",
+			TrackPath	= BaseLevelPath.."RetroDemo/RetroDemo1/",
+			StagePath	= BaseLevelPath.."RetroDemo/RetroDemo1/A/",
+			
+			UseFO1Soundtrack = true,			
+			AllowReversed = true,
+	},
+	[96] = {
+			Name = "RETRO FOREST 2",
+			Description = "Alternate layout for the forest track from the 2002 BugBear Retro Demo. Real short track action between giant mounds of dirt.",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_FOREST,
+
+			TrackIcon  = "race_type_retrodemo1",
+			TrackImage = "event_retrodemo1",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."RetroDemo/",
+			TrackPath	= BaseLevelPath.."RetroDemo/RetroDemo1/",
+			StagePath	= BaseLevelPath.."RetroDemo/RetroDemo1/B/",
+			
+			UseFO1Soundtrack = true,			
+			AllowReversed = true,
+	},
+	[97] = {
+			Name = "RETRO PIT 1",
+			Description = "The sand pit from the 2002 BugBear Retro Demo. It features a layout so good it was reused in a game 16 years newer, or 11 years newer than this one that you're currently playing.",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_FO1_PIT,
+
+			TrackIcon  = "race_type_retrodemo2",
+			TrackImage = "event_retrodemo2",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."RetroDemo/",
+			TrackPath	= BaseLevelPath.."RetroDemo/RetroDemo2/",
+			StagePath	= BaseLevelPath.."RetroDemo/RetroDemo2/A/",
+			
+			UseFO1Soundtrack = true,			
+			AllowReversed = true,
+	},
+	[98] = {
+			Name = "RETRO PIT 2",
+			Description = "A new short track for the sand pit from the 2002 BugBear Retro Demo that's so chaotic it's guaranteed to put the 'Carnage' in 'Ultimate Carnage'.",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_FO1_PIT,
+
+			TrackIcon  = "race_type_retrodemo2",
+			TrackImage = "event_retrodemo2",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."RetroDemo/",
+			TrackPath	= BaseLevelPath.."RetroDemo/RetroDemo2/",
+			StagePath	= BaseLevelPath.."RetroDemo/RetroDemo2/B/",
+			
+			UseFO1Soundtrack = true,
+	},
+	[99] = {
+			Name = "TOUGH TRUCKS STAGE 1",
+			Description = "",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_TOUGHTRUCKS,
+
+			TrackIcon  = "race_type_toughtrucks1",
+			TrackImage = "event_toughtrucks1",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."ToughTrucks/",
+			TrackPath	= BaseLevelPath.."ToughTrucks/ToughTrucks1/",
+			StagePath	= BaseLevelPath.."ToughTrucks/ToughTrucks1/A/",
+			
+			UseToughTrucksSoundtrack = true,
+	},
+	[100] = {
+			Name = "TOUGH TRUCKS STAGE 2",
+			Description = "",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_TOUGHTRUCKS,
+
+			TrackIcon  = "race_type_toughtrucks1",
+			TrackImage = "event_toughtrucks2",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."ToughTrucks/",
+			TrackPath	= BaseLevelPath.."ToughTrucks/ToughTrucks2/",
+			StagePath	= BaseLevelPath.."ToughTrucks/ToughTrucks2/A/",
+			
+			UseToughTrucksSoundtrack = true,
+	},
+	[101] = {
+			Name = "TOUGH TRUCKS STAGE 3",
+			Description = "",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_TOUGHTRUCKS,
+
+			TrackIcon  = "race_type_toughtrucks1",
+			TrackImage = "event_toughtrucks3",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."ToughTrucks/",
+			TrackPath	= BaseLevelPath.."ToughTrucks/ToughTrucks3/",
+			StagePath	= BaseLevelPath.."ToughTrucks/ToughTrucks3/A/",
+			
+			UseToughTrucksSoundtrack = true,
+	},
+	[102] = {
+			Name = "TOUGH TRUCKS STAGE 4",
+			Description = "",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_TOUGHTRUCKS,
+
+			TrackIcon  = "race_type_toughtrucks1",
+			TrackImage = "event_toughtrucks4",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."ToughTrucks/",
+			TrackPath	= BaseLevelPath.."ToughTrucks/ToughTrucks4/",
+			StagePath	= BaseLevelPath.."ToughTrucks/ToughTrucks4/A/",
+			
+			UseToughTrucksSoundtrack = true,
+	},
+	[103] = {
+			Name = "TOUGH TRUCKS STAGE 5",
+			Description = "",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_TOUGHTRUCKS,
+
+			TrackIcon  = "race_type_toughtrucks1",
+			TrackImage = "event_toughtrucks5",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."ToughTrucks/",
+			TrackPath	= BaseLevelPath.."ToughTrucks/ToughTrucks5/",
+			StagePath	= BaseLevelPath.."ToughTrucks/ToughTrucks5/A/",
+			
+			UseToughTrucksSoundtrack = true,
+	},
+	[104] = {
+			Name = "TOUGH TRUCKS STAGE 6",
+			Description = "",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_TOUGHTRUCKS,
+
+			TrackIcon  = "race_type_toughtrucks1",
+			TrackImage = "event_toughtrucks6",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."ToughTrucks/",
+			TrackPath	= BaseLevelPath.."ToughTrucks/ToughTrucks6/",
+			StagePath	= BaseLevelPath.."ToughTrucks/ToughTrucks6/A/",
+			
+			UseToughTrucksSoundtrack = true,
+	},
+	[105] = {
+			Name = "TOUGH TRUCKS STAGE 7",
+			Description = "",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_TOUGHTRUCKS,
+
+			TrackIcon  = "race_type_toughtrucks1",
+			TrackImage = "event_toughtrucks7",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."ToughTrucks/",
+			TrackPath	= BaseLevelPath.."ToughTrucks/ToughTrucks7/",
+			StagePath	= BaseLevelPath.."ToughTrucks/ToughTrucks7/A/",
+			
+			UseToughTrucksSoundtrack = true,
+	},
+	[106] = {
+			Name = "TOUGH TRUCKS STAGE 8",
+			Description = "",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_TOUGHTRUCKS,
+
+			TrackIcon  = "race_type_toughtrucks1",
+			TrackImage = "event_toughtrucks8",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."ToughTrucks/",
+			TrackPath	= BaseLevelPath.."ToughTrucks/ToughTrucks8/",
+			StagePath	= BaseLevelPath.."ToughTrucks/ToughTrucks8/A/",
+			
+			UseToughTrucksSoundtrack = true,
+	},
+	[107] = {
+			Name = "TOUGH TRUCKS STAGE 9",
+			Description = "",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_TOUGHTRUCKS,
+
+			TrackIcon  = "race_type_toughtrucks1",
+			TrackImage = "event_toughtrucks9",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."ToughTrucks/",
+			TrackPath	= BaseLevelPath.."ToughTrucks/ToughTrucks9/",
+			StagePath	= BaseLevelPath.."ToughTrucks/ToughTrucks9/A/",
+			
+			UseToughTrucksSoundtrack = true,
+	},
+	[108] = {
+			Name = "TOUGH TRUCKS STAGE 10",
+			Description = "",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_TOUGHTRUCKS,
+
+			TrackIcon  = "race_type_toughtrucks1",
+			TrackImage = "event_toughtrucks10",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."ToughTrucks/",
+			TrackPath	= BaseLevelPath.."ToughTrucks/ToughTrucks10/",
+			StagePath	= BaseLevelPath.."ToughTrucks/ToughTrucks10/A/",
+			
+			UseToughTrucksSoundtrack = true,
+	},
+	[109] = {
+			Name = "TOUGH TRUCKS STAGE 11",
+			Description = "",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_TOUGHTRUCKS,
+
+			TrackIcon  = "race_type_toughtrucks1",
+			TrackImage = "event_toughtrucks11",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."ToughTrucks/",
+			TrackPath	= BaseLevelPath.."ToughTrucks/ToughTrucks11/",
+			StagePath	= BaseLevelPath.."ToughTrucks/ToughTrucks11/A/",
+			
+			UseToughTrucksSoundtrack = true,
+	},
+	[110] = {
+			Name = "TOUGH TRUCKS STAGE 12",
+			Description = "",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_TOUGHTRUCKS,
+
+			TrackIcon  = "race_type_toughtrucks1",
+			TrackImage = "event_toughtrucks12",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."ToughTrucks/",
+			TrackPath	= BaseLevelPath.."ToughTrucks/ToughTrucks12/",
+			StagePath	= BaseLevelPath.."ToughTrucks/ToughTrucks12/A/",
+			
+			UseToughTrucksSoundtrack = true,
+	},
+	[111] = {
+			Name = "TOUGH TRUCKS STAGE 13",
+			Description = "",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_TOUGHTRUCKS,
+
+			TrackIcon  = "race_type_toughtrucks1",
+			TrackImage = "event_toughtrucks13",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."ToughTrucks/",
+			TrackPath	= BaseLevelPath.."ToughTrucks/ToughTrucks13/",
+			StagePath	= BaseLevelPath.."ToughTrucks/ToughTrucks13/A/",
+			
+			UseToughTrucksSoundtrack = true,
+	},
+	[112] = {
+			Name = "TOUGH TRUCKS STAGE 14",
+			Description = "",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_TOUGHTRUCKS,
+
+			TrackIcon  = "race_type_toughtrucks1",
+			TrackImage = "event_toughtrucks14",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."ToughTrucks/",
+			TrackPath	= BaseLevelPath.."ToughTrucks/ToughTrucks14/",
+			StagePath	= BaseLevelPath.."ToughTrucks/ToughTrucks14/A/",
+			
+			UseToughTrucksSoundtrack = true,
+	},
+	[113] = {
+			Name = "TOUGH TRUCKS STAGE 15",
+			Description = "",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_TOUGHTRUCKS,
+
+			TrackIcon  = "race_type_toughtrucks1",
+			TrackImage = "event_toughtrucks15",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."ToughTrucks/",
+			TrackPath	= BaseLevelPath.."ToughTrucks/ToughTrucks15/",
+			StagePath	= BaseLevelPath.."ToughTrucks/ToughTrucks15/A/",
+			
+			UseToughTrucksSoundtrack = true,
+	},
+	[114] = {
+			Name = "TOUGH TRUCKS STAGE 16",
+			Description = "",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_TOUGHTRUCKS,
+
+			TrackIcon  = "race_type_toughtrucks1",
+			TrackImage = "event_toughtrucks16",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."ToughTrucks/",
+			TrackPath	= BaseLevelPath.."ToughTrucks/ToughTrucks16/",
+			StagePath	= BaseLevelPath.."ToughTrucks/ToughTrucks16/A/",
+			
+			UseToughTrucksSoundtrack = true,
+	},
+	[115] = {
+			Name = "KARELIA STAGE 1",
+			Description = "",
+
+			Laps = 1,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHY,
+
+			TrackIcon  = "race_type_rallytrophykarelia",
+			TrackImage = "event_rallytrophykarelia1",
+			TrackLogo  = "track_fields_1a_logo",
+			TrackImageBig  = "track_images_karelia1_big",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally1/",
+			StagePath	= BaseLevelPath.."Rally/Rally1/A/",
+			
+			UseRallyTrophySoundtrack = true,
+			ForceOneLapOnly = true,
+			ExtendedMPSync = true,
+			IncreasedVisibility = true,
+			TextureFolder = "textures1/",
+			RallyTrophySoundtrackID = 1,
+			ResetInVoid = true,
+			IsRallyTrack = true,
+	},
+	[116] = {
+			Name = "KARELIA STAGE 2",
+			Description = "",
+
+			Laps = 1,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHY,
+
+			TrackIcon  = "race_type_rallytrophykarelia",
+			TrackImage = "event_rallytrophykarelia2",
+			TrackLogo  = "track_fields_1a_logo",
+			TrackImageBig  = "track_images_karelia2_big",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally1/",
+			StagePath	= BaseLevelPath.."Rally/Rally1/B/",
+			
+			UseRallyTrophySoundtrack = true,
+			ForceOneLapOnly = true,
+			ExtendedMPSync = true,
+			IncreasedVisibility = true,
+			TextureFolder = "textures1/",
+			RallyTrophySoundtrackID = 1,
+			ResetInVoid = true,
+			IsRallyTrack = true,
+	},
+	[117] = {
+			Name = "KARELIA STAGE 3",
+			Description = "",
+
+			Laps = 1,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHY,
+
+			TrackIcon  = "race_type_rallytrophykarelia",
+			TrackImage = "event_rallytrophykarelia3",
+			TrackLogo  = "track_fields_1a_logo",
+			TrackImageBig  = "track_images_karelia3_big",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally1/",
+			StagePath	= BaseLevelPath.."Rally/Rally1/C/",
+			
+			UseRallyTrophySoundtrack = true,
+			ForceOneLapOnly = true,
+			ExtendedMPSync = true,
+			IncreasedVisibility = true,
+			TextureFolder = "textures1/",
+			RallyTrophySoundtrackID = 1,
+			ResetInVoid = true,
+			IsRallyTrack = true,
+	},
+	[118] = {
+			Name = "KARELIA STAGE 4",
+			Description = "",
+
+			Laps = 1,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHY,
+
+			TrackIcon  = "race_type_rallytrophykarelia",
+			TrackImage = "event_rallytrophykarelia4",
+			TrackLogo  = "track_fields_1a_logo",
+			TrackImageBig  = "track_images_karelia4_big",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally1/",
+			StagePath	= BaseLevelPath.."Rally/Rally1/D/",
+			
+			UseRallyTrophySoundtrack = true,
+			ForceOneLapOnly = true,
+			ExtendedMPSync = true,
+			IncreasedVisibility = true,
+			TextureFolder = "textures1/",
+			RallyTrophySoundtrackID = 1,
+			ResetInVoid = true,
+			IsRallyTrack = true,
+	},
+	[119] = {
+			Name = "KARELIA STAGE 5",
+			Description = "",
+
+			Laps = 1,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHY,
+
+			TrackIcon  = "race_type_rallytrophykarelia",
+			TrackImage = "event_rallytrophykarelia5",
+			TrackLogo  = "track_fields_1a_logo",
+			TrackImageBig  = "track_images_karelia5_big",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally1/",
+			StagePath	= BaseLevelPath.."Rally/Rally1/E/",
+			
+			UseRallyTrophySoundtrack = true,
+			ForceOneLapOnly = true,
+			ExtendedMPSync = true,
+			IncreasedVisibility = true,
+			TextureFolder = "textures1/",
+			RallyTrophySoundtrackID = 1,
+			ResetInVoid = true,
+			IsRallyTrack = true,
+	},
+	[120] = {
+			Name = "KARELIA STAGE 6",
+			Description = "",
+
+			Laps = 1,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHY,
+
+			TrackIcon  = "race_type_rallytrophykarelia",
+			TrackImage = "event_rallytrophykarelia6",
+			TrackLogo  = "track_fields_1a_logo",
+			TrackImageBig  = "track_images_karelia6_big",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally1/",
+			StagePath	= BaseLevelPath.."Rally/Rally1/F/",
+			
+			UseRallyTrophySoundtrack = true,
+			ForceOneLapOnly = true,
+			ExtendedMPSync = true,
+			IncreasedVisibility = true,
+			TextureFolder = "textures1/",
+			RallyTrophySoundtrackID = 1,
+			ResetInVoid = true,
+			IsRallyTrack = true,
+	},
+	[121] = {
+			Name = "KARELIA STAGE 7",
+			Description = "",
+
+			Laps = 1,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHY,
+
+			TrackIcon  = "race_type_rallytrophykarelia",
+			TrackImage = "event_rallytrophykarelia7",
+			TrackLogo  = "track_fields_1a_logo",
+			TrackImageBig  = "track_images_karelia7_big",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally1/",
+			StagePath	= BaseLevelPath.."Rally/Rally1/G/",
+			
+			UseRallyTrophySoundtrack = true,
+			ForceOneLapOnly = true,
+			ExtendedMPSync = true,
+			IncreasedVisibility = true,
+			TextureFolder = "textures1/",
+			RallyTrophySoundtrackID = 1,
+			ResetInVoid = true,
+			IsRallyTrack = true,
+	},
+	[122] = {
+			Name = "KARELIA STAGE 8",
+			Description = "",
+
+			Laps = 1,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHY,
+
+			TrackIcon  = "race_type_rallytrophykarelia",
+			TrackImage = "event_rallytrophykarelia8",
+			TrackLogo  = "track_fields_1a_logo",
+			TrackImageBig  = "track_images_karelia8_big",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally1/",
+			StagePath	= BaseLevelPath.."Rally/Rally1/H/",
+			
+			UseRallyTrophySoundtrack = true,
+			ForceOneLapOnly = true,
+			ExtendedMPSync = true,
+			IncreasedVisibility = true,
+			TextureFolder = "textures1/",
+			RallyTrophySoundtrackID = 1,
+			ResetInVoid = true,
+			IsRallyTrack = true,
+	},
+	[123] = {
+			Name = "KENYA STAGE 1",
+			Description = "",
+
+			Laps = 1,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHY,
+
+			TrackIcon  = "race_type_rallytrophykenya",
+			TrackImage = "event_rallytrophykenya1",
+			TrackLogo  = "track_fields_1a_logo",
+			TrackImageBig  = "track_images_kenya1_big",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally2/",
+			StagePath	= BaseLevelPath.."Rally/Rally2/A/",
+			
+			UseRallyTrophySoundtrack = true,
+			ForceOneLapOnly = true,
+			ExtendedMPSync = true,
+			IncreasedVisibility = true,
+			TextureFolder = "textures2/",
+			RallyTrophySoundtrackID = 2,
+			ResetInVoid = true,
+			IsRallyTrack = true,
+	},
+	[124] = {
+			Name = "KENYA STAGE 2",
+			Description = "",
+
+			Laps = 1,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHY,
+
+			TrackIcon  = "race_type_rallytrophykenya",
+			TrackImage = "event_rallytrophykenya2",
+			TrackLogo  = "track_fields_1a_logo",
+			TrackImageBig  = "track_images_kenya2_big",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally2/",
+			StagePath	= BaseLevelPath.."Rally/Rally2/B/",
+			
+			UseRallyTrophySoundtrack = true,
+			ForceOneLapOnly = true,
+			ExtendedMPSync = true,
+			IncreasedVisibility = true,
+			TextureFolder = "textures2/",
+			RallyTrophySoundtrackID = 2,
+			ResetInVoid = true,
+			IsRallyTrack = true,
+	},
+	[125] = {
+			Name = "KENYA STAGE 3",
+			Description = "",
+
+			Laps = 1,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHY,
+
+			TrackIcon  = "race_type_rallytrophykenya",
+			TrackImage = "event_rallytrophykenya3",
+			TrackLogo  = "track_fields_1a_logo",
+			TrackImageBig  = "track_images_kenya3_big",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally2/",
+			StagePath	= BaseLevelPath.."Rally/Rally2/C/",
+			
+			UseRallyTrophySoundtrack = true,
+			ForceOneLapOnly = true,
+			ExtendedMPSync = true,
+			IncreasedVisibility = true,
+			TextureFolder = "textures2/",
+			RallyTrophySoundtrackID = 2,
+			ResetInVoid = true,
+			IsRallyTrack = true,
+	},
+	[126] = {
+			Name = "KENYA STAGE 4",
+			Description = "",
+
+			Laps = 1,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHY,
+
+			TrackIcon  = "race_type_rallytrophykenya",
+			TrackImage = "event_rallytrophykenya4",
+			TrackLogo  = "track_fields_1a_logo",
+			TrackImageBig  = "track_images_kenya4_big",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally2/",
+			StagePath	= BaseLevelPath.."Rally/Rally2/D/",
+			
+			UseRallyTrophySoundtrack = true,
+			ForceOneLapOnly = true,
+			ExtendedMPSync = true,
+			IncreasedVisibility = true,
+			TextureFolder = "textures2/",
+			RallyTrophySoundtrackID = 2,
+			ResetInVoid = true,
+			IsRallyTrack = true,
+	},
+	[127] = {
+			Name = "KENYA STAGE 5",
+			Description = "",
+
+			Laps = 1,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHY,
+
+			TrackIcon  = "race_type_rallytrophykenya",
+			TrackImage = "event_rallytrophykenya5",
+			TrackLogo  = "track_fields_1a_logo",
+			TrackImageBig  = "track_images_kenya5_big",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally2/",
+			StagePath	= BaseLevelPath.."Rally/Rally2/E/",
+			
+			UseRallyTrophySoundtrack = true,
+			ForceOneLapOnly = true,
+			ExtendedMPSync = true,
+			IncreasedVisibility = true,
+			TextureFolder = "textures2/",
+			RallyTrophySoundtrackID = 2,
+			ResetInVoid = true,
+			IsRallyTrack = true,
+	},
+	[128] = {
+			Name = "KENYA STAGE 6",
+			Description = "",
+
+			Laps = 1,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHY,
+
+			TrackIcon  = "race_type_rallytrophykenya",
+			TrackImage = "event_rallytrophykenya6",
+			TrackLogo  = "track_fields_1a_logo",
+			TrackImageBig  = "track_images_kenya6_big",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally2/",
+			StagePath	= BaseLevelPath.."Rally/Rally2/F/",
+			
+			UseRallyTrophySoundtrack = true,
+			ForceOneLapOnly = true,
+			ExtendedMPSync = true,
+			IncreasedVisibility = true,
+			TextureFolder = "textures2/",
+			RallyTrophySoundtrackID = 2,
+			ResetInVoid = true,
+			IsRallyTrack = true,
+	},
+	[129] = {
+			Name = "FINLAND STAGE 1",
+			Description = "",
+
+			Laps = 1,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHY,
+
+			TrackIcon  = "race_type_rallytrophyfinland",
+			TrackImage = "event_rallytrophyfinland1",
+			TrackLogo  = "track_fields_1a_logo",
+			TrackImageBig  = "track_images_finland1_big",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally3/",
+			StagePath	= BaseLevelPath.."Rally/Rally3/A/",
+			
+			UseRallyTrophySoundtrack = true,			
+			ForceOneLapOnly = true,
+			ExtendedMPSync = true,
+			IncreasedVisibility = true,
+			TextureFolder = "textures3/",
+			RallyTrophySoundtrackID = 3,
+			ResetInVoid = true,
+			IsRallyTrack = true,
+	},
+	[130] = {
+			Name = "FINLAND STAGE 2",
+			Description = "",
+
+			Laps = 1,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHY,
+
+			TrackIcon  = "race_type_rallytrophyfinland",
+			TrackImage = "event_rallytrophyfinland2",
+			TrackLogo  = "track_fields_1a_logo",
+			TrackImageBig  = "track_images_finland2_big",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally3/",
+			StagePath	= BaseLevelPath.."Rally/Rally3/B/",
+			
+			UseRallyTrophySoundtrack = true,
+			ForceOneLapOnly = true,
+			ExtendedMPSync = true,
+			IncreasedVisibility = true,
+			ForceInvisibleWaterPlane = true,
+			WaterPlaneY = -10.0,
+			TextureFolder = "textures3/",
+			RallyTrophySoundtrackID = 3,
+			ResetInVoid = true,
+			IsRallyTrack = true,
+	},
+	[131] = {
+			Name = "FINLAND STAGE 3",
+			Description = "",
+
+			Laps = 1,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHY,
+
+			TrackIcon  = "race_type_rallytrophyfinland",
+			TrackImage = "event_rallytrophyfinland3",
+			TrackLogo  = "track_fields_1a_logo",
+			TrackImageBig  = "track_images_finland3_big",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally3/",
+			StagePath	= BaseLevelPath.."Rally/Rally3/C/",
+			
+			UseRallyTrophySoundtrack = true,
+			ForceOneLapOnly = true,
+			ExtendedMPSync = true,
+			IncreasedVisibility = true,
+			ForceInvisibleWaterPlane = true,
+			WaterPlaneY = 0.0,
+			TextureFolder = "textures3/",
+			RallyTrophySoundtrackID = 3,
+			ResetInVoid = true,
+			IsRallyTrack = true,
+	},
+	[132] = {
+			Name = "FINLAND STAGE 4",
+			Description = "",
+
+			Laps = 1,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHY,
+
+			TrackIcon  = "race_type_rallytrophyfinland",
+			TrackImage = "event_rallytrophyfinland4",
+			TrackLogo  = "track_fields_1a_logo",
+			TrackImageBig  = "track_images_finland4_big",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally3/",
+			StagePath	= BaseLevelPath.."Rally/Rally3/D/",
+			
+			UseRallyTrophySoundtrack = true,
+			ForceOneLapOnly = true,
+			ExtendedMPSync = true,
+			IncreasedVisibility = true,
+			ForceInvisibleWaterPlane = true,
+			WaterPlaneY = 0.0,
+			TextureFolder = "textures3/",
+			RallyTrophySoundtrackID = 3,
+			ResetInVoid = true,
+			IsRallyTrack = true,
+	},
+	[133] = {
+			Name = "FINLAND STAGE 5",
+			Description = "",
+
+			Laps = 1,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHY,
+
+			TrackIcon  = "race_type_rallytrophyfinland",
+			TrackImage = "event_rallytrophyfinland5",
+			TrackLogo  = "track_fields_1a_logo",
+			TrackImageBig  = "track_images_finland5_big",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally3/",
+			StagePath	= BaseLevelPath.."Rally/Rally3/E/",
+			
+			UseRallyTrophySoundtrack = true,
+			ForceOneLapOnly = true,
+			ExtendedMPSync = true,
+			IncreasedVisibility = true,
+			ForceInvisibleWaterPlane = true,
+			WaterPlaneY = 0.0,
+			TextureFolder = "textures3/",
+			RallyTrophySoundtrackID = 3,
+			ResetInVoid = true,
+			IsRallyTrack = true,
+	},
+	[134] = {
+			Name = "FINLAND STAGE 6",
+			Description = "",
+
+			Laps = 1,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHY,
+
+			TrackIcon  = "race_type_rallytrophyfinland",
+			TrackImage = "event_rallytrophyfinland6",
+			TrackLogo  = "track_fields_1a_logo",
+			TrackImageBig  = "track_images_finland6_big",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally3/",
+			StagePath	= BaseLevelPath.."Rally/Rally3/F/",
+			
+			UseRallyTrophySoundtrack = true,
+			ForceOneLapOnly = true,
+			ExtendedMPSync = true,
+			IncreasedVisibility = true,
+			ForceInvisibleWaterPlane = true,
+			WaterPlaneY = 0.0,
+			TextureFolder = "textures3/",
+			RallyTrophySoundtrackID = 3,
+			ResetInVoid = true,
+			IsRallyTrack = true,
+	},
+	[135] = {
+			Name = "SWEDEN STAGE 1",
+			Description = "",
+
+			Laps = 1,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHY,
+
+			TrackIcon  = "race_type_rallytrophysweden",
+			TrackImage = "event_rallytrophysweden1",
+			TrackLogo  = "track_fields_1a_logo",
+			TrackImageBig  = "track_images_sweden1_big",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally4/",
+			StagePath	= BaseLevelPath.."Rally/Rally4/A/",
+			
+			UseRallyTrophySoundtrack = true,
+			ForceOneLapOnly = true,
+			ExtendedMPSync = true,
+			IncreasedVisibility = true,
+			TextureFolder = "textures4/",
+			RallyTrophySoundtrackID = 4,
+			ResetInVoid = true,
+			IsRallyTrack = true,
+	},
+	[136] = {
+			Name = "SWEDEN STAGE 2",
+			Description = "",
+
+			Laps = 1,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHY,
+
+			TrackIcon  = "race_type_rallytrophysweden",
+			TrackImage = "event_rallytrophysweden2",
+			TrackLogo  = "track_fields_1a_logo",
+			TrackImageBig  = "track_images_sweden2_big",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally4/",
+			StagePath	= BaseLevelPath.."Rally/Rally4/B/",
+			
+			UseRallyTrophySoundtrack = true,
+			ForceOneLapOnly = true,
+			ExtendedMPSync = true,
+			IncreasedVisibility = true,
+			TextureFolder = "textures4/",
+			RallyTrophySoundtrackID = 4,
+			ResetInVoid = true,
+			IsRallyTrack = true,
+	},
+	[137] = {
+			Name = "SWEDEN STAGE 3",
+			Description = "",
+
+			Laps = 1,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHY,
+
+			TrackIcon  = "race_type_rallytrophysweden",
+			TrackImage = "event_rallytrophysweden3",
+			TrackLogo  = "track_fields_1a_logo",
+			TrackImageBig  = "track_images_sweden3_big",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally4/",
+			StagePath	= BaseLevelPath.."Rally/Rally4/C/",
+			
+			UseRallyTrophySoundtrack = true,
+			ForceOneLapOnly = true,
+			ExtendedMPSync = true,
+			IncreasedVisibility = true,
+			TextureFolder = "textures4/",
+			RallyTrophySoundtrackID = 4,
+			ResetInVoid = true,
+			IsRallyTrack = true,
+	},
+	[138] = {
+			Name = "SWEDEN STAGE 4",
+			Description = "",
+
+			Laps = 1,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHY,
+
+			TrackIcon  = "race_type_rallytrophysweden",
+			TrackImage = "event_rallytrophysweden4",
+			TrackLogo  = "track_fields_1a_logo",
+			TrackImageBig  = "track_images_sweden4_big",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally4/",
+			StagePath	= BaseLevelPath.."Rally/Rally4/D/",
+			
+			UseRallyTrophySoundtrack = true,
+			ForceOneLapOnly = true,
+			ExtendedMPSync = true,
+			IncreasedVisibility = true,
+			TextureFolder = "textures4/",
+			RallyTrophySoundtrackID = 4,
+			ResetInVoid = true,
+			IsRallyTrack = true,
+	},
+	[139] = {
+			Name = "SWEDEN STAGE 5",
+			Description = "",
+
+			Laps = 1,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHY,
+
+			TrackIcon  = "race_type_rallytrophysweden",
+			TrackImage = "event_rallytrophysweden5",
+			TrackLogo  = "track_fields_1a_logo",
+			TrackImageBig  = "track_images_sweden5_big",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally4/",
+			StagePath	= BaseLevelPath.."Rally/Rally4/E/",
+			
+			UseRallyTrophySoundtrack = true,
+			ForceOneLapOnly = true,
+			ExtendedMPSync = true,
+			IncreasedVisibility = true,
+			TextureFolder = "textures4/",
+			RallyTrophySoundtrackID = 4,
+			ResetInVoid = true,
+			IsRallyTrack = true,
+	},
+	[140] = {
+			Name = "SWEDEN STAGE 6",
+			Description = "",
+
+			Laps = 1,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHY,
+
+			TrackIcon  = "race_type_rallytrophysweden",
+			TrackImage = "event_rallytrophysweden6",
+			TrackLogo  = "track_fields_1a_logo",
+			TrackImageBig  = "track_images_sweden6_big",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally4/",
+			StagePath	= BaseLevelPath.."Rally/Rally4/F/",
+			
+			UseRallyTrophySoundtrack = true,
+			ForceOneLapOnly = true,
+			ExtendedMPSync = true,
+			IncreasedVisibility = true,
+			TextureFolder = "textures4/",
+			RallyTrophySoundtrackID = 4,
+			ResetInVoid = true,
+			IsRallyTrack = true,
+	},
+	[141] = {
+			Name = "SWITZERLAND STAGE 1",
+			Description = "",
+
+			Laps = 1,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHY,
+
+			TrackIcon  = "race_type_rallytrophyswitzerland",
+			TrackImage = "event_rallytrophyswitzerland1",
+			TrackLogo  = "track_fields_1a_logo",
+			TrackImageBig  = "track_images_switzerland1_big",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally5/",
+			StagePath	= BaseLevelPath.."Rally/Rally5/A/",
+			
+			UseRallyTrophySoundtrack = true,
+			ForceOneLapOnly = true,
+			ExtendedMPSync = true,
+			IncreasedVisibility = true,
+			TextureFolder = "textures5/",
+			RallyTrophySoundtrackID = 5,
+			ResetInVoid = true,
+			IsRallyTrack = true,
+	},
+	[142] = {
+			Name = "SWITZERLAND STAGE 2",
+			Description = "",
+
+			Laps = 1,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHY,
+
+			TrackIcon  = "race_type_rallytrophyswitzerland",
+			TrackImage = "event_rallytrophyswitzerland2",
+			TrackLogo  = "track_fields_1a_logo",
+			TrackImageBig  = "track_images_switzerland2_big",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally5/",
+			StagePath	= BaseLevelPath.."Rally/Rally5/B/",
+			
+			UseRallyTrophySoundtrack = true,
+			ForceOneLapOnly = true,
+			ExtendedMPSync = true,
+			IncreasedVisibility = true,
+			TextureFolder = "textures5/",
+			RallyTrophySoundtrackID = 5,
+			OutOfMapResetY = -50,
+			ResetInVoid = true,
+			IsRallyTrack = true,
+	},
+	[143] = {
+			Name = "SWITZERLAND STAGE 3",
+			Description = "",
+
+			Laps = 1,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHY,
+
+			TrackIcon  = "race_type_rallytrophyswitzerland",
+			TrackImage = "event_rallytrophyswitzerland3",
+			TrackLogo  = "track_fields_1a_logo",
+			TrackImageBig  = "track_images_switzerland3_big",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally5/",
+			StagePath	= BaseLevelPath.."Rally/Rally5/C/",
+			
+			UseRallyTrophySoundtrack = true,
+			ForceOneLapOnly = true,
+			ExtendedMPSync = true,
+			IncreasedVisibility = true,
+			TextureFolder = "textures5/",
+			RallyTrophySoundtrackID = 5,
+			OutOfMapResetY = -50,
+			ResetInVoid = true,
+			IsRallyTrack = true,
+	},
+	[144] = {
+			Name = "SWITZERLAND STAGE 4",
+			Description = "",
+
+			Laps = 1,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHY,
+
+			TrackIcon  = "race_type_rallytrophyswitzerland",
+			TrackImage = "event_rallytrophyswitzerland4",
+			TrackLogo  = "track_fields_1a_logo",
+			TrackImageBig  = "track_images_switzerland4_big",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally5/",
+			StagePath	= BaseLevelPath.."Rally/Rally5/D/",
+			
+			UseRallyTrophySoundtrack = true,
+			ForceOneLapOnly = true,
+			ExtendedMPSync = true,
+			IncreasedVisibility = true,
+			TextureFolder = "textures5/",
+			RallyTrophySoundtrackID = 5,
+			OutOfMapResetY = -30,
+			ResetInVoid = true,
+			IsRallyTrack = true,
+	},
+	[145] = {
+			Name = "SWITZERLAND STAGE 5",
+			Description = "",
+
+			Laps = 1,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHY,
+
+			TrackIcon  = "race_type_rallytrophyswitzerland",
+			TrackImage = "event_rallytrophyswitzerland5",
+			TrackLogo  = "track_fields_1a_logo",
+			TrackImageBig  = "track_images_switzerland5_big",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally5/",
+			StagePath	= BaseLevelPath.."Rally/Rally5/E/",
+			
+			UseRallyTrophySoundtrack = true,
+			ForceOneLapOnly = true,
+			ExtendedMPSync = true,
+			IncreasedVisibility = true,
+			IncreasedNegYVisibility2 = true,
+			TextureFolder = "textures5/",
+			RallyTrophySoundtrackID = 5,
+			ResetInVoid = true,
+			IsRallyTrack = true,
+	},
+	[146] = {
+			Name = "SWITZERLAND STAGE 6",
+			Description = "",
+
+			Laps = 1,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHY,
+
+			TrackIcon  = "race_type_rallytrophyswitzerland",
+			TrackImage = "event_rallytrophyswitzerland6",
+			TrackLogo  = "track_fields_1a_logo",
+			TrackImageBig  = "track_images_switzerland6_big",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally5/",
+			StagePath	= BaseLevelPath.."Rally/Rally5/F/",
+			
+			UseRallyTrophySoundtrack = true,
+			ForceOneLapOnly = true,
+			ExtendedMPSync = true,
+			IncreasedVisibility = true,
+			TextureFolder = "textures5/",
+			RallyTrophySoundtrackID = 5,
+			OutOfMapResetY = -80,
+			ResetInVoid = true,
+			IsRallyTrack = true,
+	},
+	[147] = {
+			Name = "KARELIA ARCADE STAGE 1",
+			Description = "This long-abandoned folkracing circuit consists of rocks inside, trees outside and opponents in between.",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHYARCADE,
+
+			TrackIcon  = "race_type_rallytrophyarcadekarelia",
+			TrackImage = "event_rallytrophyarcadekarelia1",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally1/",
+			StagePath	= BaseLevelPath.."Rally/Rally1/I/",
+			
+			UseRallyTrophySoundtrack = true,
+			AllowReversed = true,
+			TextureFolder = "textures1/",
+			RallyTrophySoundtrackID = 1,
+			ResetInVoid = true,
+			
+			MapPosX = 0,
+			MapPosY = 0,
+			MapScaleX = 400,
+			MapScaleY = 400,
+	},
+	[148] = {
+			Name = "KARELIA ARCADE STAGE 2",
+			Description = "Karelian countryside path with many bumps, crests, trees and fast sweepers. Excellent for crashing.",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHYARCADE,
+
+			TrackIcon  = "race_type_rallytrophyarcadekarelia",
+			TrackImage = "event_rallytrophyarcadekarelia2",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally1/",
+			StagePath	= BaseLevelPath.."Rally/Rally1/J/",
+			
+			UseRallyTrophySoundtrack = true,
+			AllowReversed = true,
+			TextureFolder = "textures1/",
+			RallyTrophySoundtrackID = 1,
+			ResetInVoid = true,
+			
+			MapPosX = 400,
+			MapPosY = 100,
+			MapScaleX = 500,
+			MapScaleY = 500,
+	},
+	[149] = {
+			Name = "KENYA ARCADE STAGE 1",
+			Description = "The expansive scenic route takes you through the shallow turns and sudden jumps of wild Kenyan nowhere.",
+
+			Laps = 3,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHYARCADE,
+
+			TrackIcon  = "race_type_rallytrophyarcadekenya",
+			TrackImage = "event_rallytrophyarcadekenya1",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally2/",
+			StagePath	= BaseLevelPath.."Rally/Rally2/G/",
+			
+			UseRallyTrophySoundtrack = true,
+			AllowReversed = true,
+			ExtendedMPSync = true,
+			TextureFolder = "textures2/",
+			RallyTrophySoundtrackID = 2,
+			ResetInVoid = true,
+			
+			MapPosX = 800,
+			MapPosY = -200,
+			MapScaleX = 1000,
+			MapScaleY = 1000,
+	},
+	[150] = {
+			Name = "KENYA ARCADE STAGE 2",
+			Description = "Lush, narrow Kenyan jungle makes pack racing havoc. Vast long straights, roadside terrors and hot noon sunburns are also experienced here.",
+
+			Laps = 3,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHYARCADE,
+
+			TrackIcon  = "race_type_rallytrophyarcadekenya",
+			TrackImage = "event_rallytrophyarcadekenya2",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally2/",
+			StagePath	= BaseLevelPath.."Rally/Rally2/H/",
+			
+			UseRallyTrophySoundtrack = true,
+			AllowReversed = true,
+			ExtendedMPSync = true,
+			TextureFolder = "textures2/",
+			RallyTrophySoundtrackID = 2,
+			ResetInVoid = true,
+			
+			MapPosX = 400,
+			MapPosY = 0,
+			MapScaleX = 500,
+			MapScaleY = 500,
+	},
+	[151] = {
+			Name = "FINLAND ARCADE STAGE 1",
+			Description = "Crash into lightpoles, trees and roadside barriers in this bumpy island trail brought to you by the land of a thousand lakes.",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHYARCADE,
+
+			TrackIcon  = "race_type_rallytrophyarcadefinland",
+			TrackImage = "event_rallytrophyarcadefinland1",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally3/",
+			StagePath	= BaseLevelPath.."Rally/Rally3/G/",
+			
+			UseRallyTrophySoundtrack = true,
+			AllowReversed = true,
+			ForceInvisibleWaterPlane = true,
+			WaterPlaneY = 0.0,
+			TextureFolder = "textures3/",
+			RallyTrophySoundtrackID = 3,
+			ResetInVoid = true,
+			
+			MapPosX = -200,
+			MapPosY = -100,
+			MapScaleX = 500,
+			MapScaleY = 500,
+	},
+	[152] = {
+			Name = "FINLAND ARCADE STAGE 2",
+			Description = "Very treacherous route of sudden bumps and crests where the strong stick to the road and the weak swim, vehicles included.",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHYARCADE,
+
+			TrackIcon  = "race_type_rallytrophyarcadefinland",
+			TrackImage = "event_rallytrophyarcadefinland2",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally3/",
+			StagePath	= BaseLevelPath.."Rally/Rally3/H/",
+			
+			UseRallyTrophySoundtrack = true,
+			AllowReversed = true,
+			ForceInvisibleWaterPlane = true,
+			WaterPlaneY = -10.0,
+			TextureFolder = "textures3/",
+			RallyTrophySoundtrackID = 3,
+			ResetInVoid = true,
+			
+			MapPosX = -400,
+			MapPosY = 100,
+			MapScaleX = 550,
+			MapScaleY = 550,
+	},
+	[153] = {
+			Name = "SWEDEN ARCADE STAGE 1",
+			Description = "Local Swedish village hosts its 'all you can eat' snowbank buffet. Drive through the village, loop back through the forest and avoid the roadside snow.",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHYARCADE,
+
+			TrackIcon  = "race_type_rallytrophyarcadesweden",
+			TrackImage = "event_rallytrophyarcadesweden1",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally4/",
+			StagePath	= BaseLevelPath.."Rally/Rally4/G/",
+			
+			UseRallyTrophySoundtrack = true,
+			AllowReversed = true,
+			TextureFolder = "textures4/",
+			RallyTrophySoundtrackID = 4,
+			ResetInVoid = true,
+			
+			MapPosX = 0,
+			MapPosY = 0,
+			MapScaleX = 350,
+			MapScaleY = 500,
+	},
+	[154] = {
+			Name = "SWEDEN ARCADE STAGE 2",
+			Description = "Sparsely populated Swedish countryside road covered in inches of snow. Fair, sweeping turns and serene views.",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHYARCADE,
+
+			TrackIcon  = "race_type_rallytrophyarcadesweden",
+			TrackImage = "event_rallytrophyarcadesweden2",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally4/",
+			StagePath	= BaseLevelPath.."Rally/Rally4/H/",
+			
+			UseRallyTrophySoundtrack = true,
+			AllowReversed = true,
+			TextureFolder = "textures4/",
+			RallyTrophySoundtrackID = 4,
+			ResetInVoid = true,
+			
+			MapPosX = 400,
+			MapPosY = 50,
+			MapScaleX = 450,
+			MapScaleY = 450,
+	},
+	[155] = {
+			Name = "SWITZERLAND ARCADE STAGE 1",
+			Description = "Mountaintop carnage. Large elevation changes, unexpected jumps and miles of sight characterize this track.",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHYARCADE,
+
+			TrackIcon  = "race_type_rallytrophyarcadeswitzerland",
+			TrackImage = "event_rallytrophyarcadeswitzerland1",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally5/",
+			StagePath	= BaseLevelPath.."Rally/Rally5/G/",
+			
+			UseRallyTrophySoundtrack = true,
+			AllowReversed = true,
+			IncreasedNegYVisibility = true,
+			TextureFolder = "textures5/",
+			RallyTrophySoundtrackID = 5,
+			ResetInVoid = true,
+			
+			MapPosX = -350,
+			MapPosY = 50,
+			MapScaleX = 500,
+			MapScaleY = 600,
+	},
+	[156] = {
+			Name = "SWITZERLAND ARCADE STAGE 2",
+			Description = "A mountain road located around a castle in Switzerland. Beware of turn one, and keep out of those pristine castle walls.",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RALLYTROPHYARCADE,
+
+			TrackIcon  = "race_type_rallytrophyarcadeswitzerland",
+			TrackImage = "event_rallytrophyarcadeswitzerland2",
+			TrackLogo  = "track_fields_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Rally/",
+			TrackPath	= BaseLevelPath.."Rally/Rally5/",
+			StagePath	= BaseLevelPath.."Rally/Rally5/H/",
+			
+			UseRallyTrophySoundtrack = true,
+			AllowReversed = true,
+			IncreasedNegYVisibility = true,
+			TextureFolder = "textures5/",
+			RallyTrophySoundtrackID = 5,
+			ResetInVoid = true,
+			
+			MapPosX = -350,
+			MapPosY = -150,
+			MapScaleX = 500,
+			MapScaleY = 500,
+	},
+	[157] = {
+			Name = "REDPINE ROUND TRIP",
+			Description = "A new long course route for Redpine River. Experience all the tarmac roads around the river in one neat package.",
+
+			Laps = 4,
+			AIHandicapLevel = 51,
+
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_FO1_WINTER,
+
+			TrackIcon  = "race_type_fo1_winter1",
+			TrackImage = "event_fo1_winter1",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Winter/",
+			TrackPath	= BaseLevelPath.."Winter/Winter1/",
+			StagePath	= BaseLevelPath.."Winter/Winter1/D/",
+			
+			UseFO1Soundtrack = true,
+			AllowReversed = true,
+	},
+	[158] = {
+			Name = "WHATTAHOO ROUND TRIP",
+			Description = "Start from the town center into the forest, pass a gas station and into the forest some more.",
+
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_FO1_TOWN,
+
+			TrackIcon  = "race_type_fo1_town2",
+			TrackImage = "event_fo1_town2",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Town/",
+			TrackPath	= BaseLevelPath.."Town/Town2/",
+			StagePath	= BaseLevelPath.."Town/Town2/D/",
+			
+			UseFO1Soundtrack = true,
+			AllowReversed = true,
+	},
+	[159] = {
+			Name = "WHATTAHOO DRIFT TRACK",
+			Description = "This short track around the town center is sure to break every stall in town. Locals love this one!",
+
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_FO1_TOWN,
+
+			TrackIcon  = "race_type_fo1_town2",
+			TrackImage = "event_fo1_town2",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Town/",
+			TrackPath	= BaseLevelPath.."Town/Town2/",
+			StagePath	= BaseLevelPath.."Town/Town2/E/",
+			
+			UseFO1Soundtrack = true,
+			AllowReversed = true,
+	},
+	[160] = {
+			Name = "TOYS IN THE HOOD 1",
+			Description = "",
+
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_EVENT,
+
+			TrackIcon  = "race_type_nhood1",
+			TrackImage = "event_revolt",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."ReVolt/",
+			TrackPath	= BaseLevelPath.."ReVolt/ReVolt1/",
+			StagePath	= BaseLevelPath.."ReVolt/ReVolt1/A/",
+			
+			UseReVoltPacenotes = true,
+			AllowReversed = true,
+			NoWrongWay = true,
+			MusicPlaylist = "playlist_dummy1",
+			CheatCode = "TRACKER",
+	},
+	[161] = {
+			Name = "LAGUNA SECA",
+			Description = "",
+
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_EVENT,
+
+			TrackIcon  = "race_type_laguna",
+			TrackImage = "event_gt",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."GT/",
+			TrackPath	= BaseLevelPath.."GT/GT1/",
+			StagePath	= BaseLevelPath.."GT/GT1/A/",
+			
+			AllowReversed = true,
+			NoWrongWay = true,
+			CheatCode = "Hmmmmmm",
+	},
+	[162] = {
+			Name = "ATLANTICA",
+			Description = "",
+
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_EVENT,
+
+			TrackIcon  = "race_type_atlantica",
+			TrackImage = "event_nfs",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."NFS/",
+			TrackPath	= BaseLevelPath.."NFS/NFS1/",
+			StagePath	= BaseLevelPath.."NFS/NFS1/A/",
+			
+			AllowReversed = true,
+			--ForceInvisibleWaterPlane = true,
+			--WaterPlaneY = -2.2,
+			ResetInVoid = true,
+			MusicPlaylist = "playlist_dummy3",
+			CheatCode = "Aquila303",
+	},
+	[163] = {
+			Name = "ROYAL RACEWAY",
+			Description = "",
+
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_EVENT,
+
+			TrackIcon  = "race_type_mario",
+			TrackImage = "event_mario",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Mario/",
+			TrackPath	= BaseLevelPath.."Mario/Mario1/",
+			StagePath	= BaseLevelPath.."Mario/Mario1/A/",
+			
+			ForceInvisibleWaterPlane = true,
+			WaterPlaneY = -12.0,
+			MusicPlaylist = "playlist_dummy4",
+			CheatCode = "LetsaGo",
+			NoAI = true,
+	},
+	[164] = {
+			Name = "STADIUM DRIFT",
+			Description = "",
+
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_EVENT,
+
+			TrackIcon  = "race_type_drift1",
+			TrackImage = "event_drift1",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Drift/",
+			TrackPath	= BaseLevelPath.."Drift/Drift1/",
+			StagePath	= BaseLevelPath.."Drift/Drift1/A/",
+			
+			TextureFolder = "textures2/",
+			--MusicPlaylist = "playlist_dummy5",
+			CheatCode = "ToTheWall",
+	},
+	[165] = {
+			Name = "PARKADE DRIFT",
+			Description = "",
+
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_EVENT,
+
+			TrackIcon  = "race_type_drift2",
+			TrackImage = "event_drift2",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Drift/",
+			TrackPath	= BaseLevelPath.."Drift/Drift2/",
+			StagePath	= BaseLevelPath.."Drift/Drift2/A/",
+			
+			--MusicPlaylist = "playlist_dummy5",
+	},
+	[166] = {
+			Name = "BAYVIEW SPEEDWAY 1",
+			Description = "",
+
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_RACING,
+
+			TrackIcon  = "race_type_url",
+			TrackImage = "event_url",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."URL/",
+			TrackPath	= BaseLevelPath.."URL/URL1/",
+			StagePath	= BaseLevelPath.."URL/URL1/A/",
+			
+			AllowReversed = true,
+			CheatCode = "ToTheWall",
+	},
+	[167] = {
+			Name = "BAYVIEW SPEEDWAY 2",
+			Description = "",
+
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_RACING,
+
+			TrackIcon  = "race_type_url",
+			TrackImage = "event_url",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."URL/",
+			TrackPath	= BaseLevelPath.."URL/URL1/",
+			StagePath	= BaseLevelPath.."URL/URL1/B/",
+			
+			AllowReversed = true,
+			CheatCode = "ToTheWall",
+	},
+	[168] = {
+			Name = "BAYVIEW SPEEDWAY 3",
+			Description = "",
+
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_RACING,
+
+			TrackIcon  = "race_type_url",
+			TrackImage = "event_url",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."URL/",
+			TrackPath	= BaseLevelPath.."URL/URL1/",
+			StagePath	= BaseLevelPath.."URL/URL1/C/",
+			
+			AllowReversed = true,
+			CheatCode = "ToTheWall",
+	},
+	[169] = {
+			Name = "BAYVIEW SPEEDWAY 4",
+			Description = "",
+
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_RACING,
+
+			TrackIcon  = "race_type_url",
+			TrackImage = "event_url",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."URL/",
+			TrackPath	= BaseLevelPath.."URL/URL1/",
+			StagePath	= BaseLevelPath.."URL/URL1/D/",
+			
+			AllowReversed = true,
+			CheatCode = "ToTheWall",
+	},
+	[170] = {
+			Name = "BAYVIEW SPEEDWAY 5",
+			Description = "",
+
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_RACING,
+
+			TrackIcon  = "race_type_url",
+			TrackImage = "event_url",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."URL/",
+			TrackPath	= BaseLevelPath.."URL/URL1/",
+			StagePath	= BaseLevelPath.."URL/URL1/E/",
+			
+			AllowReversed = true,
+			CheatCode = "ToTheWall",
+	},
+	[171] = {
+			Name = "BAYVIEW SPEEDWAY DRIFT",
+			Description = "",
+
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_EVENT,
+
+			TrackIcon  = "race_type_url",
+			TrackImage = "event_url",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."URL/",
+			TrackPath	= BaseLevelPath.."URL/URL1/",
+			StagePath	= BaseLevelPath.."URL/URL1/F/",
+			
+			AllowReversed = true,
+			CheatCode = "ToTheWall",
+	},
+	[172] = {
+			Name = "SAN JUAN 1",
+			Description = "",
+	
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_CITY,
+	
+			TrackIcon  = "race_type_sanjuan",
+			TrackImage = "event_sanjuan",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."SanJuan/",
+			TrackPath	= BaseLevelPath.."SanJuan/SanJuan1/",
+			StagePath	= BaseLevelPath.."SanJuan/SanJuan1/A/",
+			
+			AllowReversed = true,
+			ResetInVoid = true,
+			MusicPlaylist = "playlist_carbon",
+	},
+	[173] = {
+			Name = "SAN JUAN 2",
+			Description = "",
+	
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_CITY,
+	
+			TrackIcon  = "race_type_sanjuan",
+			TrackImage = "event_sanjuan",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."SanJuan/",
+			TrackPath	= BaseLevelPath.."SanJuan/SanJuan1/",
+			StagePath	= BaseLevelPath.."SanJuan/SanJuan1/B/",
+			
+			AllowReversed = true,
+			ResetInVoid = true,
+			MusicPlaylist = "playlist_carbon",
+	},
+	[174] = {
+			Name = "SAN JUAN 3",
+			Description = "",
+	
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_CITY,
+	
+			TrackIcon  = "race_type_sanjuan",
+			TrackImage = "event_sanjuan",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."SanJuan/",
+			TrackPath	= BaseLevelPath.."SanJuan/SanJuan1/",
+			StagePath	= BaseLevelPath.."SanJuan/SanJuan1/C/",
+			
+			AllowReversed = true,
+			ResetInVoid = true,
+			MusicPlaylist = "playlist_carbon",
+	},
+	[175] = {
+			Name = "SAN JUAN DERBY",
+			Description = "",
+	
+			Weathers = { WEATHER_DAY },
+			
+			Rules = GR_DERBY,
+			
+			AIHandicapLevel = 42,
+			
+			TrackType = TRACKTYPE_DERBY,
+	
+			TrackIcon  = "race_type_sanjuan",
+			TrackImage = "event_sanjuan",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."SanJuan/",
+			TrackPath	= BaseLevelPath.."SanJuan/SanJuan1/",
+			StagePath	= BaseLevelPath.."SanJuan/SanJuan1/D/",
+			
+			IsMultiplayerOnly = true,
+			DerbyTimeout = 120,
+			ResetInVoid = true,
+			MusicPlaylist = "playlist_carbon",
+	},
+	[176] = {
+			Name = "FAIRGRASS RALLY 1",
+			Description = "A circuit rally stage around Fairgrass Grounds, made by teddyator.",
+	
+			Laps = 4,
+			AIHandicapLevel = 51,
+	
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RACING,
+	
+			TrackIcon  = "race_type_fo1_racing2",
+			TrackImage = "event_fo1_racing2",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."FO1Racing/",
+			TrackPath	= BaseLevelPath.."FO1Racing/FO1Racing2/",
+			StagePath	= BaseLevelPath.."FO1Racing/FO1Racing2/D/",
+			
+			UseFO1Soundtrack = true,
+			ForceOneLapOnly = true,
+			IsRallyTrack = true,
+	},
+	[177] = {
+			Name = "FAIRGRASS RALLY 2",
+			Description = "A circuit rally stage around Fairgrass Grounds, made by teddyator.",
+	
+			Laps = 4,
+			AIHandicapLevel = 51,
+	
+			Weathers = { WEATHER_DAY },
+			
+			TrackType = TRACKTYPE_RACING,
+	
+			TrackIcon  = "race_type_fo1_racing2",
+			TrackImage = "event_fo1_racing2",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."FO1Racing/",
+			TrackPath	= BaseLevelPath.."FO1Racing/FO1Racing2/",
+			StagePath	= BaseLevelPath.."FO1Racing/FO1Racing2/E/",
+			
+			UseFO1Soundtrack = true,
+			ForceOneLapOnly = true,
+			IsRallyTrack = true,
+	},
+	[178] = {
+			Name = "WATERFRONT",
+			Description = "",
+	
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_EVENT,
+	
+			TrackIcon  = "track_images_canals1",
+			TrackImage = "track_canal_1a",
+			TrackLogo  = "track_canal_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."Burnout/",
+			TrackPath	= BaseLevelPath.."Burnout/Burnout1/",
+			StagePath	= BaseLevelPath.."Burnout/Burnout1/A/",
+			
+			AllowReversed = true,
+			ForceInvisibleWaterPlane = true,
+			WaterPlaneY = -5.58,
+			--ResetInVoid = true,
+			CheatCode = "Takedown",
+			ExtendedMPSync = true,
+			NoAI = true,
+			MusicPlaylist = "playlist_b3",
+			
+			MapPosX = 0,
+			MapPosY = 150,
+			MapScaleX = 1200,
+			MapScaleY = 1100,
+	},
+	[179] = {
+			Name = "AUTOPOLIS",
+			Description = "",
+	
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_EVENT,
+	
+			TrackIcon  = "race_type_prostreet",
+			TrackImage = "event_prostreet",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."ProStreet/",
+			TrackPath	= BaseLevelPath.."ProStreet/ProStreet1/",
+			StagePath	= BaseLevelPath.."ProStreet/ProStreet1/A/",
+			
+			AllowReversed = true,
+			--CheatCode = "MYMAN",
+			
+			MapPosX = 0,
+			MapPosY = -200,
+			MapScaleX = 800,
+			MapScaleY = 500,
+	},
+	[180] = {
+			Name = "AUTOPOLIS SHORT",
+			Description = "",
+	
+			Weathers = { WEATHER_DAY },
+			
+			Laps = 4,
+			AIHandicapLevel = 54,
+			
+			TrackType = TRACKTYPE_EVENT,
+	
+			TrackIcon  = "race_type_prostreet",
+			TrackImage = "event_prostreet",
+			TrackLogo  = "track_city_1a_logo",
+			
+			GfxSetPath	= BaseLevelPath.."ProStreet/",
+			TrackPath	= BaseLevelPath.."ProStreet/ProStreet1/",
+			StagePath	= BaseLevelPath.."ProStreet/ProStreet1/B/",
+			
+			AllowReversed = true,
+			--CheatCode = "MYMAN",
+			
+			MapPosX = 0,
+			MapPosY = -200,
+			MapScaleX = 800,
+			MapScaleY = 500,
+	},
+	--[] = {
+	--		Name = "WATER CANAL 4",
+	--		Description = "",
+	--		
+	--		Laps = 4,
+	--		AIHandicapLevel = 60,
+	--
+	--		Weathers = { WEATHER_DAY },
+	--		
+	--		TrackType = TRACKTYPE_CANAL,
+	--
+	--		TrackIcon  = "track_images_canals1",
+	--		TrackImage = "track_canal_1a",
+	--		TrackLogo  = "track_canal_1a_logo",
+	--		
+	--		GfxSetPath	= BaseLevelPath.."Canal/",
+	--		TrackPath	= BaseLevelPath.."Canal/Canal1/",
+	--		StagePath	= BaseLevelPath.."Canal/Canal1/D/",
+	--},
+}
+
+-- level index list for easy-to-read level indices
+LevelIndex = {
+	Forest1A		= 1,
+	Forest1B		= 2,
+	Forest1C		= 3,
+	Forest2A		= 4,
+	Forest2B		= 5,
+	Forest2C		= 6,
+	City1A			= 7,
+	City1B			= 8,
+	City1C			= 9,
+	City2A			= 10,
+	City2B			= 11,
+	City2C			= 12,
+	Canal1A			= 13,
+	Canal1B			= 14,
+	Canal1C			= 15,
+	Desert1A		= 16,
+	Desert1B		= 17,
+	Desert1C		= 18,
+	Fields1A		= 19,
+	Fields1B		= 20,
+	Fields1C		= 21,
+	Fields2A		= 22,
+	Fields2B		= 23,
+	Fields2C		= 24,
+	Racing1A		= 25,
+	Racing1B		= 26,
+	Racing1C		= 27,
+	Racing2A		= 28,
+	Racing2B		= 29,
+	Racing2C		= 30,
+	Derby1A			= 31,
+	Derby2A			= 32,
+	Derby3A			= 33,
+	Derby4A			= 34,
+	Derby5A			= 35,
+	Derby6A			= 36,
+	Arena1			= 37,
+	Arena2			= 38,
+	Arena3			= 39,
+	Arena4			= 40,
+	Arena5			= 41,
+	Arena6			= 42,
+	Nascar1A		= 43,
+	Nascar1B		= 44,
+	Nascar1C		= 45,
+	GarageTestTrack = 46,
+	HIGHJUMP		= 47,
+	BOWLING			= 48,
+	SKIJUMP			= 49,
+	CURLING			= 50,
+	STONESKIPPING 	= 51,
+	RINGOFFIRE		= 52,
+	FIELDGOAL		= 53,
+	ROYALFLUSH		= 54,
+	BASKETBALL		= 55,
+	DARTS			= 56,
+	BASEBALL		= 57,
+	SOCCER			= 58,
+	
+	Town2A			= 59,
+	Town2B			= 60,
+	Town2C			= 61,
+	Pit1A			= 62,
+	Pit1B			= 63,
+	Pit1C			= 64,
+	Pit2A			= 65,
+	Pit2B			= 66,
+	Pit2C			= 67,
+	Pit3A			= 68,
+	Pit3B			= 69,
+	Pit3C			= 70,
+	Town3A			= 71,
+	Town3B			= 72,
+	Town3C			= 73,
+	FO1Forest1A		= 74,
+	FO1Forest1B		= 75,
+	FO1Forest1C		= 76,
+	FO1Forest2A		= 77,
+	FO1Forest2B		= 78,
+	FO1Forest2C		= 79,
+	FO1Forest3A		= 80,
+	FO1Forest3B		= 81,
+	FO1Forest3C		= 82,
+	Winter1A		= 83,
+	Winter1B		= 84,
+	Winter1C		= 85,
+	Winter2A		= 86,
+	Winter2B		= 87,
+	Winter2C		= 88,
+	FO1Racing1A		= 89,
+	FO1Racing1B		= 90,
+	FO1Racing1C		= 91,
+	FO1Racing2A		= 92,
+	FO1Racing2B		= 93,
+	FO1Racing2C		= 94,
+	
+	RetroDemo1A		= 95,
+	RetroDemo1B		= 96,
+	RetroDemo2A		= 97,
+	RetroDemo2B		= 98,
+	
+	ToughTrucks1	= 99,
+	ToughTrucks2	= 100,
+	ToughTrucks3	= 101,
+	ToughTrucks4	= 102,
+	ToughTrucks5	= 103,
+	ToughTrucks6	= 104,
+	ToughTrucks7	= 105,
+	ToughTrucks8	= 106,
+	ToughTrucks9	= 107,
+	ToughTrucks10	= 108,
+	ToughTrucks11	= 109,
+	ToughTrucks12	= 110,
+	ToughTrucks13	= 111,
+	ToughTrucks14	= 112,
+	ToughTrucks15	= 113,
+	ToughTrucks16	= 114,
+	
+	Rally1A			= 115,
+	Rally1B			= 116,
+	Rally1C			= 117,
+	Rally1D			= 118,
+	Rally1E			= 119,
+	Rally1F			= 120,
+	Rally1G			= 121,
+	Rally1H			= 122,
+	Rally2A			= 123,
+	Rally2B			= 124,
+	Rally2C			= 125,
+	Rally2D			= 126,
+	Rally2E			= 127,
+	Rally2F			= 128,
+	Rally3A			= 129,
+	Rally3B			= 130,
+	Rally3C			= 131,
+	Rally3D			= 132,
+	Rally3E			= 133,
+	Rally3F			= 134,
+	Rally4A			= 135,
+	Rally4B			= 136,
+	Rally4C			= 137,
+	Rally4D			= 138,
+	Rally4E			= 139,
+	Rally4F			= 140,
+	Rally5A			= 141,
+	Rally5B			= 142,
+	Rally5C			= 143,
+	Rally5D			= 144,
+	Rally5E			= 145,
+	Rally5F			= 146,
+	
+	Rally1I			= 147,
+	Rally1J			= 148,
+	Rally2G			= 149,
+	Rally2H			= 150,
+	Rally3G			= 151,
+	Rally3H			= 152,
+	Rally4G			= 153,
+	Rally4H			= 154,
+	Rally5G			= 155,
+	Rally5H			= 156,
+	
+	Winter1D		= 157,
+	Town2D			= 158,
+	Town2E			= 159,
+	
+	Secret1			= 160,
+	Secret2			= 161,
+	Secret3			= 162,
+	Secret4			= 163,
+	Drift1A			= 164,
+	Drift2A			= 165,
+	
+	URL1A			= 166,
+	URL1B			= 167,
+	URL1C			= 168,
+	URL1D			= 169,
+	URL1E			= 170,
+	URL1F			= 171,
+	
+	SanJuan1		= 172,
+	SanJuan2		= 173,
+	SanJuan3		= 174,
+	SanJuan4		= 175,
+}
+
+Levels[LevelIndex.Arena3].AllowArcadeRace = true
+Levels[LevelIndex.Arena5].AllowArcadeRace = true
+Levels[LevelIndex.Arena6].AllowArcadeRace = true
+Levels[LevelIndex.Canal1A].AllowArcadeRace = true
+Levels[LevelIndex.City1A].AllowArcadeRace = true
+Levels[LevelIndex.City1B].AllowArcadeRace = true
+Levels[LevelIndex.City2B].AllowArcadeRace = true
+Levels[LevelIndex.City2C].AllowArcadeRace = true
+Levels[LevelIndex.Desert1B].AllowArcadeRace = true
+Levels[LevelIndex.Desert1C].AllowArcadeRace = true
+Levels[LevelIndex.Fields1A].AllowArcadeRace = true
+Levels[LevelIndex.Fields2B].AllowArcadeRace = true
+Levels[LevelIndex.FO1Forest1A].AllowArcadeRace = true
+Levels[LevelIndex.FO1Forest1B].AllowArcadeRace = true
+Levels[LevelIndex.FO1Forest1C].AllowArcadeRace = true
+Levels[LevelIndex.FO1Forest2A].AllowArcadeRace = true
+Levels[LevelIndex.FO1Forest2B].AllowArcadeRace = true
+Levels[LevelIndex.FO1Forest2C].AllowArcadeRace = true
+Levels[LevelIndex.FO1Forest3A].AllowArcadeRace = true
+Levels[LevelIndex.FO1Forest3B].AllowArcadeRace = true
+Levels[LevelIndex.FO1Forest3C].AllowArcadeRace = true
+Levels[LevelIndex.FO1Racing1A].AllowArcadeRace = true
+Levels[LevelIndex.FO1Racing1B].AllowArcadeRace = true
+Levels[LevelIndex.FO1Racing1C].AllowArcadeRace = true
+Levels[LevelIndex.FO1Racing2A].AllowArcadeRace = true
+Levels[LevelIndex.FO1Racing2B].AllowArcadeRace = true
+Levels[LevelIndex.FO1Racing2C].AllowArcadeRace = true
+Levels[LevelIndex.Forest1A].AllowArcadeRace = true
+Levels[LevelIndex.Forest1B].AllowArcadeRace = true
+Levels[LevelIndex.Forest2A].AllowArcadeRace = true
+Levels[LevelIndex.Forest2C].AllowArcadeRace = true
+Levels[LevelIndex.Pit1A].AllowArcadeRace = true
+Levels[LevelIndex.Pit1B].AllowArcadeRace = true
+Levels[LevelIndex.Pit1C].AllowArcadeRace = true
+Levels[LevelIndex.Pit2A].AllowArcadeRace = true
+Levels[LevelIndex.Pit2B].AllowArcadeRace = true
+Levels[LevelIndex.Pit2C].AllowArcadeRace = true
+Levels[LevelIndex.Pit3A].AllowArcadeRace = true
+Levels[LevelIndex.Pit3B].AllowArcadeRace = true
+Levels[LevelIndex.Pit3C].AllowArcadeRace = true
+Levels[LevelIndex.Racing1A].AllowArcadeRace = true
+Levels[LevelIndex.Racing1C].AllowArcadeRace = true
+Levels[LevelIndex.Racing2B].AllowArcadeRace = true
+Levels[LevelIndex.Racing2C].AllowArcadeRace = true
+Levels[LevelIndex.RetroDemo1A].AllowArcadeRace = true
+Levels[LevelIndex.RetroDemo1B].AllowArcadeRace = true
+Levels[LevelIndex.RetroDemo2A].AllowArcadeRace = true
+Levels[LevelIndex.RetroDemo2B].AllowArcadeRace = true
+Levels[LevelIndex.Town2A].AllowArcadeRace = true
+Levels[LevelIndex.Town2B].AllowArcadeRace = true
+Levels[LevelIndex.Town2C].AllowArcadeRace = true
+Levels[LevelIndex.Town2D].AllowArcadeRace = true
+Levels[LevelIndex.Town3A].AllowArcadeRace = true
+Levels[LevelIndex.Town3B].AllowArcadeRace = true
+Levels[LevelIndex.Town3C].AllowArcadeRace = true
+Levels[LevelIndex.Winter1A].AllowArcadeRace = true
+Levels[LevelIndex.Winter1B].AllowArcadeRace = true
+Levels[LevelIndex.Winter1C].AllowArcadeRace = true
+Levels[LevelIndex.Winter1D].AllowArcadeRace = true
+Levels[LevelIndex.Winter2A].AllowArcadeRace = true
+Levels[LevelIndex.Winter2B].AllowArcadeRace = true
+Levels[LevelIndex.Winter2C].AllowArcadeRace = true
+Levels[LevelIndex.ToughTrucks1].AllowArcadeRace = true
+Levels[LevelIndex.ToughTrucks2].AllowArcadeRace = true
+Levels[LevelIndex.ToughTrucks3].AllowArcadeRace = true
+Levels[LevelIndex.ToughTrucks4].AllowArcadeRace = true
+Levels[LevelIndex.ToughTrucks5].AllowArcadeRace = true
+Levels[LevelIndex.ToughTrucks6].AllowArcadeRace = true
+Levels[LevelIndex.ToughTrucks7].AllowArcadeRace = true
+Levels[LevelIndex.ToughTrucks8].AllowArcadeRace = true
+Levels[LevelIndex.ToughTrucks9].AllowArcadeRace = true
+Levels[LevelIndex.ToughTrucks10].AllowArcadeRace = true
+Levels[LevelIndex.ToughTrucks11].AllowArcadeRace = true
+Levels[LevelIndex.ToughTrucks12].AllowArcadeRace = true
+Levels[LevelIndex.ToughTrucks13].AllowArcadeRace = true
+Levels[LevelIndex.ToughTrucks14].AllowArcadeRace = true
+Levels[LevelIndex.ToughTrucks15].AllowArcadeRace = true
+Levels[LevelIndex.ToughTrucks16].AllowArcadeRace = true
+Levels[LevelIndex.SanJuan1].AllowArcadeRace = true
+Levels[LevelIndex.SanJuan2].AllowArcadeRace = true
+Levels[LevelIndex.SanJuan3].AllowArcadeRace = true
+
+--Levels[LevelIndex.Arena1].AllowTonyHawk = true
+Levels[LevelIndex.Arena2].AllowTonyHawk = true
+Levels[LevelIndex.Arena3].AllowTonyHawk = true
+--Levels[LevelIndex.Arena4].AllowTonyHawk = true
+Levels[LevelIndex.Arena5].AllowTonyHawk = true
+--Levels[LevelIndex.Arena6].AllowTonyHawk = true
+Levels[LevelIndex.Derby6A].AllowTonyHawk = true
+Levels[LevelIndex.Nascar1C].AllowTonyHawk = true
+Levels[LevelIndex.GarageTestTrack].AllowTonyHawk = true
+Levels[LevelIndex.Forest2A].AllowTonyHawk = true
+Levels[LevelIndex.FO1Forest1A].AllowTonyHawk = true
+Levels[LevelIndex.FO1Forest2A].AllowTonyHawk = true
+Levels[LevelIndex.FO1Forest3A].AllowTonyHawk = true
+Levels[LevelIndex.FO1Racing1A].AllowTonyHawk = true
+Levels[LevelIndex.FO1Racing2A].AllowTonyHawk = true
+Levels[LevelIndex.Pit1A].AllowTonyHawk = true
+Levels[LevelIndex.Pit2A].AllowTonyHawk = true
+Levels[LevelIndex.Pit3A].AllowTonyHawk = true
+Levels[LevelIndex.RetroDemo1B].AllowTonyHawk = true
+Levels[LevelIndex.RetroDemo2A].AllowTonyHawk = true
+Levels[LevelIndex.Town2A].AllowTonyHawk = true
+Levels[LevelIndex.Town3A].AllowTonyHawk = true
+Levels[LevelIndex.Winter1A].AllowTonyHawk = true
+Levels[LevelIndex.Winter2A].AllowTonyHawk = true
+--Levels[LevelIndex.ToughTrucks1].AllowTonyHawk = true -- not enough jumps
+--Levels[LevelIndex.ToughTrucks2].AllowTonyHawk = true -- zero jumps
+--Levels[LevelIndex.ToughTrucks3].AllowTonyHawk = true -- not enough jumps
+Levels[LevelIndex.ToughTrucks4].AllowTonyHawk = true
+--Levels[LevelIndex.ToughTrucks5].AllowTonyHawk = true -- not enough jumps
+Levels[LevelIndex.ToughTrucks6].AllowTonyHawk = true
+Levels[LevelIndex.ToughTrucks7].AllowTonyHawk = true
+Levels[LevelIndex.ToughTrucks8].AllowTonyHawk = true
+Levels[LevelIndex.ToughTrucks9].AllowTonyHawk = true
+Levels[LevelIndex.ToughTrucks10].AllowTonyHawk = true
+Levels[LevelIndex.ToughTrucks11].AllowTonyHawk = true
+Levels[LevelIndex.ToughTrucks12].AllowTonyHawk = true
+Levels[LevelIndex.ToughTrucks13].AllowTonyHawk = true
+Levels[LevelIndex.ToughTrucks14].AllowTonyHawk = true
+Levels[LevelIndex.ToughTrucks15].AllowTonyHawk = true
+Levels[LevelIndex.ToughTrucks16].AllowTonyHawk = true
+
+Levels[LevelIndex.Arena3].AllowSpeedtrap = true
+Levels[LevelIndex.Arena5].AllowSpeedtrap = true
+Levels[LevelIndex.Arena6].AllowSpeedtrap = true
+Levels[LevelIndex.Canal1A].AllowSpeedtrap = true
+Levels[LevelIndex.City1A].AllowSpeedtrap = true
+Levels[LevelIndex.City1B].AllowSpeedtrap = true
+Levels[LevelIndex.City2B].AllowSpeedtrap = true
+Levels[LevelIndex.City2C].AllowSpeedtrap = true
+Levels[LevelIndex.Desert1B].AllowSpeedtrap = true
+Levels[LevelIndex.Desert1C].AllowSpeedtrap = true
+Levels[LevelIndex.Fields1A].AllowSpeedtrap = true
+Levels[LevelIndex.Fields2B].AllowSpeedtrap = true
+Levels[LevelIndex.FO1Forest1A].AllowSpeedtrap = true
+Levels[LevelIndex.FO1Forest1B].AllowSpeedtrap = true
+Levels[LevelIndex.FO1Forest1C].AllowSpeedtrap = true
+Levels[LevelIndex.FO1Forest2A].AllowSpeedtrap = true
+Levels[LevelIndex.FO1Forest2B].AllowSpeedtrap = true
+Levels[LevelIndex.FO1Forest2C].AllowSpeedtrap = true
+Levels[LevelIndex.FO1Forest3A].AllowSpeedtrap = true
+Levels[LevelIndex.FO1Forest3B].AllowSpeedtrap = true
+Levels[LevelIndex.FO1Forest3C].AllowSpeedtrap = true
+Levels[LevelIndex.FO1Racing1A].AllowSpeedtrap = true
+Levels[LevelIndex.FO1Racing1B].AllowSpeedtrap = true
+Levels[LevelIndex.FO1Racing1C].AllowSpeedtrap = true
+Levels[LevelIndex.FO1Racing2A].AllowSpeedtrap = true
+Levels[LevelIndex.FO1Racing2B].AllowSpeedtrap = true
+Levels[LevelIndex.FO1Racing2C].AllowSpeedtrap = true
+--Levels[LevelIndex.FO1Racing2D].AllowSpeedtrap = true
+Levels[LevelIndex.Forest1A].AllowSpeedtrap = true
+Levels[LevelIndex.Forest1B].AllowSpeedtrap = true
+Levels[LevelIndex.Forest2A].AllowSpeedtrap = true
+Levels[LevelIndex.Forest2C].AllowSpeedtrap = true
+Levels[LevelIndex.Pit1A].AllowSpeedtrap = true
+Levels[LevelIndex.Pit1B].AllowSpeedtrap = true
+Levels[LevelIndex.Pit1C].AllowSpeedtrap = true
+Levels[LevelIndex.Pit2A].AllowSpeedtrap = true
+Levels[LevelIndex.Pit2B].AllowSpeedtrap = true
+Levels[LevelIndex.Pit2C].AllowSpeedtrap = true
+Levels[LevelIndex.Pit3A].AllowSpeedtrap = true
+Levels[LevelIndex.Pit3B].AllowSpeedtrap = true
+Levels[LevelIndex.Pit3C].AllowSpeedtrap = true
+Levels[LevelIndex.Racing1A].AllowSpeedtrap = true
+Levels[LevelIndex.Racing1C].AllowSpeedtrap = true
+Levels[LevelIndex.Racing2B].AllowSpeedtrap = true
+Levels[LevelIndex.Racing2C].AllowSpeedtrap = true
+Levels[LevelIndex.RetroDemo1A].AllowSpeedtrap = true
+Levels[LevelIndex.RetroDemo1B].AllowSpeedtrap = true
+Levels[LevelIndex.RetroDemo2A].AllowSpeedtrap = true
+Levels[LevelIndex.RetroDemo2B].AllowSpeedtrap = true
+Levels[LevelIndex.ToughTrucks13].AllowSpeedtrap = true
+Levels[LevelIndex.Town2A].AllowSpeedtrap = true
+Levels[LevelIndex.Town2B].AllowSpeedtrap = true
+Levels[LevelIndex.Town2C].AllowSpeedtrap = true
+Levels[LevelIndex.Town2D].AllowSpeedtrap = true
+Levels[LevelIndex.Town3A].AllowSpeedtrap = true
+Levels[LevelIndex.Town3B].AllowSpeedtrap = true
+Levels[LevelIndex.Town3C].AllowSpeedtrap = true
+Levels[LevelIndex.Winter1A].AllowSpeedtrap = true
+Levels[LevelIndex.Winter1B].AllowSpeedtrap = true
+Levels[LevelIndex.Winter1C].AllowSpeedtrap = true
+Levels[LevelIndex.Winter1D].AllowSpeedtrap = true
+Levels[LevelIndex.Winter2A].AllowSpeedtrap = true
+Levels[LevelIndex.Winter2B].AllowSpeedtrap = true
+Levels[LevelIndex.Winter2C].AllowSpeedtrap = true
+Levels[LevelIndex.SanJuan1].AllowSpeedtrap = true
+Levels[LevelIndex.SanJuan2].AllowSpeedtrap = true
+Levels[LevelIndex.SanJuan3].AllowSpeedtrap = true
+
+Levels[LevelIndex.Rally1A].AllowSpeedtrap = true
+Levels[LevelIndex.Rally1B].AllowSpeedtrap = true
+Levels[LevelIndex.Rally1C].AllowSpeedtrap = true
+Levels[LevelIndex.Rally1D].AllowSpeedtrap = true
+Levels[LevelIndex.Rally1E].AllowSpeedtrap = true
+Levels[LevelIndex.Rally1F].AllowSpeedtrap = true
+Levels[LevelIndex.Rally1G].AllowSpeedtrap = true
+Levels[LevelIndex.Rally1H].AllowSpeedtrap = true
+Levels[LevelIndex.Rally2A].AllowSpeedtrap = true
+Levels[LevelIndex.Rally2B].AllowSpeedtrap = true
+Levels[LevelIndex.Rally2C].AllowSpeedtrap = true
+Levels[LevelIndex.Rally2D].AllowSpeedtrap = true
+Levels[LevelIndex.Rally2E].AllowSpeedtrap = true
+Levels[LevelIndex.Rally2F].AllowSpeedtrap = true
+Levels[LevelIndex.Rally3A].AllowSpeedtrap = true
+Levels[LevelIndex.Rally3B].AllowSpeedtrap = true
+Levels[LevelIndex.Rally3C].AllowSpeedtrap = true
+Levels[LevelIndex.Rally3D].AllowSpeedtrap = true
+Levels[LevelIndex.Rally3E].AllowSpeedtrap = true
+Levels[LevelIndex.Rally3F].AllowSpeedtrap = true
+Levels[LevelIndex.Rally4A].AllowSpeedtrap = true
+Levels[LevelIndex.Rally4B].AllowSpeedtrap = true
+Levels[LevelIndex.Rally4C].AllowSpeedtrap = true
+Levels[LevelIndex.Rally4D].AllowSpeedtrap = true
+Levels[LevelIndex.Rally4E].AllowSpeedtrap = true
+Levels[LevelIndex.Rally4F].AllowSpeedtrap = true
+Levels[LevelIndex.Rally5A].AllowSpeedtrap = true
+Levels[LevelIndex.Rally5B].AllowSpeedtrap = true
+Levels[LevelIndex.Rally5C].AllowSpeedtrap = true
+Levels[LevelIndex.Rally5D].AllowSpeedtrap = true
+Levels[LevelIndex.Rally5E].AllowSpeedtrap = true
+Levels[LevelIndex.Rally5F].AllowSpeedtrap = true
+
+Levels[LevelIndex.Rally1I].AllowSpeedtrap = true
+Levels[LevelIndex.Rally1J].AllowSpeedtrap = true
+Levels[LevelIndex.Rally2G].AllowSpeedtrap = true
+Levels[LevelIndex.Rally2H].AllowSpeedtrap = true
+Levels[LevelIndex.Rally3G].AllowSpeedtrap = true
+Levels[LevelIndex.Rally3H].AllowSpeedtrap = true
+Levels[LevelIndex.Rally4G].AllowSpeedtrap = true
+Levels[LevelIndex.Rally4H].AllowSpeedtrap = true
+Levels[LevelIndex.Rally5G].AllowSpeedtrap = true
+Levels[LevelIndex.Rally5H].AllowSpeedtrap = true
+
+Levels[LevelIndex.Canal1C].AllowBeatTheBomb = true
+Levels[LevelIndex.City2A].AllowBeatTheBomb = true
+Levels[LevelIndex.Desert1A].AllowBeatTheBomb = true
+Levels[LevelIndex.Fields1B].AllowBeatTheBomb = true
+Levels[LevelIndex.FO1Forest1A].AllowBeatTheBomb = true
+Levels[LevelIndex.FO1Forest1B].AllowBeatTheBomb = true
+Levels[LevelIndex.FO1Forest1C].AllowBeatTheBomb = true
+Levels[LevelIndex.FO1Forest2A].AllowBeatTheBomb = true
+Levels[LevelIndex.FO1Forest2B].AllowBeatTheBomb = true
+Levels[LevelIndex.FO1Forest2C].AllowBeatTheBomb = true
+Levels[LevelIndex.FO1Forest3A].AllowBeatTheBomb = true
+Levels[LevelIndex.FO1Forest3B].AllowBeatTheBomb = true
+Levels[LevelIndex.FO1Forest3C].AllowBeatTheBomb = true
+Levels[LevelIndex.FO1Racing1A].AllowBeatTheBomb = true
+Levels[LevelIndex.FO1Racing1B].AllowBeatTheBomb = true
+Levels[LevelIndex.FO1Racing1C].AllowBeatTheBomb = true
+Levels[LevelIndex.FO1Racing2A].AllowBeatTheBomb = true
+Levels[LevelIndex.FO1Racing2B].AllowBeatTheBomb = true
+Levels[LevelIndex.FO1Racing2C].AllowBeatTheBomb = true
+Levels[LevelIndex.Forest2A].AllowBeatTheBomb = true
+Levels[LevelIndex.Pit1A].AllowBeatTheBomb = true
+Levels[LevelIndex.Pit1B].AllowBeatTheBomb = true
+Levels[LevelIndex.Pit1C].AllowBeatTheBomb = true
+Levels[LevelIndex.Pit2A].AllowBeatTheBomb = true
+Levels[LevelIndex.Pit2B].AllowBeatTheBomb = true
+Levels[LevelIndex.Pit2C].AllowBeatTheBomb = true
+Levels[LevelIndex.Pit3A].AllowBeatTheBomb = true
+Levels[LevelIndex.Pit3B].AllowBeatTheBomb = true
+Levels[LevelIndex.Pit3C].AllowBeatTheBomb = true
+Levels[LevelIndex.Racing1A].AllowBeatTheBomb = true
+Levels[LevelIndex.Racing1C].AllowBeatTheBomb = true
+--Levels[LevelIndex.RetroDemo1A].AllowBeatTheBomb = true
+--Levels[LevelIndex.RetroDemo1B].AllowBeatTheBomb = true
+--Levels[LevelIndex.RetroDemo2A].AllowBeatTheBomb = true
+--Levels[LevelIndex.RetroDemo2B].AllowBeatTheBomb = true
+Levels[LevelIndex.Town2A].AllowBeatTheBomb = true
+Levels[LevelIndex.Town2B].AllowBeatTheBomb = true
+Levels[LevelIndex.Town2C].AllowBeatTheBomb = true
+Levels[LevelIndex.Town2D].AllowBeatTheBomb = true
+Levels[LevelIndex.Town3A].AllowBeatTheBomb = true
+Levels[LevelIndex.Town3B].AllowBeatTheBomb = true
+Levels[LevelIndex.Town3C].AllowBeatTheBomb = true
+Levels[LevelIndex.Winter1A].AllowBeatTheBomb = true
+Levels[LevelIndex.Winter1B].AllowBeatTheBomb = true
+Levels[LevelIndex.Winter1C].AllowBeatTheBomb = true
+Levels[LevelIndex.Winter1D].AllowBeatTheBomb = true
+Levels[LevelIndex.Winter2A].AllowBeatTheBomb = true
+Levels[LevelIndex.Winter2B].AllowBeatTheBomb = true
+Levels[LevelIndex.Winter2C].AllowBeatTheBomb = true
+
+Levels[LevelIndex.FO1Forest1A].UseLowAILookahead = true
+Levels[LevelIndex.FO1Forest1B].UseLowAILookahead = true
+Levels[LevelIndex.FO1Forest1C].UseLowAILookahead = true
+Levels[LevelIndex.FO1Forest2A].UseLowAILookahead = true
+Levels[LevelIndex.FO1Forest2B].UseLowAILookahead = true
+Levels[LevelIndex.FO1Forest2C].UseLowAILookahead = true
+Levels[LevelIndex.FO1Forest3A].UseLowAILookahead = true
+Levels[LevelIndex.FO1Forest3B].UseLowAILookahead = true
+Levels[LevelIndex.FO1Forest3C].UseLowAILookahead = true
+Levels[LevelIndex.FO1Racing1A].UseLowAILookahead = true
+Levels[LevelIndex.FO1Racing1B].UseLowAILookahead = true
+Levels[LevelIndex.FO1Racing1C].UseLowAILookahead = true
+Levels[LevelIndex.FO1Racing2A].UseLowAILookahead = true
+Levels[LevelIndex.FO1Racing2B].UseLowAILookahead = true
+Levels[LevelIndex.FO1Racing2C].UseLowAILookahead = true
+Levels[LevelIndex.Pit1A].UseLowAILookahead = true
+Levels[LevelIndex.Pit1B].UseLowAILookahead = true
+Levels[LevelIndex.Pit1C].UseLowAILookahead = true
+Levels[LevelIndex.Pit2A].UseLowAILookahead = true
+Levels[LevelIndex.Pit2B].UseLowAILookahead = true
+Levels[LevelIndex.Pit2C].UseLowAILookahead = true
+Levels[LevelIndex.Pit3A].UseLowAILookahead = true
+Levels[LevelIndex.Pit3B].UseLowAILookahead = true
+Levels[LevelIndex.Pit3C].UseLowAILookahead = true
+--Levels[LevelIndex.RetroDemo1A].UseLowAILookahead = true
+--Levels[LevelIndex.RetroDemo1B].UseLowAILookahead = true
+Levels[LevelIndex.RetroDemo2A].UseLowAILookahead = true
+--Levels[LevelIndex.RetroDemo2B].UseLowAILookahead = true
+Levels[LevelIndex.Town2A].UseLowAILookahead = true
+Levels[LevelIndex.Town2B].UseLowAILookahead = true
+Levels[LevelIndex.Town2C].UseLowAILookahead = true
+Levels[LevelIndex.Town2D].UseLowAILookahead = true
+Levels[LevelIndex.Town2E].UseLowAILookahead = true
+Levels[LevelIndex.Town3A].UseLowAILookahead = true
+Levels[LevelIndex.Town3B].UseLowAILookahead = true
+Levels[LevelIndex.Town3C].UseLowAILookahead = true
+Levels[LevelIndex.Winter1A].UseLowAILookahead = true
+Levels[LevelIndex.Winter1B].UseLowAILookahead = true
+Levels[LevelIndex.Winter1C].UseLowAILookahead = true
+Levels[LevelIndex.Winter1D].UseLowAILookahead = true
+Levels[LevelIndex.Winter2A].UseLowAILookahead = true
+Levels[LevelIndex.Winter2B].UseLowAILookahead = true
+Levels[LevelIndex.Winter2C].UseLowAILookahead = true
+Levels[LevelIndex.ToughTrucks1].UseLowAILookahead = true
+Levels[LevelIndex.ToughTrucks2].UseLowAILookahead = true
+Levels[LevelIndex.ToughTrucks3].UseLowAILookahead = true
+Levels[LevelIndex.ToughTrucks4].UseLowAILookahead = true
+Levels[LevelIndex.ToughTrucks5].UseLowAILookahead = true
+Levels[LevelIndex.ToughTrucks6].UseLowAILookahead = true
+Levels[LevelIndex.ToughTrucks7].UseLowAILookahead = true
+Levels[LevelIndex.ToughTrucks8].UseLowAILookahead = true
+Levels[LevelIndex.ToughTrucks9].UseLowAILookahead = true
+Levels[LevelIndex.ToughTrucks10].UseLowAILookahead = true
+Levels[LevelIndex.ToughTrucks11].UseLowAILookahead = true
+Levels[LevelIndex.ToughTrucks12].UseLowAILookahead = true
+Levels[LevelIndex.ToughTrucks13].UseLowAILookahead = true
+Levels[LevelIndex.ToughTrucks14].UseLowAILookahead = true
+Levels[LevelIndex.ToughTrucks15].UseLowAILookahead = true
+Levels[LevelIndex.ToughTrucks16].UseLowAILookahead = true
+Levels[LevelIndex.Rally1A].UseLowAILookahead = true
+Levels[LevelIndex.Rally1B].UseLowAILookahead = true
+Levels[LevelIndex.Rally1C].UseLowAILookahead = true
+Levels[LevelIndex.Rally1D].UseLowAILookahead = true
+Levels[LevelIndex.Rally1E].UseLowAILookahead = true
+Levels[LevelIndex.Rally1F].UseLowAILookahead = true
+Levels[LevelIndex.Rally1G].UseLowAILookahead = true
+Levels[LevelIndex.Rally1H].UseLowAILookahead = true
+Levels[LevelIndex.Rally2A].UseLowAILookahead = true
+Levels[LevelIndex.Rally2B].UseLowAILookahead = true
+Levels[LevelIndex.Rally2C].UseLowAILookahead = true
+Levels[LevelIndex.Rally2D].UseLowAILookahead = true
+Levels[LevelIndex.Rally2E].UseLowAILookahead = true
+Levels[LevelIndex.Rally2F].UseLowAILookahead = true
+Levels[LevelIndex.Rally3A].UseLowAILookahead = true
+Levels[LevelIndex.Rally3B].UseLowAILookahead = true
+Levels[LevelIndex.Rally3C].UseLowAILookahead = true
+Levels[LevelIndex.Rally3D].UseLowAILookahead = true
+Levels[LevelIndex.Rally3E].UseLowAILookahead = true
+Levels[LevelIndex.Rally3F].UseLowAILookahead = true
+Levels[LevelIndex.Rally4A].UseLowAILookahead = true
+Levels[LevelIndex.Rally4B].UseLowAILookahead = true
+Levels[LevelIndex.Rally4C].UseLowAILookahead = true
+Levels[LevelIndex.Rally4D].UseLowAILookahead = true
+Levels[LevelIndex.Rally4E].UseLowAILookahead = true
+Levels[LevelIndex.Rally4F].UseLowAILookahead = true
+Levels[LevelIndex.Rally5A].UseLowAILookahead = true
+Levels[LevelIndex.Rally5B].UseLowAILookahead = true
+Levels[LevelIndex.Rally5C].UseLowAILookahead = true
+Levels[LevelIndex.Rally5D].UseLowAILookahead = true
+Levels[LevelIndex.Rally5E].UseLowAILookahead = true
+Levels[LevelIndex.Rally5F].UseLowAILookahead = true
+
+Levels[LevelIndex.Rally1I].UseLowAILookahead = true
+Levels[LevelIndex.Rally1J].UseLowAILookahead = true
+Levels[LevelIndex.Rally2G].UseLowAILookahead = true
+Levels[LevelIndex.Rally2H].UseLowAILookahead = true
+Levels[LevelIndex.Rally3G].UseLowAILookahead = true
+Levels[LevelIndex.Rally3H].UseLowAILookahead = true
+Levels[LevelIndex.Rally4G].UseLowAILookahead = true
+Levels[LevelIndex.Rally4H].UseLowAILookahead = true
+Levels[LevelIndex.Rally5G].UseLowAILookahead = true
+Levels[LevelIndex.Rally5H].UseLowAILookahead = true
+
+Levels[LevelIndex.ToughTrucks1].AlwaysUseStartingGhost = true
+Levels[LevelIndex.ToughTrucks2].AlwaysUseStartingGhost = true
+Levels[LevelIndex.ToughTrucks3].AlwaysUseStartingGhost = true
+Levels[LevelIndex.ToughTrucks4].AlwaysUseStartingGhost = true
+Levels[LevelIndex.ToughTrucks5].AlwaysUseStartingGhost = true
+Levels[LevelIndex.ToughTrucks6].AlwaysUseStartingGhost = true
+Levels[LevelIndex.ToughTrucks7].AlwaysUseStartingGhost = true
+Levels[LevelIndex.ToughTrucks8].AlwaysUseStartingGhost = true
+Levels[LevelIndex.ToughTrucks9].AlwaysUseStartingGhost = true
+Levels[LevelIndex.ToughTrucks10].AlwaysUseStartingGhost = true
+Levels[LevelIndex.ToughTrucks11].AlwaysUseStartingGhost = true
+Levels[LevelIndex.ToughTrucks12].AlwaysUseStartingGhost = true
+Levels[LevelIndex.ToughTrucks13].AlwaysUseStartingGhost = true
+Levels[LevelIndex.ToughTrucks14].AlwaysUseStartingGhost = true
+Levels[LevelIndex.ToughTrucks15].AlwaysUseStartingGhost = true
+Levels[LevelIndex.ToughTrucks16].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally1A].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally1B].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally1C].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally1D].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally1E].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally1F].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally1G].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally1H].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally2A].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally2B].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally2C].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally2D].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally2E].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally2F].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally3A].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally3B].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally3C].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally3D].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally3E].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally3F].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally4A].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally4B].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally4C].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally4D].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally4E].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally4F].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally5A].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally5B].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally5C].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally5D].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally5E].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally5F].AlwaysUseStartingGhost = true
+
+Levels[LevelIndex.Rally1I].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally1J].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally2G].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally2H].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally3G].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally3H].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally4G].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally4H].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally5G].AlwaysUseStartingGhost = true
+Levels[LevelIndex.Rally5H].AlwaysUseStartingGhost = true
+-- custom (FlatOutUCChloeCollection_1.83_custom): hide every track that is not from FlatOut 2 / Ultimate Carnage
+-- IDs 1-58 are the FO2/FOUC tracks (incl. 46 = FO2 garage test track), everything above is addon content
+for k,v in pairs(Levels) do
+	if type(k) == "number" and k > 58 and type(v) == "table" then
+		v.ChloeCustomHidden = true
+	end
+end

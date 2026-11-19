@@ -1,0 +1,43 @@
+--dofile("data/language/languages.bed")
+ITEMTYPE_TEXT = 0
+ITEMTYPE_PICTURE = 1
+ITEMTYPE_RECTANGLE = 2
+
+Background = "data/menu/loading_ai9.tga"
+
+LoadingBar = {
+	Image = "data/menu/loading_bar.tga",
+	Position = { 64, 415 },
+	Width = 501,
+	Height = 32,
+	ScrollSpeed = 5000,	
+}
+
+--visuals
+
+ItemCount = 2
+
+Items = {
+
+	[1] = {
+		ItemType = ITEMTYPE_TEXT, --ai quickbio
+		Font = "FontExtraTiny",
+		Identifier = AI9_QUICKBIO,
+		Position = { 320, 334 },
+		ColorId = 34,
+		Center = 1,
+		Width = 350,
+		XShiftPerLine = 0,
+	},
+
+	[2] = {
+		ItemType = ITEMTYPE_TEXT, --ai name
+		Font = "FontSmall",
+		Identifier = AI9_NAME,
+		Position = { 320, 314 },
+		ColorId = 33,
+		Center = 1,
+		Width = 300,
+		XShiftPerLine = 0,
+	},
+}

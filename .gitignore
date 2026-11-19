@@ -1,0 +1,18 @@
+# Alles ignorieren, nur die freigegebenen Ordner aufnehmen
+/*
+!/.gitignore
+!/FlatOutUCChloeCollection_1.83_custom/
+!/FlatOutUCChloeCollection_1.83_custom_steam/
+!/custom_src/
+!/DisplayFix_package/
+!/Documentation/
+
+# Große BFS-Archive der Build-Ausgaben (per custom_src/build.ps1 reproduzierbar)
+/FlatOutUCChloeCollection_1.83_custom/**/*.bfs
+/FlatOutUCChloeCollection_1.83_custom_steam/**/*.bfs
+
+# Unverändert aus dem Original kopierte Musik und Ghosts (ebenfalls reproduzierbar)
+/FlatOutUCChloeCollection_1.83_custom/Data/
+/FlatOutUCChloeCollection_1.83_custom/Ghosts/
+/FlatOutUCChloeCollection_1.83_custom_steam/Data/
+/FlatOutUCChloeCollection_1.83_custom_steam/Ghosts/

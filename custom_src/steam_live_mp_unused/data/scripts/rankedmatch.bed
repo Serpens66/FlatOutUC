@@ -1,0 +1,550 @@
+--///////////////////////////////////////////////////////////////////////////
+--// RankedMatch.bed
+--///////////////////////////////////////////////////////////////////////////
+--// Copyright (c) 2006 Bugbear Entertainment ltd. 
+--// All Rights Reserved.
+--// 
+--// Created on 19.10.2006 10:41:36
+--// 
+--// Authors: Fred Sundvik (fred.sundvik@bugbear.fi)
+--///////////////////////////////////////////////////////////////////////////
+
+local State=nil
+local CurrentSession=0
+
+local rankedmatchModes
+if USE_NETWORK then
+	rankedmatchModes = {ReplicatedSession.GAMETYPE_TOURNAMENT_RACE, ReplicatedSession.GAMETYPE_STUNT, ReplicatedSession.GAMETYPE_TOURNAMENT_DERBY, ReplicatedSession.GAMETYPE_TOURNAMENT }
+end
+local ShuffledGameModes = {} 
+
+local EventListener
+
+local SearchNext
+
+local DerbyEnvironments = { TRACKTYPE_DERBY, TRACKTYPE_EVENT }
+local RaceEnvironments = { TRACKTYPE_FOREST, TRACKTYPE_FIELDS, TRACKTYPE_DESERT, TRACKTYPE_CANAL, TRACKTYPE_CITY, TRACKTYPE_RACING, TRACKTYPE_EVENT}
+local StuntEnvironments = { TRACKTYPE_STUNT }
+
+local CurrentPass=1
+local CanDoNextPass
+local NumExtraPasses=0
+local MaxExtraPasses=0
+
+local PassParameters = {}
+local SortedParameters = {}
+local SortedSessions = {}
+
+local TrueSkillWeight
+local MinTrueSkill
+
+local SearchGames
+
+local CurrentTime=0
+local LastUpdateTime=0
+local LastSearchTime = - 10
+
+
+
+local function CreateGame()
+	Network:CreateXBoxLiveSession()	
+	local info = Session:GetInfo()
+	local user=GameFlow.GetSignedInUser()
+	info.SessionName = XBoxLive.GetUserName(user)
+
+	local environment
+	local gameType=MultiplayerFunctions.GetSearchParam("GameType")
+	if gameType == nil or gameType == ReplicatedSession.GAMETYPE_TOURNAMENT_RACE then
+		raceType=ReplicatedSession.GAMETYPE_RACE
+		environment=RaceEnvironments
+	elseif gameType == ReplicatedSession.GAMETYPE_TOURNAMENT_DERBY then
+		raceType = ReplicatedSession.GAMETYPE_DERBY_WRECKING
+		environment = DerbyEnvironments
+	elseif gameType == ReplicatedSession.GAMETYPE_STUNT then
+		raceType = ReplicatedSession.GAMETYPE_STUNT
+		environment = StuntEnvironments
+	end
+
+	if MultiplayerFunctions.GetSearchParam("TrackType") ~= nil then
+		environment = { MultiplayerFunctions.GetSearchParam("TrackType") }
+	end
+	
+	info.TournamentType = raceType
+	
+	local validTracks = {}
+	for i,l in ipairs(Levels) do
+		
+		for j, e in ipairs(environment) do
+			if l and l.TrackType == e then
+				table.insert(validTracks, i)
+			end
+		end
+	end		
+	
+	local level=validTracks[ math.random(1, table.getn(validTracks) ) ]
+	--@KLUDGE
+	--level = 4
+	
+	Session:ClearAllRaces()	
+	Session:AddRace()
+	info.Races[1].StageNr = level
+	info.Races[1].TrackType = Levels[ level ].TrackType
+	info.Races[1].EventType = raceType
+	if raceType==ReplicatedSession.GAMETYPE_RACE then
+		info.Races[1].LapsOrTimeLimit = Levels [ level ].Laps
+	elseif gameType == ReplicatedSession.GAMETYPE_TOURNAMENT_DERBY then
+		info.Races[1].LapsOrTimeLimit = 6
+	else 
+		info.Races[1].LapsOrTimeLimit = 1
+	end
+	
+	--@KLUDGE
+	info.Races[1].LapsOrTimeLimit = 1
+	
+	info.Races[1].Raced = false
+		
+	info.NextRace= 1
+
+	info.MaxPublicSlots	= 8
+	info.MaxPrivateSlots= 0
+	info.RatedGame		= true
+	
+	if MultiplayerFunctions.GetSearchParam("CarType") ~= nil then
+		info.CarClass		= MultiplayerFunctions.GetSearchParam("CarType")
+	else
+		if gameType	~= ReplicatedSession.GAMETYPE_STUNT then		
+			info.CarClass	= ReplicatedSession.CARCLASS_ANY
+		else
+			info.CarClass	= ReplicatedSession.CARCLASS_STUNT
+		end
+	end
+
+	local value=MultiplayerFunctions.GetSearchParam("Upgrades")
+	if value == nil then
+		info.CarUpgrades=ReplicatedSession.CARUPGRADES_NONE
+	else
+		info.CarUpgrades=value
+	end
+	
+	local value=MultiplayerFunctions.GetSearchParam("NitroRegen")
+	if value == nil then
+		info.NitroRegen=ReplicatedSession.NITROREGEN_100
+	else
+		info.NitroRegen=value
+	end
+	
+	local value=MultiplayerFunctions.GetSearchParam("DamageLevel")
+	if value == nil then
+		info.DamageLevel=ReplicatedSession.DAMAGELEVEL_100
+	else
+		info.DamageLevel=value
+	end
+	
+	local value=MultiplayerFunctions.GetSearchParam("DerbyDamageLevel")
+	if value == nil then
+		info.DerbyDamageLevel=ReplicatedSession.DERBYDAMAGELEVEL_100
+	else
+		info.DerbyDamageLevel=value
+	end
+
+	Session:CreateSession()
+	
+	State="CREATING"
+	
+	
+end
+
+local InSession=false
+
+local function SearchNext()
+	if CurrentTime - LastSearchTime < 2 then
+		State="SEARCHING"
+		return true;
+	end
+
+	if table.getn(ShuffledGameModes) > 0 then
+		SessionList:ClearParameters()
+		local numParametersSet=0
+		local maxParameters=PassParameters[CurrentPass]
+		for i,j in pairs(SortedParameters) do
+			if numParametersSet < maxParameters then
+				-- Set all valid parameters
+				if j[3] ~= nil then
+					numParametersSet = numParametersSet + 1
+					SessionList:SetParameter(j[1], j[3])
+					OUTPUTDEBUGSTRING( string.format("Using parameter %s with value %i", j[1], j[3]) )
+					CanDoNextPass=true
+				end
+			end
+		end
+
+		SessionList:SetParameter("RankedGame", true)
+		SessionList:SetParameter("GameType", table.remove(ShuffledGameModes, 1))
+		SessionList:Refresh()
+		State="SEARCHING"
+		return true
+	else
+		--Normal path search the next pass
+		if CanDoNextPass and PassParameters[CurrentPass] > 0 then
+			SearchGames(CurrentPass + 1)
+			return true;
+		--Else if there was sessions returned in the last pass, but we were not able to join, do another pass
+		--Or if the current pass is 
+		elseif SessionList:GetNumSessions()>0 or NumExtraPasses<MaxExtraPasses then
+			NumExtraPasses=NumExtraPasses + 1
+			SearchGames(CurrentPass)
+			return true;
+		else
+			State="ERROR"
+			return false
+		end
+	end
+end
+
+local function JoinNextSession()
+	CurrentSession=CurrentSession+1
+	if CurrentSession<=SessionList:GetNumSessions() then
+		if SortedSessions[CurrentSession][3]>MinTrueSkill then
+			SessionList:SetSessionNum(SortedSessions[CurrentSession][1])
+			SessionList:JoinSession()				
+			State="JOINING"
+		else
+			JoinNextSession()
+		end
+	else
+		if not SearchNext() then
+			CreateGame()
+		end
+	end
+end
+
+local function WeightSort(weight1, weight2)
+	if weight1[2] > weight2[2] then
+		return true
+	else
+		return false
+	end
+end
+
+
+SearchGames=function(pass)
+	State="SEARCHING"
+	CurrentPass=pass
+	CanDoNextPass=false
+	
+	if MultiplayerFunctions.GetSearchParam("GameType") ~= nil then
+		ShuffledGameModes = { MultiplayerFunctions.GetSearchParam("GameType") }
+	else
+		ShuffledGameModes = {}
+		for i,j in ipairs(rankedmatchModes) do
+			ShuffledGameModes[j]=i
+		end
+		
+		local numModes=table.getn(ShuffledGameModes)
+		
+		for i=numModes, 2, -1 do
+			local j = math.random(1, i)
+			
+			if j ~= i then
+				local temp = ShuffledGameModes[i]
+				ShuffledGameModes[i] = ShuffledGameModes[j]
+				ShuffledGameModes[j] = temp
+			end
+		end
+	end
+	
+	local searchSettings=db.Settings.XboxLive.RankedSearchSettings
+	
+	TrueSkillWeight=searchSettings.TrueSkillWeight
+	MinTrueSkill=searchSettings.MinTrueSkill
+	
+	PassParameters = 
+	{ 
+		searchSettings.NumParametersPass1,
+		searchSettings.NumParametersPass2,
+		searchSettings.NumParametersPass3,
+		searchSettings.NumParametersPass4,
+		searchSettings.NumParametersPass5,
+	}
+
+	SortedParameters =
+	{
+		--{"SessionType", searchSettings.SessionTypeWeight, MultiplayerFunctions.GetSearchParam("SessionType")},
+		{"GameMode", searchSettings.GameModeWeight, MultiplayerFunctions.GetSearchParam("GameMode")},
+		{"CarType", searchSettings.CarTypeWeight, MultiplayerFunctions.GetSearchParam("CarType")},
+		{"TrackType", searchSettings.EnvironmentWeight, MultiplayerFunctions.GetSearchParam("TrackType")},
+		{"NitroRegen", searchSettings.NitroMultiplierWeight, MultiplayerFunctions.GetSearchParam("NitroRegen")},
+		{"DamageLevel", searchSettings.RaceDamageWeight, MultiplayerFunctions.GetSearchParam("DamageLevel")},
+		{"DerbyDamageLevel", searchSettings.DerbyDamageWeight, MultiplayerFunctions.GetSearchParam("DerbyDamageLevel")},
+		{"Upgrades", searchSettings.UpgradesWeight, MultiplayerFunctions.GetSearchParam("Upgrades")},
+	}
+	
+	
+	table.sort(SortedParameters, WeightSort)
+	for i,j in ipairs(SortedParameters) do
+		local param=j[3]
+		if param == nil then
+			param=-1
+		end
+		OUTPUTDEBUGSTRING( string.format("[%s]=%f, %i", j[1], j[2], param) )
+	end		
+	SearchNext()
+end
+
+local function CalculateError(source, target, min, max)
+	local range=max-min
+	local diff=math.abs(source-target)
+	return diff / range
+end
+
+local function ComputeSessionError(sessionNr)
+	SessionList:SetSessionNum(sessionNr)
+	local session = SessionList:GetSessionInfo()
+	local race = session.Races[session.NextRace]
+	
+	local totalError=0
+
+	for nr, param in ipairs(SortedParameters) do
+		if param[3] ~= nil then
+			local paramName=param[1]
+			local weight=param[2]
+			local paramValue=param[3]
+			if paramName=="CarType" then
+				if paramValue~=session.CarClass then
+					totalError = totalError + weight
+				end
+			elseif paramName=="TrackType" then
+				if paramValue~=Levels[race.StageNr].TrackType then
+					totalError = totalError + weight
+				end
+			elseif paramName=="NitroRegen" then
+				totalError = totalError + weight* CalculateError(paramValue, session.NitroRegen, ReplicatedSession.NITROREGEN_0, ReplicatedSession.NITROREGEN_200)
+			elseif paramName=="DamageLevel" then
+				totalError = totalError + weight* CalculateError(paramValue, session.DamageLevel, ReplicatedSession.DAMAGELEVEL_0, ReplicatedSession.DAMAGELEVEL_200)
+			elseif paramName=="DerbyDamageLevel" then
+				totalError = totalError + weight* CalculateError(paramValue, session.DamageLevel, ReplicatedSession.DERBYDAMAGELEVEL_50, ReplicatedSession.DERBYDAMAGELEVEL_200)
+			elseif paramName=="Upgrades" then
+				totalError = totalError+ weight * CalculateError(paramValue, session.DamageLevel, ReplicatedSession.CARUPGRADES_NONE, ReplicatedSession.CARUPGRADES_ALL)
+			end  
+		end
+	end
+	return totalError
+end
+
+local function ComputeTrueSkillQuality(clientSigma, clientMu, sessionNr)
+	local betaXbox360Live = 0.5
+
+	SessionList:SetSessionNum(sessionNr)
+	local session = SessionList:GetSessionInfo()
+	local host=session.Players[1]
+
+    local clientSigma2 = clientSigma * clientSigma
+
+    local hostMu = host.TrueSkillMu
+
+    local hostSigma2 = host.TrueSkillSigma * host.TrueSkillSigma
+
+    local totalBeta2 = betaXbox360Live * betaXbox360Live
+
+    local muDifference = clientMu - hostMu
+    local clientWithPerfectHostVariance = totalBeta2 + clientSigma2
+    local clientWithCurrentHostVariance = clientWithPerfectHostVariance + hostSigma2
+
+	OUTPUTDEBUGSTRING(string.format("True skill %f, %f", hostMu, host.TrueSkillSigma))
+
+    return math.exp( -0.5 * muDifference * muDifference / clientWithCurrentHostVariance ) *
+           math.sqrt( clientWithPerfectHostVariance / clientWithCurrentHostVariance )
+end
+
+local function SessionComare(session1, session2)
+	if session1[4] > session2[4] then
+		return true
+	else
+		return false
+	end
+end
+
+local function SortSessions()
+	SortedSessions = {}
+	local numSessions = SessionList:GetNumSessions()
+	local totalError = 0
+	for i,j in ipairs(SortedParameters) do
+		totalError = totalError + j[2]
+	end
+	
+	for i=1, numSessions do
+		SortedSessions[i]={i, ComputeSessionError(i) / totalError, ComputeTrueSkillQuality(4.3, 6.5, i) }
+		SortedSessions[i][4]=(1-TrueSkillWeight)*(1-SortedSessions[i][2])+TrueSkillWeight*SortedSessions[i][3]
+		OUTPUTDEBUGSTRING(string.format("Session sort values %f %f %f", SortedSessions[i][2], SortedSessions[i][3], SortedSessions[i][4]))
+	end	
+	
+	table.sort(SortedSessions, SessionCompare)
+end
+
+
+local function NetworkEvents(event)
+	if event.id==EVENT_NETWORK_REQUEST_PLAYERUPDATE then
+		local player=Session:GetLocalPlayer(1)
+
+		if MultiplayerMode == MPMODE_LAN then
+			player:GenerateUserId()
+			player.Name=PlayerProfile:GetName()
+		elseif MultiplayerMode == MPMODE_GAMESPY then
+			player:GenerateUserId()
+			player.Name=PlayerProfile:GetName()
+		elseif MultiplayerMode == MPMODE_XBOXLIVE then
+			local user=GameFlow.GetSignedInUser()
+			player.Name=ChloeCustomSteam_TagPlayerName(XBoxLive.GetUserName(user)) --// ChloeCustom Steam: modpack marker
+			player.UId=XBoxLive.GetUserId(user)
+			player:SetController(user)
+		end
+
+		local info = Session:GetInfo()
+
+		if info.CarClass >= ReplicatedSession.CARCLASS_SAMEASHOST then
+			player.Car = info.CarClass - ReplicatedSession.CARCLASS_SAMEASHOST
+			player.CarValid = true
+		elseif info.CarClass == ReplicatedSession.CARCLASS_STUNT or info.Races[info.NextRace].EventType == ReplicatedSession.GAMETYPE_STUNT then
+			player.Car = CarlistStuntCars()[1].index		
+			player.CarValid = false
+		elseif info.CarClass == ReplicatedSession.CARCLASS_ANY or info.CarClass == ReplicatedSession.CARCLASS_NOBONUS then
+			player.Car = 0
+			player.CarValid = false
+		elseif info.CarClass == ReplicatedSession.CARCLASS_BONUS then
+			local function SplitString(str)
+				local t={}		
+				for w in string.gfind(str,"(%w+)%.?") do
+					table.insert(t,w)
+				end
+				return t
+			end
+			for i = 0, db.FlatOut2.Cars:GetPropertyArraySize("Car") - 1 do
+				local car = db.FlatOut2.Cars:GetProperty("Car", i)
+				
+				local path = SplitString(string.lower(car:GetFullPath()))
+
+				if path[3] == "bonus" then
+					player.Car = i
+					break
+				end
+			end
+			player.CarValid = false
+		else
+			-- Derby, racing or street
+			player.Car = CarlistFromClass(info.CarClass, false, true)[1].index
+			player.CarValid = false
+		end
+
+		player.CarSkin=1
+		player.CharacterType = PlayerProfile:GetGender()
+		player.TournamentPoints = 0
+
+		if info.CarUpgrades ~= ReplicatedSession.CARUPGRADES_ANY then
+			player.UpgradeLevel = info.CarUpgrades
+		else
+			player.UpgradeLevel = SessionInfo.CarUpgrades.All
+		end
+	elseif event.id == EVENT_NETWORK_JOIN_RESULT then
+		if event.data == 0 then
+			JoinNextSession()
+		elseif event.data == 1 then
+			HideThinkingWindow()
+			EnterLobby("menu_multiplayer_optimatch")
+		end
+	elseif event.id == EVENT_NETWORK_CREATE_SESSION_RESULT then
+		Event:RemoveListener(EventListener)
+		if event.data == 1 then
+			HideThinkingWindow()
+			EnterLobby("menu_multiplayer_optimatch")
+		elseif event.data == 0 then
+			HideThinkingWindow()
+			Network:StopMultiplayer()
+			
+			MessageBox(
+				LIVE_FAILED,
+				MESSAGEBOX_YESNO,
+				function(value)
+					if value == TRUE then
+						CreateSession(SessionEvents, SessionCar, CarSkin)
+					else
+						menu_multiplayer_creategame.back()
+					end
+				end
+			)
+		end
+	end	
+end
+
+menu_xboxlive_rankedmatch = CreateMenuFromTemplate("template_multiplayer")
+menu_xboxlive_rankedmatch.options.title = QUICK_TITLE
+menu_xboxlive_rankedmatch.back = entermenu("menu_multiplayer_optimatch")
+
+function menu_xboxlive_rankedmatch.create(self)
+	self.parent:create(self)
+	self:loadResources()
+	self.items = { }
+end
+
+function menu_xboxlive_rankedmatch.init(self)
+	self.parent:init(self)
+	GUI:SetBackgroundVideo("data/video/bg_main")
+
+	EventListener = Event:AddListener(NetworkEvents, EVENTTYPE_NETWORK)
+	
+	local handler = InputHandler { Name="inputhandler" }
+	handler.onKeyPressed = function( Self, Character, VirtualKey, ScanCode )
+		if VirtualKey == KeyCodes["BUTTON_START"] then
+		elseif VirtualKey == KeyCodes["BUTTON_SELECT"] then
+			HideThinkingWindow()
+			Network:StopMultiplayer()
+			menu_xboxlive_rankedmatch.back()
+			State="NONE"
+		end
+	end
+			
+	ShowThinkingWindow()
+	--@KLUDGE Maps the settings table
+	Network:StartSearchXBoxLiveSessions()
+	NumExtraPasses=0
+	CurrentTime=0
+	LastUpdateTime=0
+	LastSearchTime = -10
+	MaxExtraPasses=math.random(1, 5)
+	OUTPUTDEBUGSTRING( string.format("MaxExtraPasses %i", MaxExtraPasses) )
+	SearchGames(1)
+
+	handler:SetFocus()
+
+	State="SEARCHING"
+	CurrentSession=0
+end
+	
+function menu_xboxlive_rankedmatch.deinit(self)
+	self.parent:deinit(self)
+	Event:RemoveListener(EventListener)
+end
+	
+function menu_xboxlive_rankedmatch.update(self, time)
+	self.parent:update(self, time)
+	
+	local dt=0
+	if LastUpdateTime~=0 then
+		dt = time - LastUpdateTime
+		CurrentTime = CurrentTime + dt
+		LastUpdateTime = time
+	end
+	
+	if State=="SEARCHING" then
+		if SessionList:IsRefreshCompleted() then
+			if SessionList:GetNumSessions()==0 then
+				if not SearchNext() then						
+					CreateGame()
+				end
+			else
+				SortSessions()
+				CurrentSession=0
+				JoinNextSession()
+			end
+		end
+	end
+end

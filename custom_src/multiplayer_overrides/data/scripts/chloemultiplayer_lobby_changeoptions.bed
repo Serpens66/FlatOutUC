@@ -1,0 +1,672 @@
+dofile("data/menu/xbox_controller.bed")
+
+menu_chloemultiplayer_lobby_changeoptions = CreateMenuFromTemplate("template_multiplayer")
+menu_chloemultiplayer_lobby_changeoptions.options.title = TITLE_MULTIPLAYER_CHANGEOPTIONS
+menu_chloemultiplayer_lobby_changeoptions.back = function() end
+
+function EnterChloeChangeOptions(title, backmenu)
+	menu_chloemultiplayer_lobby_changeoptions.options.title = title
+	menu_chloemultiplayer_lobby_changeoptions.back = entermenu(backmenu)
+	EnterMenu("menu_chloemultiplayer_lobby_changeoptions")
+end
+
+function menu_chloemultiplayer_lobby_changeoptions.create(self)
+	self.parent:create(self)
+
+	self:addResource("xbox_controller.tga", xbox_controller, xbox_controller_size)
+	
+	self:loadResources()
+
+	self.items = { }
+end
+
+local Layout=
+{
+	TitleFramePos=LEFTPOS(0,66),
+	TitleFrameSize=SIZE(ChloeWidescreen_GetRight(),42),
+	TitlePos=POS(320,67),
+	TitleSize=SIZE(320,33),
+	TitleColor=GetPaletteColor(33),
+	TitleFont=fonttitle(),
+	
+	ListBdTopPos=LEFTPOS(0,115),
+	ListBdTopSize=SIZE(ChloeWidescreen_GetRight(),5),
+	ListBdMidPos=LEFTPOS(0,120),
+	ListBdMidSize=SIZE(ChloeWidescreen_GetRight(),250),
+	ListBdBotPos=LEFTPOS(0,370),
+	ListBdBotSize=SIZE(ChloeWidescreen_GetRight(),5),
+	
+	DescFramePos=LEFTPOS(0,382),
+	DescFrameSize=SIZE(ChloeWidescreen_GetRight(),38),
+	DescPos=POS(320,382+2),
+	DescSize=SIZE(500,38),
+	DescFont=fontextratiny(),
+	DescColor=GetPaletteColor(34),
+	
+	ListLeft=0,
+	ListTop=126,
+	ListFont=fontextratiny(),
+	
+	LabelX=302,
+	LabelFontColor=GetPaletteColor(33),
+	
+	OptionX=340,
+	OptionWidth=327,
+	OptionFontColor=GetPaletteColor(1),
+	OptionSelectedFontColor=GetPaletteColor(33),
+	OptionArrowIndentTop=4,
+	OptionArrowIndentLeftRight=5,
+	
+	RowHeight=18,
+	RowPadding=2,
+}
+
+local OptionItems = {
+	{
+		MULTIPLAYER_CARTYPE,
+		-- ChloeCustom: car types with only non-FlatOut-2 cars (FO1, Retro Demo, Tough Trucks, Rally Trophy, props) removed
+		{MULTIPLAYER_CARTYPE_ANY, MULTIPLAYER_OPTION_NOBONUS, MULTIPLAYER_CARTYPE_DERBY, MULTIPLAYER_CARTYPE_RACING, MULTIPLAYER_CARTYPE_STREET, MULTIPLAYER_CARTYPE_STUNT, L("BONUS STUNT"), MULTIPLAYER_OPTION_BONUS, L("FWD"), L("RWD"), L("4WD"), L("FWD NO BONUS"), L("RWD NO BONUS"), L("4WD NO BONUS"), L("TIER F-"), L("TIER F"), L("TIER D"), L("TIER C"), L("TIER B"), L("TIER A"), L("TIER S"), L("TIER S+"), MULTIPLAYER_CAR_SAMEHOST},
+		{CARCLASS_ANY, CARCLASS_NOBONUS, CARCLASS_DERBY, CARCLASS_RACING, CARCLASS_STREET, CARCLASS_STUNT, CARCLASS_BONUSSTUNT, CARCLASS_BONUS, CARCLASS_FWD, CARCLASS_RWD, CARCLASS_4WD, CARCLASS_FWDNOBONUS, CARCLASS_RWDNOBONUS, CARCLASS_4WDNOBONUS, CARCLASS_TIERF2, CARCLASS_TIERF, CARCLASS_TIERD, CARCLASS_TIERC, CARCLASS_TIERB, CARCLASS_TIERA, CARCLASS_TIERS, CARCLASS_TIERS2, -1},
+		1,
+		true,
+		nil,
+		{MULTIPLAYER_CARTYPE_ANY_DESCRIPTION, MULTIPLAYER_OPTION_NOBONUS_DESC, MULTIPLAYER_CARTYPE_DERBY_DESCRIPTION, MULTIPLAYER_CARTYPE_RACING_DESCRIPTION, MULTIPLAYER_CARTYPE_STREET_DESCRIPTION, MULTIPLAYER_CARTYPE_STUNT_DESCRIPTION, L("Use only Stunt SS cars"), MULTIPLAYER_OPTION_BONUS_DESC, L("Use only FWD cars"), L("Use only RWD cars"), L("Use only 4WD cars"), L("Use only FWD cars"), L("Use only RWD cars"), L("Use only 4WD cars"), L("Balanced around Malice"), L("Balanced around Shaker"), L("Balanced around Mad Rash"), L("Balanced around Sparrowhawk"), L("Balanced around Ventura"), L("Balanced around Sunray"), L("Balanced around Bullet GT"), L("Balanced around Flatmobile"), MULTIPLAYER_CAR_SAMEHOST_DESC}
+	},
+	{
+		L("SPECIAL CARS"),
+		{SETTING_OFF, SETTING_ON},
+		{0, 1},
+		1,
+		true,
+		nil,
+		{L("Special cars are not available"), L("Special cars are available")}
+	},
+	{
+		L"DAMAGE LEVEL",
+		{L"0x", L"0.5x", L"1x", L"1.5x", L"2x", L"50x"},
+		{0.0, 0.5, 1.0, 1.5, 2.0, 50.0},
+		3,
+		true,
+		nil,
+		{MULTIPLAYER_RACEDAMAGELEVEL_0_DESCRIPTION, MULTIPLAYER_RACEDAMAGELEVEL_50_DESCRIPTION, MULTIPLAYER_RACEDAMAGELEVEL_100_DESCRIPTION, MULTIPLAYER_RACEDAMAGELEVEL_150_DESCRIPTION, MULTIPLAYER_RACEDAMAGELEVEL_200_DESCRIPTION, L"50x damage dealt on collision"}
+	},
+	{
+		TRANSLATOR(MULTIPLAYER_HANDLINGDAMAGE),
+		{SETTING_OFF, SETTING_ON},
+		{0, 1},
+		1,
+		true,
+		nil,
+		{TRANSLATOR(MULTIPLAYER_HANDLINGDAMAGE_NO_DESCRIPTION), TRANSLATOR(MULTIPLAYER_HANDLINGDAMAGE_YES_DESCRIPTION)}
+	},
+	{
+		MULTIPLAYER_UPGRADES,
+		{L"0%", L"50%", L"100%"},
+		{UPGRADE_NONE, UPGRADE_50, UPGRADE_100},
+		1,
+		true,
+		nil,
+		{MULTIPLAYER_UPGRADES_0_DESCRIPTION, MULTIPLAYER_UPGRADES_50_DESCRIPTION, MULTIPLAYER_UPGRADES_100_DESCRIPTION}
+	},
+	{
+		MULTIPLAYER_NITRO,
+		{L"0x", L"0.5x", L"1x", L"2x", L"50x"},
+		{0.0, 0.5, 1.0, 2.0, 50.0},
+		3,
+		true,
+		nil,
+		{MULTIPLAYER_NITRO_0_DESCRIPTION, MULTIPLAYER_NITRO_50_DESCRIPTION, MULTIPLAYER_NITRO_100_DESCRIPTION, MULTIPLAYER_NITRO_200_DESCRIPTION, L"50x Nitro"}
+	},
+	{
+		TRANSLATOR(MULTIPLAYER_NITROREGEN),
+		{OPTIONS_DEFAULT, SETTING_ON, SETTING_OFF},
+		{NITROREGEN_DEFAULT, NITROREGEN_ON, NITROREGEN_OFF},
+		1,
+		true,
+		nil,
+		{TRANSLATOR(MULTIPLAYER_NITRO_REGEN_DEFAULT_DESCRIPTION), TRANSLATOR(MULTIPLAYER_NITRO_REGEN_ON_DESCRIPTION), TRANSLATOR(MULTIPLAYER_NITRO_REGEN_OFF_DESCRIPTION)}
+	},
+	{
+		L("HANDLING MODE"),
+		{L"NORMAL", L"FLATOUT 2", L"PROFESSIONAL", L"ALTERNATE", L"LEGACY"},
+		{HANDLING_NORMAL, HANDLING_NORMAL_FO2DOWNFORCE, HANDLING_PROFESSIONAL, HANDLING_BETA, HANDLING_NORMAL_LEGACY},
+		1,
+		true,
+		nil,
+		{L("Classic arcade handling"), L("FlatOut 2 handling with more grip and downforce"), L("Less forgiving, simcadey handling with no oversteer"), L("Alternate arcadey handling based on the March 16th PS2 build"), L("Pre-1.59 handling with less downforce")}
+	},
+	{
+		L("SPEED LIMIT"),
+		{L"NORMAL", L"UNCAPPED"},
+		{0, 1},
+		1,
+		true,
+		nil,
+		{L("Normal car speed limits"), L("Uncapped car speed")}
+	},
+	{
+		L("DISABLE PROPS"),
+		{SETTING_OFF, SETTING_ON},
+		{0, 1},
+		1,
+		true,
+		nil,
+		{L("Spawn trackside props"), L("Don't spawn trackside props")}
+	},
+	{
+		L("GHOST MODE"),
+		{SETTING_OFF, SETTING_ON},
+		{0, 1},
+		1,
+		true,
+		nil,
+		{L("Players can collide with each other"), L("Players can't collide with each other")}
+	},
+	{
+		L("AI COUNT"),
+		{L"0", L"1", L"2", L"3", L"4", L"5", L"6", L"7", L"8", L"9", L"10", L"11", L"12"},
+		{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12},
+		1,
+		true,
+		nil,
+		{L"Number of AI opponents. The host computes them, their strength is the DIFFICULTY in the host's options", L"Number of AI opponents. The host computes them, their strength is the DIFFICULTY in the host's options", L"Number of AI opponents. The host computes them, their strength is the DIFFICULTY in the host's options", L"Number of AI opponents. The host computes them, their strength is the DIFFICULTY in the host's options", L"Number of AI opponents. The host computes them, their strength is the DIFFICULTY in the host's options", L"Number of AI opponents. The host computes them, their strength is the DIFFICULTY in the host's options", L"Number of AI opponents. The host computes them, their strength is the DIFFICULTY in the host's options", L"Number of AI opponents. The host computes them, their strength is the DIFFICULTY in the host's options", L"Number of AI opponents. The host computes them, their strength is the DIFFICULTY in the host's options", L"Number of AI opponents. The host computes them, their strength is the DIFFICULTY in the host's options", L"Number of AI opponents. The host computes them, their strength is the DIFFICULTY in the host's options", L"Number of AI opponents. The host computes them, their strength is the DIFFICULTY in the host's options", L"Number of AI opponents. The host computes them, their strength is the DIFFICULTY in the host's options"} -- ChloeCustom
+	},
+	{
+		L("AI CLASS"),
+		{L"DERBY", L"RACE", L"STREET", L"SAME AS HOST"},
+		{1, 2, 3, 4},
+		1,
+		true,
+		nil,
+		{L"AI drives derby cars", L"AI drives race cars", L"AI drives street cars", L"AI drives the same car as the host"} -- ChloeCustom
+	},
+}
+
+-- OptionItem item indexes
+local Label=1
+local ItemLabels=2
+local ItemValues=3
+local SelectedItem=4
+local Enabled=5
+local OnChanged=6
+local Descriptions=7
+local Hidden=8
+
+-- OptionItem indexes
+local CarType=1
+local PropCars=2
+local DamageLevel=3
+local HandlingDamage=4
+local Upgrades=5
+local NitroRegen=6
+local NitroRegenType=7
+local HandlingMode=8
+local SpeedLimit=9
+local DisableProps=10
+local GhostMode=11
+local AICount=12
+local AIClass=13
+
+local NumOptions=13
+
+local function GetEnabled(RowNr)
+	return OptionItems[RowNr][Enabled]
+end
+
+local function SetEnabled(RowNr, Enable)
+	OptionItems[RowNr][Enabled]=Enable
+	if Enable then
+		OptionItems[RowNr][Hidden]=false
+	end
+end
+
+local function SetHidden(RowNr, Hide)
+	OptionItems[RowNr][Hidden] = Hide
+	if Hide then
+		OptionItems[RowNr][Enabled] = false
+	end	
+end
+
+local function GetHidden(RowNr)
+	return OptionItems[RowNr][Hidden]
+end
+
+local function GetSelectedItem(RowNr)
+	return OptionItems[RowNr][SelectedItem]
+end
+
+local function SetSelectedItem(RowNr, Item)
+	OptionItems[RowNr][SelectedItem]=Item
+end
+
+local function SetSelectedItemByValue(RowNr, Value)
+	for i,j in ipairs(OptionItems[RowNr][ItemValues]) do
+		if j == Value then
+			SetSelectedItem(RowNr, i)
+			break
+		end
+	end
+end
+
+local function GetSelectedItemValue(rowNr)
+	return OptionItems[rowNr][ItemValues][OptionItems[rowNr][SelectedItem] ]
+end
+
+local function GetSelectedItemLabel(rowNr)
+	return OptionItems[rowNr][ItemLabels][OptionItems[rowNr][SelectedItem] ]
+end
+
+local function GetNumItems(RowNr)
+	return table.getn(OptionItems[RowNr][ItemValues])
+end
+
+local function GetRealRowNr(RowNr)
+	local realRowNr=nil
+	local currentRow=0
+	for i=1, table.getn(OptionItems) do
+		if GetHidden(i) ~= true then
+			currentRow = currentRow + 1
+			if currentRow == RowNr then
+				realRowNr = i
+				break
+			end
+		end
+	end
+	return realRowNr
+end
+
+local function GetRealNumRows()
+	local currentRow=0
+	for i=1, table.getn(OptionItems) do
+		if GetHidden(i) ~= true then
+			currentRow = currentRow + 1
+		end
+	end
+	return currentRow
+end
+
+local function UpdateArrows(self)
+	local row = wm.GetWindow("optionlist"):GetSelectedRow()
+	local y = Layout.ListTop + (Layout.RowHeight + Layout.RowPadding) * (row - 1)
+	
+	local leftArrowSize = wm.GetResourceSize(self:getResource("ingame_options_arrow_left_glow"))
+	local rightArrowSize = wm.GetResourceSize(self:getResource("ingame_options_arrow_right_glow"))
+
+	local value = wm.GetWindow("optionvalue_row"..row)
+	local xpos,_ = value:GetPosition()
+	self.leftarrow:SetPosition(xpos - 5 - leftArrowSize[1], y + 2)
+
+	local w,_ = wm.GetTextExtents(value:GetTitle(), Layout.ListFont)
+	self.rightarrow:SetPosition(xpos + w + 9, y + 2)
+end
+
+local function UpdateInfoText()
+	local selectedRow = GetRealRowNr(wm.GetWindow("optionlist"):GetSelectedRow())
+	local descs = OptionItems[selectedRow][Descriptions]
+	if descs ~= nil then
+		local desc
+		if type(descs) == "table" then
+			desc = descs[GetSelectedItem(selectedRow)]
+		else
+			desc = descs
+		end
+		
+		local infotext = wm.GetWindow("infotext")
+		if desc then
+			infotext:SetTitle(desc)
+			infotext:WordWrap()
+		else
+			infotext:SetTitle(L"")
+		end
+	end
+end
+
+local function ChangeOptions(events, carindex, carskin)	
+	local cartype = GetSelectedItemValue(CarType)
+	if cartype < 0 then
+		if carindex ~= nil then
+			ChloeNet_Host_SetCarClass(CARCLASS_SAMEASHOST + carindex)
+			ChloeNet_SetPlayerCar(carindex)
+			ChloeNet_SetPlayerCarSkin(carskin)
+		end
+	else
+		ChloeNet_Host_SetCarClass(cartype)
+	end
+	
+	ChloeNet_Host_SetNitroRegen(GetSelectedItemValue(NitroRegenType))
+	ChloeNet_Host_SetHandlingDamage(GetSelectedItemValue(HandlingDamage))
+	ChloeNet_Host_SetUpgradeLevel(GetSelectedItemValue(Upgrades))
+	ChloeNet_Host_SetNitroMult(GetSelectedItemValue(NitroRegen))
+	ChloeNet_Host_SetDamageMult(GetSelectedItemValue(DamageLevel))
+	ChloeNet_Host_SetHandlingMode(GetSelectedItemValue(HandlingMode))
+	ChloeNet_Host_SetUncappedSpeedLimit(GetSelectedItemValue(SpeedLimit))
+	ChloeNet_Host_SetNoProps(GetSelectedItemValue(DisableProps))
+	ChloeNet_Host_SetNoContact(GetSelectedItemValue(GhostMode))
+	ChloeNet_Host_SetNumAI(GetSelectedItemValue(AICount))
+	ChloeNet_Host_SetAIClass(GetSelectedItemValue(AIClass))
+	ChloeNet_Host_SetPropCarsAvailable(GetSelectedItemValue(PropCars))
+	
+	menu_chloemultiplayer_lobby_changeoptions.back()
+end
+
+local function SelectHostCar(events)
+	local carlist = { }
+	local rules = ChloeNet_GetGameRules()
+	if rules == GR_DEFAULT then
+		rules = Levels[ChloeNet_GetLevelId()].Rules or GR_RACE
+	end
+	
+	if rules == GR_STUNT then
+		carlist = CarlistStuntCars()
+	else
+		local propCarsEnabled = ChloeNet_GetPropCarsAvailable()
+		local validCarFunc = IsValidCarNoTemp350
+		if propCarsEnabled then
+			validCarFunc = IsValidCarIncludeTemp350
+		end
+	
+		for i = 0, db.FlatOut2.Cars:GetPropertyArraySize("Car") - 1 do
+			if validCarFunc(i) then
+				table.insert(carlist, {index = i})
+			end
+		end
+		SortCarsByClass(carlist)
+	end
+
+	EnterCarSelection(
+		function(car, skin)
+			ChangeOptions(events, car, skin)
+		end,
+		function()
+			EnterMenu("menu_chloemultiplayer_lobby_changeoptions")
+		end,
+		carlist,
+		false, -- purchase
+		true, -- all_available
+		false, -- only_description
+		false, -- show_tutorial
+		false, -- background
+		false, -- testtrack_menudata
+		true, -- show_class
+		nil, -- title
+		true -- hide_menubar_car
+	)
+end
+
+function menu_chloemultiplayer_lobby_changeoptions.init(self)
+	self.parent:init(self)
+	
+	GUI:SetBackground("data/menu/career_race_rewards_background.tga")
+
+	local res = self:getResource("title_bd")
+	Frame { Position=Layout.TitleFramePos, Size=Layout.TitleFrameSize }:AttachResource(res)
+	StaticText { Title=TITLE_MULTIPLAYER_GAMEOPTIONS, Font=Layout.TitleFont, Color=Layout.TitleColor, Position=Layout.TitlePos, Size=Layout.TitleSize, Align=FONTF_CENTER }
+	
+	res = self:getResource("black75_bd")
+	Frame { Position=Layout.ListBdTopPos, Size=Layout.ListBdTopSize }:AttachResource(res)
+	Frame { Position=Layout.ListBdBotPos, Size=Layout.ListBdBotSize }:AttachResource(res)
+	
+	res = self:getResource("black50_bd")
+	Frame { Position=Layout.ListBdMidPos, Size=Layout.ListBdMidSize, Layer=2 }:AttachResource(res)
+	Frame { Position=Layout.DescTitleFramePos, Size=Layout.DescTitleFrameSize, Layer=2 }:AttachResource(res)
+	local frame = Frame { Position=Layout.DescFramePos, Size=Layout.DescFrameSize }:AttachResource(res)
+	
+	FadingStaticText { Name="infotext", Title=L"", Font=Layout.DescFont, Position=Layout.DescPos, Size=Layout.DescSize, Color=Layout.DescColor, Align=FONTF_CENTER, Layer=5 }
+
+	local listboxParams = {
+		ListBoxTemplate	= { Name="optionlist" },
+		Left			= Layout.ListLeft,
+		Top				= Layout.ListTop,
+		LeftPadding		= 0,
+		RightPadding	= 0,
+		TopPadding		= 0,
+		BottomPadding	= 0,
+		RowWidth		= ChloeWidescreen_GetRight(),
+		RowHeight		= Layout.RowHeight,
+		RowPadding		= Layout.RowPadding,
+		RowTemplate		= { DrawBackgroundColor=FALSE, TitleCentering=TITLE_CENTER_Y, Layer=3 },
+		RowTemplateType	= "Button",
+		RowTemplateCust	= function(Row, RowNr)
+			Row:AttachResource(self:getResource("black50_bd"))
+		end,
+		NumRows	= NumOptions,
+		Coloumns = {
+			[1] = {
+				Name				= "optiontitle", -- _row# is added
+				ColoumnTemplate		= { Font=Layout.ListFont, Color=Layout.LabelFontColor, Position=POS(Layout.LabelX, 1), Size=SIZE(Layout.OptionWidth, Layout.RowHeight), Align=FONTF_RIGHT, Layer=4 },
+				ColoumnTemplateType	= "StaticText",
+				ColoumnTemplateCust	= function(Coloumn, RowNr, ColoumnNr)
+				end
+			},
+			[2] = {
+				Name				= "optionvalue", -- _row# is added
+				ColoumnTemplate		= { Font=Layout.ListFont, Color=Layout.OptionFontColor, Position=POS(Layout.OptionX, 1), Size=SIZE(Layout.OptionWidth, Layout.RowHeight), Layer=4 },
+				ColoumnTemplateType	= "StaticText",
+				ColoumnTemplateCust	= function(Coloumn, RowNr, ColoumnNr)
+				end
+			},
+		}
+	}
+	
+	local flashLeftArrow = false
+	local flashRightArrow = false
+	local optionlist = CreateMultiColoumnListBox(listboxParams)
+	optionlist:SetNumRows(NumOptions)
+	optionlist:SetSelectedRow(1)
+	optionlist.onNeedData = function(Self, RowObject, RowNr, ControlRowNr)
+		local title = wm.GetWindow("optiontitle_row"..RowNr)
+		local value = wm.GetWindow("optionvalue_row"..RowNr)
+		
+		local realRowNr = GetRealRowNr(RowNr)
+		
+		if realRowNr then
+			if OptionItems[realRowNr][Hidden] == true then
+				value:HideWindow()
+				title:HideWindow()
+			else
+				local color
+				if RowNr == optionlist:GetSelectedRow() then
+					color = Layout.OptionSelectedFontColor
+				else
+					color = Layout.OptionFontColor
+				end
+				
+				title:SetTitle(OptionItems[realRowNr][Label])
+				value:SetTitle(GetSelectedItemLabel(realRowNr))
+				value:SetColor(color, false)
+				title:ShowWindow()
+				value:ShowWindow()
+				if OptionItems[realRowNr][Enabled] then
+					value:SetLayer(4)
+					title:SetLayer(4)
+				else
+					value:SetLayer(2)
+					title:SetLayer(2)
+				end
+			end
+		else
+			value:SetLayer(2)
+			title:SetLayer(2)
+			value:SetTitle(L"")
+			value:HideWindow()
+			title:HideWindow()	
+		end
+
+		if RowNr == optionlist:GetSelectedRow() then
+			UpdateArrows(self)
+			if flashLeftArrow then
+				flashLeftArrow = false
+				self.leftarrow:Flash(-1)
+			end
+			if flashRightArrow then
+				flashRightArrow = false
+				self.rightarrow:Flash(1)
+			end
+		end
+	end
+
+	self.leftarrow = CreateArrow(self, "leftarrow", "ingame_options_arrow_left")
+	self.rightarrow = CreateArrow(self, "rightarrow", "ingame_options_arrow_right")
+
+	if ChloeNet_GetCarClass() < CARCLASS_SAMEASHOST then
+		SetSelectedItemByValue(CarType, ChloeNet_GetCarClass())
+	else
+		SetSelectedItem(CarType, table.getn(OptionItems[CarType][ItemValues]))
+	end
+	
+	SetSelectedItemByValue(DamageLevel, ChloeNet_GetDamageMult())
+	if ChloeNet_GetHandlingDamage() then
+		SetSelectedItemByValue(HandlingDamage, 1)
+	else
+		SetSelectedItemByValue(HandlingDamage, 0)
+	end
+	SetSelectedItemByValue(Upgrades, ChloeNet_GetUpgradeLevel())
+	SetSelectedItemByValue(NitroRegen, ChloeNet_GetNitroMult())
+	SetSelectedItemByValue(NitroRegenType, ChloeNet_GetNitroRegen())
+	SetSelectedItemByValue(AICount, ChloeNet_GetNumAI())
+	SetSelectedItemByValue(AIClass, ChloeNet_GetAIClass())
+	SetSelectedItemByValue(HandlingMode, ChloeNet_GetHandlingMode())
+	if ChloeNet_GetNoProps() then
+		SetSelectedItemByValue(DisableProps, 1)
+	else
+		SetSelectedItemByValue(DisableProps, 0)
+	end
+	if ChloeNet_GetUncappedSpeedLimit() then
+		SetSelectedItemByValue(SpeedLimit, 1)
+	else
+		SetSelectedItemByValue(SpeedLimit, 0)
+	end
+	if ChloeNet_GetNoContact() then
+		SetSelectedItemByValue(GhostMode, 1)
+	else
+		SetSelectedItemByValue(GhostMode, 0)
+	end
+	if ChloeNet_GetPropCarsAvailable() then
+		SetSelectedItemByValue(PropCars, 1)
+	else
+		SetSelectedItemByValue(PropCars, 0)
+	end
+	
+	optionlist:SetSelectedRow(1)
+	
+	local handler = InputHandler { Name="inputhandler" }
+	handler.onKeyPressed = function(Self, Character, VirtualKey, ScanCode)
+		local selectedRow = GetRealRowNr(optionlist:GetSelectedRow())
+		if VirtualKey == KeyCodes["BUTTON_START"] then
+			if GetSelectedItemValue(CarType) < 0 and ChloeNet_GetCarClass() < CARCLASS_SAMEASHOST then
+				SelectHostCar()
+			else
+				ChangeOptions()
+				menu_chloemultiplayer_lobby_changeoptions.back()
+			end
+			playmenusound_action()
+		elseif VirtualKey == KeyCodes["BUTTON_SELECT"] then
+			--menu_chloemultiplayer_lobby_changeoptions.back()
+			if GetSelectedItemValue(CarType) < 0 and ChloeNet_GetCarClass() < CARCLASS_SAMEASHOST then
+				SelectHostCar()
+			else
+				ChangeOptions()
+				menu_chloemultiplayer_lobby_changeoptions.back()
+			end
+			playmenusound_back()
+		elseif VirtualKey == KeyCodes["BUTTON_LEFT"] then
+			if selectedRow then
+				if GetEnabled(selectedRow) then
+					local selectedItem = GetSelectedItem(selectedRow) - 1
+					local numItems = GetNumItems(selectedRow)
+					if selectedItem < 1 then
+						selectedItem = numItems
+					end
+					SetSelectedItem(selectedRow,selectedItem)
+
+					local onChanged = OptionItems[selectedRow][OnChanged]
+					if onChanged ~= nil then
+						onChanged(selectedRow)
+					end
+					
+					flashLeftArrow = true
+					optionlist:Refresh()
+					UpdateInfoText()
+					playmenusound_move()
+				end
+			end
+		elseif VirtualKey == KeyCodes["BUTTON_RIGHT"] then
+			if selectedRow then
+				if GetEnabled(selectedRow) then
+					local selectedItem = GetSelectedItem(selectedRow) + 1
+					local numItems = GetNumItems(selectedRow)
+					if selectedItem > numItems then
+						selectedItem = 1
+					end
+					SetSelectedItem(selectedRow,selectedItem)
+
+					local onChanged = OptionItems[selectedRow][OnChanged]
+					if onChanged ~= nil then
+						onChanged(selectedRow)
+					end
+					
+					flashRightArrow = true
+					optionlist:Refresh()
+					UpdateInfoText()
+					playmenusound_move()
+				end
+			end
+		elseif VirtualKey == KeyCodes["BUTTON_DOWN"] then
+			self.leftarrow:StopFlash()
+			self.rightarrow:StopFlash()
+			-- Skip any disabled rows
+			local row = optionlist:GetSelectedRow()
+			if row == GetRealNumRows() then
+				row = 0 -- init to 0 as the below code sets it to 1 right after
+			end
+			local realrow
+			repeat
+				row = row + 1
+				realrow = GetRealRowNr(row)
+			until OptionItems[realrow][Enabled] == true or row == GetRealNumRows()
+			if not (row == GetRealNumRows() and OptionItems[realrow][Enabled] == false) then
+				optionlist:SetSelectedRow(row)
+			end
+			
+			UpdateArrows(self)
+			UpdateInfoText()
+			playmenusound_move()
+		elseif VirtualKey == KeyCodes["BUTTON_UP"] then
+			self.leftarrow:StopFlash()
+			self.rightarrow:StopFlash()
+			-- Skip any disabled rows
+			local row = optionlist:GetSelectedRow()
+			if row == 1 then
+				row = GetRealNumRows() + 1
+			end
+			local realrow
+			repeat
+				row = row - 1
+				realrow = GetRealRowNr(row)
+			until OptionItems[realrow][Enabled] == true or row == 1
+			if not (row == 1 and OptionItems[realrow][Enabled] == false) then
+				optionlist:SetSelectedRow(row)
+			end
+
+			UpdateArrows(self)
+			UpdateInfoText()
+			playmenusound_move()
+		end
+	end
+	
+	GUI:SetHelpButtons(BUTTON_OK, UI_ACCEPT, BUTTON_BACK, UI_BACK)
+	UpdateInfoText()
+	
+	handler:SetFocus()
+end
+	
+function menu_chloemultiplayer_lobby_changeoptions.deinit(self)
+	self.parent:deinit(self)
+end
+
+function menu_chloemultiplayer_lobby_changeoptions.update(self,time)
+	self.parent:update(self,time)
+
+	self.leftarrow:AnimateAlpha(time)
+	self.rightarrow:AnimateAlpha(time)
+end

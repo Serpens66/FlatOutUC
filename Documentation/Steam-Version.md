@@ -1,0 +1,124 @@
+# Unser Paket für die aktuelle Steam-Version (Branch `public`)
+
+Hier steht alles zur Steam-Variante unserer Custom-Version: was sie ist, wie sie gebaut, installiert und gestartet wird, und was getestet ist.
+Allgemeines zur Mod steht in [Modpack.md](Modpack.md), zum Basisspiel in [Vanilla-Spiel.md](Vanilla-Spiel.md). Die technischen Details zum Build stehen auch in [../AGENTS.md](../AGENTS.md) (Abschnitt "Steam-Variante").
+
+## Was das Paket ist
+
+- `FlatOutUCChloeCollection_1.83_custom_steam/`: unsere Custom-Version (nur FO2-Inhalte, alle QoL-Plugins) für die **aktuelle Steam-Version** des Spiels (ZOOM-Platform-Update, Branch `public`, Build 26753292) mit **Chloes Multiplayer über Steam** (AI-Gegner, alle Lobby-Optionen und Spielmodi, keine Portfreigabe nötig).
+- Die Mod-Autorin unterstützt diese Spielversion ausdrücklich nicht (Lizenz MPL 2.0). Die Anpassung ist von uns.
+- Die normale Custom-Version (`FlatOutUCChloeCollection_1.83_custom/`) braucht weiterhin den Branch `gfwl` und hat keinen Steam-Multiplayer.
+
+## Warum es funktioniert
+
+- Die `Fouc.exe` der Steam-Version ist **byte-identisch** zur GFWL-Version (4242504 Bytes). Alle Adressen der Plugins stimmen.
+- Unterschiede der Steam-Version: ZOOMs `xlive.dll` (Brücke von GFWL zu Steam, nutzt `steam_api.dll`), eigene `fmodex.dll`, anders aufgeteilte `data.bfs`/`streamed.bfs`, zusätzlich `zoom_platform.bfs` (eigene `game.db`, Sprachdateien, Fonts, Menüskripte) und `zoom_flatout.ini`.
+- `custom_src/build_steam.ps1` passt das Paket an:
+  1. Der ASI-Loader der Mod (`xlive.dll`) heißt jetzt `winmm.dll`, ZOOMs `xlive.dll` bleibt. `dinput8.dll` geht nicht, die lädt `Fouc.exe` beim Start nicht.
+  2. In allen `*_gcp.asi` ist die ZOOM-Erkennung (`IsFOUCZOOMVersion`) herausgepatcht. Ohne den Patch verweigern die Plugins den Start.
+  3. `foucpack_chloecustom_steam.bfs` (am Ende von `patch`) bringt die Vanilla-Fonts zurück. ZOOMs Fonts sind ~1 GB groß, `Fouc.exe` hat nur 2 GB Adressraum (nicht Large Address Aware), und das Spiel stürzt sonst ab (z. B. beim Öffnen von Carnage Mode).
+  4. Dasselbe Archiv enthält `chloemultiplayer.bed` mit der Spielliste (siehe unten).
+  5. `ChloeSteamNet.asi` (eigenes Plugin) leitet Chloes Multiplayer über Steam.
+  6. `steam_appid.txt` (12360) erlaubt den Start außerhalb der Steam-Bibliothek.
+
+## Bauen
+
+```
+pwsh -File custom_src/ChloeSteamNet/build.ps1   # nur nach Änderungen am Plugin (Ergebnis: custom_src/plugins_steam/ChloeSteamNet.asi)
+pwsh -File custom_src/build.ps1
+pwsh -File custom_src/build_steam.ps1
+```
+
+Ergebnis: `FlatOutUCChloeCollection_1.83_custom_steam/` (563 Dateien inkl. `DisplayFix.asi` und `ChloeSteamNet.asi`, ~2,0 GB seit der Neukomprimierung von Autos und Lackierungen am 19.11.2026).
+
+## Installieren
+
+`install.ps1` funktioniert auch für das Steam-Paket. Es braucht dafür `-GameDir` und `-ModDir`:
+
+```
+pwsh -File custom_src/install.ps1 -GameDir <Spielordner> -ModDir FlatOutUCChloeCollection_1.83_custom_steam
+pwsh -File custom_src/uninstall.ps1 -GameDir <Spielordner> [-RemoveUserData]
+```
+
+- Voraussetzung: eine **saubere** Installation des Branches `public` (keine `*_gcp.asi` im Ordner, sonst bricht das Skript ab).
+- Das Skript schreibt `ChloeCustom_install_manifest.txt` und sichert überschriebene Dateien in `_ChloeCustom_backup/`. Eine frühere Installation entfernt es automatisch vorher.
+- Eine Steam-Installation der Version `public` erkennt man an `zoom_platform.bfs` und `zoom_flatout.ini` im Spielordner. `Fouc.exe` ist bei beiden Branches gleich groß, die Größenprüfung im Skript unterscheidet sie also nicht.
+
+## Installationen
+
+| Wo | Pfad | Stand |
+|---|---|---|
+| Testkopie (dieser PC) | `FOUC_steam_latest/` im Workspace (per DepotDownloader, `-app 12360 -branch public`) | Steam-Paket mit Chloe-MP über Steam installiert (858 Dateien, 18.11.2026 23:26) |
+| Client-PC (Laptop) | `\\LENOVO_SERP\common\FlatOut Ultimate Carnage CE` (Steam-Bibliothek des Clients, Netzwerkfreigabe; lokal `C:\Program Files (x86)\Steam\steamapps\common\…`) | Steam-Paket mit Chloe-MP über Steam per `install.ps1` über das Netzwerk installiert (18.11.2026 nachts): 858 Dateien identisch mit dem Build (kleine per Hash, große per Größe). Früherer Stand 18.11.2026 20:05: 856 Dateien inkl. `DisplayFix.asi`, identisch mit dem Build. Zusätzlich liegen dort die Diagnose-Werkzeuge `ChloeCustom_diag.bat/.ps1` und `ChloeCustom_trace.bat/.ps1` (nicht im Manifest). Zuvor: Steam-Paket per `install.ps1` über das Netzwerk installiert (855 Dateien identisch mit dem Build, keine Spieldatei überschrieben, Manifest vorhanden). Vanilla-Dateien identisch mit der Testkopie. Die Freigabe braucht dafür Schreibrechte ("Ändern"), sonst "Access denied". Start über Steam auf dem Client |
+| Normale Steam-Installation (dieser PC) | `E:\ProgrammeE\Steam\steamapps\common\FlatOut Ultimate Carnage CE` | Branch `gfwl` mit der normalen Custom-Version, **nicht** für das Steam-Paket |
+
+## Starten
+
+- **Testkopie:** Steam starten und anmelden, dann `FOUC_steam_latest\Fouc.exe` direkt starten (nicht über die Steam-Bibliothek, die startet die `gfwl`-Installation).
+- **Steam-Bibliothek (z. B. Client):** ganz normal über Steam starten, der Branch muss `public` sein.
+- Beim ersten Online-Spiel fragt die Windows-Firewall nach Netzwerkzugriff für `Fouc.exe`. Zugriff erlauben.
+
+## Multiplayer (Chloes Multiplayer über Steam)
+
+Seit 18.11.2026 nutzt die Steam-Variante **Chloes eigenen Multiplayer** (AI-Gegner, Lobby-Optionen, Spielmodi, Chat, Profile).
+Er läuft über Steam statt über direktes UDP, deshalb ist keine Portfreigabe nötig. Hintergrund und Vergleich: [Multiplayer-AI.md](Multiplayer-AI.md).
+
+- Im Menü: **Mehrspieler → ONLINE** →
+  - **JOIN GAME**: Liste der offenen Spiele (Steam-Lobbys mit diesem Paket). Eintrag wählen = beitreten, "REFRESH" sucht neu.
+  - **SPIEL ANLEGEN**: Chloes Lobby. Das Plugin öffnet dazu automatisch eine öffentliche Steam-Lobby, die andere in ihrer Liste sehen.
+  - **JOIN BY IP ADDRESS**: Chloes ursprünglicher Beitritt per IP (braucht beim Host die Portfreigabe UDP 23756, z. B. für LAN).
+- Einladen über Steam-Freunde gibt es nicht. Die Spielliste reicht.
+- Lobby-Optionen des Hosts (Spieloptionen): Wagentyp (nur FO2-Klassen), Spezialautos, Schaden, Lenkungsschaden, Upgrades, Nitro, **Handling-Modus für alle**, Tempolimit, Streckenobjekte, Ghost-Modus, **AI COUNT (0–12) und AI CLASS**.
+- **Alle Spieler brauchen dasselbe Paket** (gleicher Build). Die Spielliste zeigt nur Lobbys mit demselben Protokoll-Kennzeichen (`chloecustom-183-steam-1` in `ChloeSteamNet.cpp`). Chloes Plugin prüft außerdem Version, Spieldateien und Plugins.
+- **AI-Stärke:** Die AI läuft nur beim Host. Laut Quellcode (`source/FlatOutUCChloeCollection/aifudge.h`) bestimmt die Option **DIFFICULTY** (`OpponentStrength`: Easy/Medium/Sadistic) **des Hosts** die Stärke: Handicap-Datei, Upgrade-Stufe der AI und der Faktor `AIFudge_DiffN` aus `Config/AIConfig.toml`. Bei Easy gibt es keinen Aufholeffekt. AI CLASS legt nur die Autos fest.
+- Standardwerte für ein neues Spiel (unsere Änderung): Handling **FLATOUT 2**, AI CLASS **SAME AS HOST**. Beim ersten Betreten der Lobby als Host einmal gesetzt, danach frei änderbar.
+- Spielmodi ohne Beschreibung im Original (Knockout, Lap Knockout, Drift, Carnage Race, Beat the Bomb, Stunt Show, Speedtrap) und die AI-Optionen haben jetzt kurze englische Beschreibungen, wie die übrigen Mod-Texte.
+- **Stunt** (FO2-Stunts mit Rausschleudern, z. B. Bowling, Ski Jump) ist als dritter Spieltyp in der Streckenauswahl wieder freigeschaltet. **Experimentell:** Chloe hatte ihn auskommentiert, die Lobby unterstützt `GR_STUNT` aber. AI COUNT dabei auf 0 lassen, GHOST MODE an (sonst blockieren sich die Spieler am gemeinsamen Startpunkt).
+  - Test 19.11.2026 (High Jump): Der Host startete am Curling-Start, der Client richtig. Grund: Mehrere Stunts teilen sich eine Karte (`Stunt/Stunt1`, `Stunt/Stunt2`) und unterscheiden sich nur im Startpunkt (`Levels[].StartPosition`). Im MP bekommt jeder Spieler den Startplatz seines Spielerindex.
+  - Abhilfe in `ChloeSteamNet.asi` (EndScene-Hook 0x677448): Während eines Stunts (`nGameRules` GameFlow+0x514 = `GR_STUNT`, Spielzustand Rennen) in Chloes MP setzt das Plugin jeden Frame `Player.nStartPosition` (+0x2CC) aller Spieler auf den Startpunkt des Stunts. Tabelle nach Level-ID 47–58 aus `levels.bed`, sonst GameFlow+0x520. Log: "stunt level …: start point …". Ungetestet: ob schon der erste Versuch am richtigen Punkt beginnt oder erst ab dem zweiten, und ob Wertung und Ablauf bei gleichzeitigen Versuchen stimmen.
+- Jeder Spieler braucht einen **eigenen Profilnamen**. Chloe lehnt doppelte Namen ab ("Your name is taken").
+
+Technik (`custom_src/ChloeSteamNet/ChloeSteamNet.cpp`, Plugin `ChloeSteamNet.asi`, nur im Steam-Paket):
+- Chloes MP (`FlatOutUCCustomMP_gcp.asi`) nutzt ENet über UDP. Das Plugin ersetzt in dessen Importtabelle `WSASendTo`, `WSARecvFrom`, `select`, `bind` und `closesocket`.
+- Steam-Spieler bekommen Platzhalter-Adressen `240.0.x.y` (Klasse E, nie im Internet geroutet). Pakete an solche Adressen gehen über `SteamNetworkingMessages` (Kanal 23756, Steam-Relay/NAT-Traversal), empfangene Pakete gibt das Plugin an ENet weiter, als kämen sie von dieser Adresse. Pakete an echte IPs laufen normal über UDP.
+- Paketformat: 1 Byte Typ (`C` = Daten, `H` = Hallo des Hosts), 2 Byte Quellport, 2 Byte Zielport, dann das UDP-Paket. Der Host schickt jede Sekunde ein Hallo an alle Mitglieder seiner Steam-Lobby. Damit ist die Sitzung offen, auch ohne Callback. Zusätzlich nimmt ein Callback (1251, `SteamNetworkingMessagesSessionRequest_t`) Sitzungsanfragen an. Die Callbacks verarbeitet ZOOMs `xlive.dll` in jedem Frame (`SteamAPI_RunCallbacks` in `XLiveRender`).
+- `bind` auf Port 23756 (`ChloeNet_CreateGame(23756)`) erstellt die Steam-Lobby (öffentlich, max. 32, Daten `chloecustommp`, `name`, `host`), `closesocket` dieses Sockets verlässt sie. Clients treten der Lobby bei und verlassen sie, wenn ihre Verbindung endet. In der Liste fehlen Lobbys, deren Besitzer nicht mehr der Host ist (Host weg).
+- Lua-Funktionen für die Spielliste (`ChloeSteam_*`, registriert über denselben Hook wie die Chloe-Plugins, `Fouc.exe` 0x46256C): `IsAvailable`, `RefreshLobbies`, `IsRefreshing`, `GetNumLobbies`, `GetLobbyLabel`, `JoinLobby`, `GetJoinState`, `GetJoinAddress`, `ResetJoin`, `LeaveLobby`. Die Spielliste (`menu_chloesteam_browser`) steht in `custom_src/steam_overrides/data/scripts/chloemultiplayer.bed` (Original plus Änderungen mit `ChloeCustom Steam`). Nach dem Lobby-Beitritt ruft sie `ChloeNet_JoinGame(<240.0.x.y>, 23756)` auf.
+- Protokoll: `ChloeSteamNet.log` im Spielordner (Lobby erstellt/verlassen, Suche, Beitritt, Fehler beim Senden).
+- Die frühere Variante mit dem Vanilla-Live-MP des Spiels (ZOOM → Steam, ohne AI) liegt unbenutzt in `custom_src/steam_live_mp_unused/` (Skripte und `make_steam_scripts.ps1`).
+
+## Getestet (18.11.2026, Testkopie)
+
+- Singleplayer: Menüs, Einzelrennen, Carnage-Event mit Skin "Lei Bing", Karriere-Autohändler, ohne Fehler.
+- Chloe-MP über Steam als Host: Mehrspieler → ONLINE → JOIN GAME (Steam-Suche, "NO GAMES FOUND", REFRESH) → SPIEL ANLEGEN (Steam-Lobby erstellt, kein Portfreigabe-Hinweis) → Spieloptionen (Wagentypen ohne FO1/RT/TT/Props, AI COUNT 3, AI CLASS RACE) → Streckenauswahl (Streckentypen ohne FO1/TT/RT) → Rennen mit 3 AI-Gegnern auf Midwest Ranch → zurück in die Lobby → Lobby verlassen (Steam-Lobby geschlossen). Ohne Fehler.
+- **Offen** (braucht einen zweiten PC mit anderem Steam-Konto): Spiel in der Liste finden, beitreten, Online-Rennen mit AI. Ob Steam die Verbindung aufbaut, ließ sich auf einem PC nicht prüfen.
+- Bei Problemen beim Beitreten: `ChloeSteamNet.log` auf beiden PCs ansehen. Ab dem 19.11.2026 protokolliert das Plugin die ersten 20 `WSASendTo`-Ziele und jeden Fehler beim Senden an eine Platzhalter-Adresse. Mit der Umgebungsvariable `CHLOESTEAMNET_SELFMAP=1` wird `240.0.0.1` dem eigenen Steam-Konto zugeordnet (nur zum Prüfen des Sendepfads auf einem PC).
+- 1. Test mit dem Laptop (18.11.2026): "Failed to connect to game!". Ursache: Die Spielliste rief `ChloeSteam_ResetJoin()` vor `ChloeSteam_GetJoinAddress()` auf, die Adresse war leer, `gethostbyname("")` ergab die eigene LAN-IP. Behoben (Adresse zuerst lesen, `GetJoinAddress` hängt nicht mehr vom Status ab), neu installiert auf Testkopie und Laptop.
+- 2. Test (19.11.2026): wieder "Failed to connect". Die erste Nachricht über Steam brauchte gut 5 s (Verbindungsaufbau/NAT-Traversal), ENet gibt nach 5 s auf (sendet in der Zeit nur ein CONNECT). Lösung: Nach dem Lobby-Beitritt schickt der Client alle 250 ms ein Hallo (`H`) an den Host, der Host antwortet mit `A`. Erst nach der ersten Nachricht des Hosts (max. 20 s) meldet `ChloeSteam_GetJoinState()` 2 und die Spielliste ruft `ChloeNet_JoinGame` auf. Log: "Steam connection to host … ready after N ms". Installiert auf beiden PCs.
+- 3. Test (19.11.2026, Nutzer): Beitritt über die Spielliste klappt, Rennen und Derby mit AI-Gegnern laufen online.
+- Danach (19.11.2026): Standardwerte Handling/AI CLASS, Beschreibungen, Stunt als Spieltyp. Installiert auf beiden PCs, im Spiel noch ungetestet.
+
+## Fehlersuche
+
+- Crash-Dumps: `%LOCALAPPDATA%\CrashDumps\Fouc.exe.*.dmp`, auswerten mit `cdbX86.exe -z <dump> -c ".ecxr; kv 30; q"`.
+- "Fatal error / Runtime error" ohne Details: Meist sind die Plugins nicht geladen. Prüfen, ob `winmm.dll` im Spielordner liegt und die `*_gcp.asi` geladen sind (`(Get-Process Fouc).Modules`).
+- **Echte Ursache des unsichtbaren Fensters (18.11.2026, per Messung belegt, `custom_src/tools/ChloeCustom_trace.ps1/.bat`):**
+  1. `device.cfg` ist eine 1:1-Kopie des Blocks `0x764A08..0x764AB7` in `Fouc.exe` (Kennung `0x20080527`). Felder: 0x0C Audiogerät (80 Bytes, per `FMOD::System::getDriverName`), **0x68 Adapterkennung (16 Bytes, `D3DADAPTER_IDENTIFIER9.DeviceIdentifier`)**, 0x78 Adapternummer, 0x7C Breite, 0x80 Höhe, 0x84 Farbtiefe, 0x88 Hz, 0x90 Index für die Hz-Prüfung, 0xA4 Fenstermodus des Setup-Dialogs.
+  2. Beim Start prüft `0x455A20` die Datei gegen den Grafikadapter (Kennung + Nummer, dann Breite/Höhe/Farbtiefe/Hz in der Modusliste). Die Kennung trägt nur der Setup-Dialog ein. Das Mod-Plugin überspringt ihn (`setupskip.h`), deshalb steht dort meist 0 und die Prüfung scheitert **bei jedem Start, auch am Host**.
+  3. Dann setzt `0x456D20` Standardwerte: `EnumDisplayDevicesA(NULL, Adapternummer)` und `EnumDisplaySettingsA(dieses Gerät, ENUM_CURRENT_SETTINGS)`. Das Spiel setzt dabei voraus, dass die D3D-Adapternummer der Windows-Gerätenummer entspricht, und prüft das Ergebnis nicht ("Could not obtain native display resolution" landet nur im internen Log). Ist Gerät 0 inaktiv, übernimmt es uninitialisierten Speicher (gemessen: 0×0, 7471184 Hz = Textrest "Pr").
+  4. Host: Gerät 0 = `\\.\DISPLAY1` aktiv, also native Auflösung, funktioniert zufällig. Client (Laptop im dGPU-Modus): Gerät 0 = `\\.\DISPLAY1` (AMD 610M, inaktiv), aktiv ist Gerät 2 = `\\.\DISPLAY3` (RTX 5060), also 0×0. Das Plugin macht daraus ein randloses Fenster mit Monitorbreite und Höhe 0.
+  - **Dauerhafte Lösung: eigenes Plugin `DisplayFix.asi`** (Quelle `custom_src/DisplayFix/DisplayFix.cpp`, bauen mit `pwsh -File custom_src/DisplayFix/build.ps1`, braucht die Visual Studio 2022 Build Tools mit C++-x86-Compiler; das Ergebnis liegt in `custom_src/plugins/` und wird von `build.ps1` in beide Pakete kopiert). Es ersetzt den Aufruf `call [EnumDisplaySettingsA]` an `0x456DCC` (Originalbytes `FF 15 E4 62 67 00`, sonst kein Patch) durch eine Funktion, die bei Fehlschlag den Hauptbildschirm abfragt (= D3D-Adapter 0) und notfalls 1024×768 @60 Hz liefert. Getestet am 18.11.2026: Client mit leerer Kennung startet randlos in 2560×1600 @165 Hz, Host unverändert 3840×2160. Das Plugin ist unabhängig von der Mod und funktioniert mit jedem ASI-Loader auch im Vanilla-Spiel (GFWL und Steam, gleiche `Fouc.exe`).
+  - Eigenständiges Paket für andere (ohne Modpack): `pwsh -File custom_src/DisplayFix/package.ps1` erzeugt `DisplayFix_package/` und `DisplayFix_1.0.zip` mit `DisplayFix.asi`, Ultimate ASI Loader 6.9.0 als `winmm.dll` (aus dem Original-Mod-`xlive.dll`, MIT-Lizenztext von github.com/ThirteenAG/Ultimate-ASI-Loader liegt bei), `README.txt` (DE/EN) und Quellcode. Getestet am 18.11.2026 in einer unveränderten Steam-Version (Hardlink-Kopie der Testkopie ohne Mod-Dateien): `winmm.dll` lädt `DisplayFix.asi`, Patch an `0x456DCC` aktiv. Mit der Vanilla-GFWL-Version nicht getestet (gleiche `Fouc.exe`, `winmm.dll` wird von `Fouc.exe` geladen).
+  - Nicht behoben (unkritisch): Weil die Kennung leer bleibt, verwirft das Spiel eine gespeicherte Auflösung weiterhin bei jedem Start und nimmt die aktuelle Desktop-Auflösung.
+  - Sofortlösung je PC ohne Plugin: die echte Adapterkennung (aus dem Trace, `adapter[0] guid=…`) an 0x68 in `device.cfg` eintragen, Nummer 0 an 0x78, eine Auflösung aus der Modusliste. Client: `DAA091C6529ECAFFDBFFE8A1DE3A986B`, 2560×1600, 165 Hz. Nach einem GPU- oder Treiberwechsel kann sich die Kennung ändern.
+  - Das Spiel schreibt `device.cfg` beim Beenden nicht neu, `options.cfg` schon.
+- **Spiel läuft, aber kein Fenster sichtbar** (Client, 18.11.2026, frühere Versuche): `Savegame/device.cfg` enthielt die Auflösung 0×0, das DXVK-Log (`Fouc_d3d9.log`) zeigte ein Fenster von 2560×2 Pixeln. Ursache: Beim ersten Start hatte Windows keinen Anzeigemodus (Auflösungsfeld in den Windows-Einstellungen ausgegraut und leer, z. B. bei Fernzugriff). Lösung: In `device.cfg` die Auflösung setzen und in `Savegame/options.cfg` `Settings.Visual.Windowed = TRUE`.
+  - Fensterlogik der Mod (`source/FlatOutUCChloeCollection/windowedmode.h`): Das Plugin lässt das Spiel **immer im Fenster** laufen. Bei `Windowed = FALSE` ist es ein randloses Fenster mit der Breite des Monitors (Arbeitsbereich) und der Höhe aus `device.cfg`, bei `TRUE` ein normales Fenster mit der Auflösung aus `device.cfg`. Höhe 0 ergibt deshalb ein Fenster mit Monitorbreite und 0 Pixeln Höhe. Liegt eine Datei namens `fullscreen` im Spielordner, ist das abgeschaltet und das Spiel läuft im echten Vollbild.
+  - Auf dem Client blieb das Fenster auch mit 1920×1080 bei 60 Hz im Fenstermodus unsichtbar, mit und ohne DXVK. Die Diagnose zeigte ein Fenster von 136×39 Pixeln mit 0 Pixeln Innenfläche: Ursache ist ein Fehler im Plugin: `SetWindowedMode()` setzt die Fenstergröße beim ersten Aufruf, wenn die Spielauflösung (0x764A84/0x764A88) noch 0 ist. Nur im randlosen Modus (`nWindowedMode == 0`) wird nach 1 Sekunde erneut mit der richtigen Auflösung gesetzt ("reset borderless a bit later"). **Mit `Windowed = TRUE` bleibt das Fenster deshalb immer winzig**, unabhängig von der Auflösung. Der Host läuft randlos und ist darum nicht betroffen. (Bildschirm des Clients: Lenovo, 2560×1600, 165 Hz, 150 % Skalierung.)
+  - Das Spiel schreibt `options.cfg` beim Beenden neu. Änderungen an `options.cfg` nur bei geschlossenem Spiel machen, sonst werden sie überschrieben. Die Anzeige des Laptops selbst war in Ordnung, das ausgegraute Auflösungsfeld in den Windows-Einstellungen spielt keine Rolle. Nachdem das Diagnose-Skript das Fenster auf 1280×720 gesetzt hatte, war das Spiel sichtbar und lief.
+  - **Lösung:** `Windowed = FALSE` (randlos) in `options.cfg` bei geschlossenem Spiel, in `device.cfg` die native Auflösung des Bildschirms mit seiner Bildwiederholrate (Client: 2560×1600, 165 Hz), DXVK aktiv lassen, also genauso wie am Host (3840×2160, 100 Hz). Im Spiel nicht auf den Fenstermodus umschalten. `Windowed = FALSE` ist dabei **kein exklusives Vollbild**, sondern randloser Fenstermodus (Borderless Windowed). Exklusives Vollbild gibt es nur mit der Datei `fullscreen`.
+  - Diagnose-Werkzeug: `ChloeCustom_diag.bat` (Doppelklick, ruft `ChloeCustom_diag.ps1` auf) liegt im Spielordner des Clients. Es schreibt Bildschirme, Anzeigemodi, Grafiktreiber, DPI, Fensterzustand von `Fouc.exe` und Absturzeinträge nach `ChloeCustom_diag.txt` und setzt das Spielfenster testweise auf 1280×720. Die Modulliste von `Fouc.exe` bleibt dabei leer (64-Bit-PowerShell kann die Module des 32-Bit-Prozesses nicht lesen), daher die rote Fehlermeldung.
+  - Aufbau von `device.cfg` (176 Bytes, little-endian): ab 0x0C Name des Audiogeräts (bis 0x5B), 0x7C Breite, 0x80 Höhe, 0x84 Farbtiefe (32), 0x88 Bildwiederholrate. Die Datei schreibt der Setup-Dialog beim ersten Start. Das Plugin überspringt den Dialog, sobald die Datei existiert. Erneut aufrufen lässt er sich mit dem Startparameter `-setup` oder durch Löschen von `device.cfg`.
+- **Auto fährt nicht, Gas wird aber angezeigt** (18.11.2026): In beiden Steam-Installationen stand `Settings.Control.Transmission = TRUE` in `Savegame/options.cfg` = **Schaltgetriebe** (`optionsmenu.bed`: Werte `CAR_TRANSMISSION_AUTO`, `CAR_TRANSMISSION_MANUAL`), in der GFWL-Installation `FALSE` = Automatik. Lösung: im Spiel Optionen → Steuerung → Getriebe auf Automatik, oder `FALSE` bei geschlossenem Spiel. Woher `TRUE` kam, ist offen (der Client hatte beim ersten Start noch `FALSE`). Sonst unterscheiden sich die Einstellungen nur bei Lautstärke, Einheiten, Fahrermodell, Kamera, Texturqualität und `HandlingMode` (Steam-Host 1, sonst 0). Plugin-Konfiguration (`Config/*.toml`, `FlatOutUCFO2Handling_gcp.toml`) ist identisch.
+- **Steam Workshop:** Die Steam-Version hat seit dem ZOOM-Update einen Workshop (Kategorien Car, Driver, Miscellaneous). Hochgeladen und installiert wird über `mods/FlatOut Ultimate Carnage Mod Manager.exe` (Facepunch.Steamworks, bfstool von xNyaDev). Er verwaltet nur `.bfs`-Archive (`mod-info.json`) und trägt die gewählten Mods in die Datei `filesystem` des Spiels ein. Code-Plugins (`.asi`/`.dll`) werden nicht unterstützt, `DisplayFix` passt deshalb nicht in den Workshop.
+- Absturz beim Öffnen großer Menüs (z. B. Carnage): Prüfen, ob `foucpack_chloecustom_steam.bfs` die letzte Zeile in `patch` ist.

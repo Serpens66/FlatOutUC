@@ -1,0 +1,1296 @@
+if not Levels then
+	-- levels.bed is needed for stunt names
+	dofile( "data/scripts/levels.bed" )
+end
+
+if not CarIndex then
+	-- cars.bed is needed for car indices
+	dofile( "data/scripts/cars.bed" )
+end
+
+-- Table multiplier helper function
+function multable(table, multiplier)
+	local newtable = {}
+	for k, v in pairs( table ) do
+		newtable[k] = v * multiplier
+	end
+	return newtable
+end
+
+-- Table adder helper function
+function addtable(table, addition)
+	local newtable = {}
+	for k, v in pairs( table ) do
+		newtable[k] = v + addition
+	end
+	return newtable
+end
+
+-- WINNINGS --
+
+RaceWinnings = {
+	Default = {
+		[1] = 0,
+		[2] = 0,
+		[3] = 0,
+		[4] = 0,
+		[5] = 0,
+		[6] = 0,
+		[7] = 0,
+		[8] = 0,
+	},
+}
+
+CupWinnings = {
+	Derby = {
+		Beginner = {
+			[1] = 1500,
+			[2] = 900,
+			[3] = 500,
+		},
+		Amateur = {
+			[1] = 1500,
+			[2] = 900,
+			[3] = 500,
+		},
+		Pro = {
+			[1] = 1500,
+			[2] = 900,
+			[3] = 500,
+		},
+	},
+	Race = {
+		Beginner = {
+			[1] = 2000,
+			[2] = 1400,
+			[3] = 900,
+		},
+		Amateur = {
+			[1] = 2000,
+			[2] = 1400,
+			[3] = 900,
+		},
+		Pro = {
+			[1] = 2000,
+			[2] = 1400,
+			[3] = 900,
+		},
+	},
+	Street = {
+		Beginner = {
+			[1] = 4000,
+			[2] = 1500,
+			[3] = 1000,
+		},
+		Amateur = {
+			[1] = 4000,
+			[2] = 1500,
+			[3] = 1000,
+		},
+		Pro = {
+			[1] = 4000,
+			[2] = 1500,
+			[3] = 1000,
+		},
+	},
+	Finals = {
+		Derby = {
+			[1] = 10000,
+			[2] = 4500,
+			[3] = 3000,
+		},
+		Race = {
+			[1] = 15000,
+			[2] = 7000,
+			[3] = 5000,
+		},
+		Street = {
+			[1] = 20000,
+			[2] = 15000,
+			[3] = 10000,
+		},
+		GrandFinal = {
+			[1] = 50000,
+			[2] = 20000,
+			[3] = 15000,
+		},
+	},
+}
+
+CrashBonuses = {
+	Default = {
+		SuperFlip	= 200,
+		Whammo	    = 100,
+		PowerHit	= 200,
+		BlastOut	= 300,
+		Wrecked		= 1500,
+		Ragdolled	= 400,
+		BigAir		= 0,
+	},
+}
+
+TopDrivers = {
+	Derby = {
+		BestWrecker	= 500,
+		BlastMaster	= 300,
+		FastestLap	= 100,
+		DareDevil	= 300,
+	},
+	Race = {
+		BestWrecker	= 700,
+		BlastMaster	= 300,
+		FastestLap	= 300,
+		DareDevil	= 300,
+	},
+	Street = {
+		BestWrecker	= 1000,
+		BlastMaster	= 500,
+		FastestLap	= 1000,
+		DareDevil	= 500,
+	},
+	GrandFinal = {
+		BestWrecker	= 2500,
+		BlastMaster	= 2500,
+		FastestLap	= 2500,
+		DareDevil	= 2500,
+	},
+}
+
+
+-- CLASSES, CUPS & EVENTS --
+
+ClassC = {
+	Levels = { 0, 1, 2, 3 },
+	InitialGarage = { CarIndex.Chili, CarIndex.Malice, CarIndex.Roamer, CarIndex.Starflight },
+	SubClasses = {
+		[1] = { Cups = { 1, 2 },    Events = { 1, 2},    CarUnlock = {CarIndex.Shaker, CarIndex.BlasterXL, CarIndex.Banger}, MoneyAward = 5000},
+		[2] = { Cups = { 3, 4, 5 }, Events = { 3, 4, 5}, CarUnlock = {CarIndex.Splitter, CarIndex.Switchblade, CarIndex.Venom}, MoneyAward = 6000},
+		[3] = { Cups = { 6, 7, 8 }, Events = { 6, 7, 8}, MoneyAward = 7000},
+	},
+	Cups = {
+		[1] = {
+			Name	= "DERBY INITIATION CUP",
+			AIUpgradeLevelEasy = 0.0,
+			AIUpgradeLevelMedium = 0.0,
+			AIUpgradeLevelHard = 0.2,
+			Races	= {
+				[1] = { Level = LevelIndex.Forest2A,    Laps = 2,   AIHandicapLevel = 1,	Weather = 1 },
+				[2] = { Level = LevelIndex.Fields2A,    Laps = 3,   AIHandicapLevel = 2,	Weather = 1 },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy = addtable(CupWinnings.Derby.Beginner, -300),
+			CupWinningsMedium = addtable(CupWinnings.Derby.Beginner, -400),
+			CupWinningsHard = addtable(CupWinnings.Derby.Beginner, -1000),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Derby,
+			
+			MenuIndex = { 1,1 },
+		},
+		[2] = {
+			Name	= "SUNDAY SMASH DERBY",
+			AIUpgradeLevelEasy = 0.2,
+			AIUpgradeLevelMedium = 0.2,
+			AIUpgradeLevelHard = 0.45,
+			Races	= {
+				[1] = { Level = LevelIndex.Canal1A,	    Laps = 3,	AIHandicapLevel = 3,	Weather = 1 },
+				[2] = { Level = LevelIndex.Fields2C,    Laps = 3,	AIHandicapLevel = 46,	Weather = 1 },
+				[3] = { Level = LevelIndex.Forest2C,    Laps = 2,	AIHandicapLevel = 3,	Weather = 1 },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy = addtable(CupWinnings.Derby.Beginner, -100),
+			CupWinningsMedium = addtable(CupWinnings.Derby.Beginner, -200),
+			CupWinningsHard = addtable(CupWinnings.Derby.Beginner, -850),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Derby,
+	 
+			MenuIndex = { 2,1 },
+		},
+		[3] = {
+			Name	= "BAY AREA DERBY CUP",
+			AIUpgradeLevelEasy = 0.4,
+			AIUpgradeLevelMedium = 0.4,
+			AIUpgradeLevelHard = 0.65,
+			Races	= {
+				[1] = { Level = LevelIndex.Forest2B,	Laps = 2,	AIHandicapLevel = 4,	Weather = 1 },
+				[2] = { Level = LevelIndex.Fields2A,	Laps = 3,	AIHandicapLevel = 4,	Weather = 1 },
+				[3] = { Level = LevelIndex.Forest1A,	Laps = 3,	AIHandicapLevel = 4,	Weather = 1 },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = CupWinnings.Derby.Amateur,
+			CupWinningsMedium  = CupWinnings.Derby.Amateur,
+			CupWinningsHard  = addtable(CupWinnings.Derby.Amateur, -600),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Derby,
+			
+			MenuIndex = { 3,1 },
+		},
+		[4] = {
+			Name	= "SPRING SMASH DERBY CUP",
+			AIUpgradeLevelEasy = 0.5,
+			AIUpgradeLevelMedium = 0.55,
+			AIUpgradeLevelHard = 0.75,
+			Races	= {
+				[1] = { Level = LevelIndex.Forest2A,    Laps = 2,	AIHandicapLevel = 5,	Weather = 2 },
+				[2] = { Level = LevelIndex.Fields2B,    Laps = 3,	AIHandicapLevel = 5,	Weather = 2 },
+				[3] = { Level = LevelIndex.Forest2B,    Laps = 3,	AIHandicapLevel = 5,	Weather = 2 },
+				[4] = { Level = LevelIndex.Fields1B,    Laps = 3,	AIHandicapLevel = 5,	Weather = 1 },
+				[5] = { Level = LevelIndex.Forest1B,    Laps = 2,	AIHandicapLevel = 47,	Weather = 1 },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Derby.Amateur, 500),
+			CupWinningsMedium  = addtable(CupWinnings.Derby.Amateur, 500),
+			CupWinningsHard  = addtable(CupWinnings.Derby.Amateur, -500),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Derby,
+			
+			MenuIndex = { 4,1 },
+		},
+		[5] = {
+			Name	= "CANALS SPECIAL DERBY CUP",
+			AIUpgradeLevelEasy = 0.6,
+			AIUpgradeLevelMedium = 0.65,
+			AIUpgradeLevelHard = 0.85,
+			Races	= {
+				[1] = { Level = LevelIndex.Canal1A,		Laps = 3,	AIHandicapLevel = 6,	Weather = 2 },
+				[2] = { Level = LevelIndex.Canal1C,		Laps = 3,	AIHandicapLevel = 6,	Weather = 1 },
+				[3] = { Level = LevelIndex.Canal1B,		Laps = 3,	AIHandicapLevel = 6,	Weather = 1 },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Derby.Amateur, 3000),
+			CupWinningsMedium  = addtable(CupWinnings.Derby.Amateur, 2000),
+			CupWinningsHard  = addtable(CupWinnings.Derby.Amateur, -400),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Derby,
+			
+			MenuIndex = { 5,1 },
+		},
+		[6] = {
+			Name	= "METAL SMASH DERBY CUP",
+			AIUpgradeLevelEasy = 0.7, 
+			AIUpgradeLevelMedium = 0.8, 
+			AIUpgradeLevelHard = 0.95, 
+			Races	= {
+				[1] = { Level = LevelIndex.Fields2B,    Laps = 3,	AIHandicapLevel = 7,	Weather = 1 },
+				[2] = { Level = LevelIndex.Forest1B,    Laps = 3,	AIHandicapLevel = 7,	Weather = 2 },
+				[3] = { Level = LevelIndex.Fields1A,	Laps = 3,	AIHandicapLevel = 7,	Weather = 1 },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Derby.Pro, 750),
+			CupWinningsMedium  = addtable(CupWinnings.Derby.Pro, 750),
+			CupWinningsHard  = addtable(CupWinnings.Derby.Pro, -100),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Derby,
+			
+			MenuIndex = { 6,1 },
+		},
+		[7] = {
+			Name	= "TARMAC DERBY CUP",
+			AIUpgradeLevelEasy = 0.8,
+			AIUpgradeLevelMedium = 0.9,
+			AIUpgradeLevelHard = 1.0,
+			Races	= {
+				[1] = { Level = LevelIndex.City1C,		Laps = 3,	AIHandicapLevel = 8,	Weather = 1 },
+				[2] = { Level = LevelIndex.Canal1B,		Laps = 3,	AIHandicapLevel = 8,	Weather = 2 },
+				[3] = { Level = LevelIndex.City1B,		Laps = 3,	AIHandicapLevel = 8,	Weather = 1 },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Derby.Pro, 1000),
+			CupWinningsMedium  = addtable(CupWinnings.Derby.Pro, 850),
+			CupWinningsHard  = addtable(CupWinnings.Derby.Pro, 100),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Derby,
+	 
+			MenuIndex = { 7,1 },
+		},
+		[8] = {
+			Name	= "SPECIAL DERBY FOREST CUP",
+			AIUpgradeLevelEasy = 0.9,
+			AIUpgradeLevelMedium = 1.0,
+			AIUpgradeLevelHard = 1.0,
+			Races	= {
+				[1] = { Level = LevelIndex.Forest1A,	Laps = 2,	AIHandicapLevel = 9,	Weather = 2 },
+				[2] = { Level = LevelIndex.Forest2B,	Laps = 3,	AIHandicapLevel = 9,	Weather = 1 },
+				[3] = { Level = LevelIndex.Forest1B,	Laps = 3,	AIHandicapLevel = 9,	Weather = 1 },
+				[4] = { Level = LevelIndex.Forest2C,	Laps = 3,	AIHandicapLevel = 9,	Weather = 2 },
+				[5] = { Level = LevelIndex.Forest1C,	Laps = 3,	AIHandicapLevel = 9,	Weather = 2 },
+				[6] = { Level = LevelIndex.Forest2A,	Laps = 2,	AIHandicapLevel = 9,	Weather = 1 },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Derby.Pro, 3000),
+			CupWinningsMedium  = addtable(CupWinnings.Derby.Pro, 3000),
+			CupWinningsHard  = addtable(CupWinnings.Derby.Pro, 200),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Derby,
+			IsLastDerbyCup = true,
+	 
+			MenuIndex = { 8,1 },
+		},
+	},
+	Events = {
+		[1] = {
+			Name = Levels[LevelIndex.Fields2A].Name,		-- RALLY 1
+			Background = "Dirt1_bg.tga",
+			Races = {
+				[1] = { Level = LevelIndex.Fields2A,	Laps = 3,	AIHandicapLevel = 8,	AIUpgradeLevel = 0.0, Rules = GR_DEFAULT }, -- custom
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = CupWinnings.Derby.Beginner,
+			CupWinningsMedium  = CupWinnings.Derby.Beginner,
+			CupWinningsHard  = CupWinnings.Derby.Beginner,
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Derby,
+
+			MenuIndex = { 1,2 },
+		},
+		[2] = {
+			Name = Levels[LevelIndex.Derby2A].Name,		-- DERBY 2
+			Background = "Derby2_bg.tga",
+			Races = {
+				[1] = { Level = LevelIndex.Derby2A,	Laps = 1,	AIHandicapLevel = 42,	AIUpgradeLevel = 0.25, Rules = GR_DERBY  },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = CupWinnings.Derby.Beginner,
+			CupWinningsMedium  = CupWinnings.Derby.Beginner,
+			CupWinningsHard  = CupWinnings.Derby.Beginner,
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Derby,
+	 
+			MenuIndex = { 2,2 },
+		},
+		[3] = {
+			Name = Levels[LevelIndex.Forest1C].Name,		-- CHLOE TIME TRIAL 1
+			Background = "Dirt1_bg.tga",
+			Races = {
+				[1] = { Level = LevelIndex.Forest1C,	Laps = 3,	AIHandicapLevel = 10,	AIUpgradeLevel = 0.0, Rules = GR_DEFAULT }, -- custom
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Derby.Amateur, -500),
+			CupWinningsMedium  = addtable(CupWinnings.Derby.Amateur, -500),
+			CupWinningsHard  = addtable(CupWinnings.Derby.Amateur, -500),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Derby,
+	 
+			MenuIndex = { 3,2 },
+		},
+		[4] = {
+			Name = Levels[LevelIndex.Derby3A].Name,		-- DERBY 3
+			Background = "Derby3_bg.tga",
+			Races = {
+				[1] = { Level = LevelIndex.Derby3A,	Laps = 1,	AIHandicapLevel = 42,	AIUpgradeLevel = 0.5, Rules = GR_DERBY },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = CupWinnings.Derby.Amateur,
+			CupWinningsMedium  = CupWinnings.Derby.Amateur,
+			CupWinningsHard  = CupWinnings.Derby.Amateur,
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Derby,
+	 
+			MenuIndex = { 4,2 },
+		},
+		[5] = {
+			Name = Levels[LevelIndex.Desert1A].Name,		-- CHLOE TIME TRIAL 2
+			Background = "Dirt1_bg.tga",
+			Races = {
+				[1] = { Level = LevelIndex.Desert1A,	Laps = 3,	AIHandicapLevel = 12,	AIUpgradeLevel = 0.25, Rules = GR_DEFAULT }, -- custom
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Derby.Amateur, -500),
+			CupWinningsMedium  = addtable(CupWinnings.Derby.Amateur, -500),
+			CupWinningsHard  = addtable(CupWinnings.Derby.Amateur, -500),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Derby,
+
+			MenuIndex = { 5,2 },		
+		
+		},
+		[6] = {
+			Name = Levels[LevelIndex.Canal1C].Name,		-- CHLOE TIME TRIAL 11
+			Background = "Dirt1_bg.tga",
+			Races = {
+				[1] = { Level = LevelIndex.Canal1C,	Laps = 3,	AIHandicapLevel = 14,	AIUpgradeLevel = 0.25, Rules = GR_DEFAULT }, -- custom
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Derby.Pro, -500),
+			CupWinningsMedium  = addtable(CupWinnings.Derby.Pro, -500),
+			CupWinningsHard  = addtable(CupWinnings.Derby.Pro, -500),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Derby,
+	 
+			MenuIndex = { 6,2 },
+		},
+		[7] = {
+			Name = Levels[LevelIndex.Derby5A].Name,		-- DERBY 5
+			Background = "Derby5_bg.tga",
+			Races = {
+				[1] = { Level = LevelIndex.Derby5A,	Laps = 1,	AIHandicapLevel = 42,	AIUpgradeLevel = 0.75, Rules = GR_DERBY },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = CupWinnings.Derby.Pro,
+			CupWinningsMedium  = CupWinnings.Derby.Pro,
+			CupWinningsHard  = CupWinnings.Derby.Pro,
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Derby,
+	 
+			MenuIndex = { 7,2 },
+		},
+		[8] = {
+			Name = Levels[LevelIndex.City1A].Name,		-- RALLY 2
+			Background = "Dirt1_bg.tga",
+			Races = {
+				[1] = { Level = LevelIndex.City1A,	Laps = 3,	AIHandicapLevel = 16,	AIUpgradeLevel = 0.25, Rules = GR_DEFAULT }, -- custom
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = CupWinnings.Derby.Pro,
+			CupWinningsMedium  = CupWinnings.Derby.Pro,
+			CupWinningsHard  = CupWinnings.Derby.Pro,
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Derby,
+			
+			MenuIndex = { 8,2 },
+		},
+	},
+}
+
+ClassB = {
+	Levels = { 4, 5, 6, 7 },
+	InitialGarage = { CarIndex.CTR, CarIndex.Boxer, CarIndex.MadRash, CarIndex.Nevada },
+	SubClasses = {
+		[1] = { Cups = { 1, 2 },       Events = { 1, 2 },      CarUnlock = {CarIndex.Lancea, CarIndex.Fortune, CarIndex.Daytana}, MoneyAward = 7500 },
+		[2] = { Cups = { 3, 4, 5 },    Events = { 3, 4, 5 },   CarUnlock = {CarIndex.Bullet, CarIndex.Lentus, CarIndex.Ventura}, MoneyAward = 8500 },
+		[3] = { Cups = { 6, 7, 8, 9 }, Events = { 6, 7, 8, 9 },							 MoneyAward = 10000 },
+	},
+	Cups = {
+		[1] = {
+			Name    = "RACING CHALLENGE CUP",
+			AIUpgradeLevelEasy = 0.0, 
+			AIUpgradeLevelMedium = 0.0, 
+			AIUpgradeLevelHard = 0.15, 
+			Races   = {
+				[1] = { Level = LevelIndex.Desert1C,		Laps = 3,	AIHandicapLevel = 11, Weather = 1 },
+				[2] = { Level = LevelIndex.Canal1A,			Laps = 3,	AIHandicapLevel = 11, Weather = 1 },
+				[3] = { Level = LevelIndex.Fields1C,		Laps = 4,	AIHandicapLevel = 11, Weather = 2 },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = CupWinnings.Race.Beginner,
+			CupWinningsMedium  = CupWinnings.Race.Beginner,
+			CupWinningsHard  = addtable(CupWinnings.Race.Beginner, -1000),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Race,
+			
+			MenuIndex = { 1,1 },
+		},
+		[2] = {
+			Name    = "RUMBLE RACING CUP",
+			AIUpgradeLevelEasy = 0.15,
+			AIUpgradeLevelMedium = 0.15,
+			AIUpgradeLevelHard = 0.35,
+			Races   = {
+				[1] = { Level = LevelIndex.City1A,		Laps = 3,	AIHandicapLevel = 13, Weather = 2 },
+				[2] = { Level = LevelIndex.Fields2C,	Laps = 3,	AIHandicapLevel = 13, Weather = 1 },
+				[3] = { Level = LevelIndex.Racing1C,	Laps = 3,	AIHandicapLevel = 13, Weather = 1 },
+				[4] = { Level = LevelIndex.City1C,		Laps = 3,	AIHandicapLevel = 13, Weather = 1 },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy = addtable(CupWinnings.Race.Beginner, 6000),
+			CupWinningsMedium = addtable(CupWinnings.Race.Beginner, 5000),
+			CupWinningsHard = addtable(CupWinnings.Race.Beginner, -750),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Race,
+	 
+			MenuIndex = { 2,1 },
+		},
+		[3] = {
+			Name    = "RACING TWILIGHTS CUP",
+			AIUpgradeLevelEasy = 0.25,
+			AIUpgradeLevelMedium = 0.25,
+			AIUpgradeLevelHard = 0.45,
+			Races   = {
+				[1] = { Level = LevelIndex.Canal1B,	Laps = 3,	AIHandicapLevel = 14, Weather = 2, IsKnockout = true, },
+				[2] = { Level = LevelIndex.City1B,	Laps = 3,	AIHandicapLevel = 14, Weather = 1 },
+				[3] = { Level = LevelIndex.City2C,	Laps = 3,	AIHandicapLevel = 14, Weather = 1 },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Race.Amateur, 800),
+			CupWinningsMedium  = addtable(CupWinnings.Race.Amateur, 400),
+			CupWinningsHard  = addtable(CupWinnings.Race.Amateur, -500),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Race,
+			
+			MenuIndex = { 3,1 },
+		},
+		[4] = {
+			Name    = "SUNDAY JAM RACING CUP",
+			AIUpgradeLevelEasy = 0.35,
+			AIUpgradeLevelMedium = 0.4,
+			AIUpgradeLevelHard = 0.65,
+			Races   = {
+				[1] = { Level = LevelIndex.Forest2B,	Laps = 3,	AIHandicapLevel = 16, Weather = 1 },
+				[2] = { Level = LevelIndex.Desert1B,	Laps = 3,	AIHandicapLevel = 16, Weather = 1 },
+				[3] = { Level = LevelIndex.Fields2B,	Laps = 3,	AIHandicapLevel = 16, Weather = 1 },
+				[4] = { Level = LevelIndex.Racing1B,	Laps = 3,	AIHandicapLevel = 16, Weather = 1, IsKnockout = true, },
+				[5] = { Level = LevelIndex.Forest2A,	Laps = 3,	AIHandicapLevel = 16, Weather = 1 },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Race.Amateur, 1500),
+			CupWinningsMedium  = addtable(CupWinnings.Race.Amateur, 800),
+			CupWinningsHard  = addtable(CupWinnings.Race.Amateur, -400),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Race,
+			
+			MenuIndex = { 4,1 },
+		},
+		[5] = {
+			Name    = "SPECIAL RACING DESERT CUP",
+			AIUpgradeLevelEasy = 0.5,
+			AIUpgradeLevelMedium = 0.55,
+			AIUpgradeLevelHard = 0.75,
+			Races   = {
+				[1] = { Level = LevelIndex.Desert1C,	Laps = 4,	AIHandicapLevel = 18, Weather = 1, IsKnockout = true, },
+				[2] = { Level = LevelIndex.Desert1B,	Laps = 4,	AIHandicapLevel = 18, Weather = 1 },
+				[3] = { Level = LevelIndex.Desert1A,	Laps = 3,	AIHandicapLevel = 18, Weather = 1 },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Race.Amateur, 7000),
+			CupWinningsMedium  = addtable(CupWinnings.Race.Amateur, 5500),
+			CupWinningsHard  = addtable(CupWinnings.Race.Amateur, -200),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Race,
+			
+			MenuIndex = { 5,1 },
+		},
+		[6] = {
+			Name    = "URBAN RACING CUP",
+			AIUpgradeLevelEasy = 0.65,
+			AIUpgradeLevelMedium = 0.75,
+			AIUpgradeLevelHard = 0.85,
+			Races   = {
+				[1] = { Level = LevelIndex.Racing1C,	Laps = 4,	AIHandicapLevel = 19, Weather = 1 },
+				[2] = { Level = LevelIndex.City1A,		Laps = 3,	AIHandicapLevel = 19, Weather = 1 },
+				[3] = { Level = LevelIndex.Forest1C,	Laps = 3,	AIHandicapLevel = 19, Weather = 1 },
+				[4] = { Level = LevelIndex.Canal1B,		Laps = 4,	AIHandicapLevel = 19, Weather = 2, IsKnockout = true, },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Race.Pro, 2800),
+			CupWinningsMedium  = addtable(CupWinnings.Race.Pro, 2200),
+			CupWinningsHard  = addtable(CupWinnings.Race.Pro, 100),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Race,
+			
+			MenuIndex = { 6,1 },
+		},
+		[7] = {
+			Name    = "MIXED RACING CUP",
+			AIUpgradeLevelEasy = 0.75,
+			AIUpgradeLevelMedium = 0.85,
+			AIUpgradeLevelHard = 1.0,
+			Races   = {
+				[1] = { Level = LevelIndex.City2A,		Laps = 2,	AIHandicapLevel = 21, Weather = 2 },
+				[2] = { Level = LevelIndex.City2B,		Laps = 3,	AIHandicapLevel = 21, Weather = 1 },
+				[3] = { Level = LevelIndex.Desert1A,	Laps = 2,	AIHandicapLevel = 21, Weather = 2 },
+				[4] = { Level = LevelIndex.Forest1B,	Laps = 4,	AIHandicapLevel = 21, Weather = 1 },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Race.Pro, 3200),
+			CupWinningsMedium  = addtable(CupWinnings.Race.Pro, 2400),
+			CupWinningsHard  = addtable(CupWinnings.Race.Pro, 200),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Race,
+			
+			MenuIndex = { 7,1 },
+		},
+		[8] = {
+			Name    = "RACING SPRINT CUP",
+			AIUpgradeLevelEasy = 0.8,
+			AIUpgradeLevelMedium = 1.0,
+			AIUpgradeLevelHard = 1.0,
+			Races   = {
+				[1] = { Level = LevelIndex.Racing1B,	Laps = 2,	AIHandicapLevel = 23, Weather = 1 },
+				[2] = { Level = LevelIndex.Canal1C,		Laps = 2,	AIHandicapLevel = 23, Weather = 1 },
+				[3] = { Level = LevelIndex.City2A,		Laps = 2,	AIHandicapLevel = 23, Weather = 1 },
+				[4] = { Level = LevelIndex.Canal1A,		Laps = 2,	AIHandicapLevel = 23, Weather = 2, IsKnockout = true, },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Race.Pro, 3600),
+			CupWinningsMedium  = addtable(CupWinnings.Race.Pro, 3000),
+			CupWinningsHard  = addtable(CupWinnings.Race.Pro, 300),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Race,
+			
+			MenuIndex = { 8,1 },
+		},
+		[9] = {
+			Name    = "SPECIAL RACING FIELDS CUP",
+			AIUpgradeLevelEasy = 0.9,
+			AIUpgradeLevelMedium = 1.0,
+			AIUpgradeLevelHard = 1.0,
+			Races   = {
+				[1] = { Level = LevelIndex.Fields2B,	Laps = 3,	AIHandicapLevel = 24, Weather = 2 },
+				[2] = { Level = LevelIndex.Fields2A,	Laps = 3,	AIHandicapLevel = 24, Weather = 2 },
+				[3] = { Level = LevelIndex.Fields1C,	Laps = 3,	AIHandicapLevel = 24, Weather = 1 },
+				[4] = { Level = LevelIndex.Fields1A,	Laps = 3,	AIHandicapLevel = 24, Weather = 1 },
+				[5] = { Level = LevelIndex.Fields1B,	Laps = 3,	AIHandicapLevel = 24, Weather = 2 },
+				[6] = { Level = LevelIndex.Fields2C,	Laps = 3,	AIHandicapLevel = 24, Weather = 1 },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Race.Pro, 5000),
+			CupWinningsMedium  = addtable(CupWinnings.Race.Pro, 5000),
+			CupWinningsHard  = addtable(CupWinnings.Race.Pro, 400),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Race,
+	 
+			MenuIndex = { 9,1 },
+		},
+	},
+	Events = {
+		[1] = {
+			Name = Levels[LevelIndex.Racing1B].Name,		-- RALLY 3
+			Background = "Dirt1_bg.tga",
+			Races = {
+				[1] = { Level = LevelIndex.Racing1B,	Laps = 3,	AIHandicapLevel = 15,	AIUpgradeLevel = 0.25, Rules = GR_DEFAULT }, -- custom
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = CupWinnings.Race.Amateur,
+			CupWinningsMedium  = CupWinnings.Race.Amateur,
+			CupWinningsHard  = CupWinnings.Race.Amateur,
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Race,
+			
+			MenuIndex = { 1,2 },
+		},
+		[2] = {
+			Name = Levels[LevelIndex.Fields1C].Name,		-- CHLOE TIME TRIAL 3
+			Background = "Dirt1_bg.tga",
+			Races = {
+				[1] = { Level = LevelIndex.Fields1C,	Laps = 3,	AIHandicapLevel = 17,	AIUpgradeLevel = 0.5, Rules = GR_DEFAULT }, -- custom
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = CupWinnings.Race.Amateur,
+			CupWinningsMedium  = CupWinnings.Race.Amateur,
+			CupWinningsHard  = CupWinnings.Race.Amateur,
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Race,
+
+			MenuIndex = { 2,2 },			
+
+		},
+		[3] = {
+			Name = Levels[LevelIndex.Arena2].Name,		-- DIRT 2
+			Background = "Dirt3_bg.tga",
+			Races = {
+				[1] = { Level = LevelIndex.Arena2,	Laps = 4,	AIHandicapLevel = 15,	AIUpgradeLevel = 0.25 },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = CupWinnings.Race.Amateur,
+			CupWinningsMedium  = CupWinnings.Race.Amateur,
+			CupWinningsHard  = CupWinnings.Race.Amateur,
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Race,
+			Rules        = GR_DEFAULT,
+			
+			MenuIndex = { 3,2 },
+		},
+		[4] = {
+			Name = Levels[LevelIndex.Arena3].Name,		-- DIRT 3
+			Background = "Dirt5_bg.tga",
+			Races = {
+				[1] = { Level = LevelIndex.Arena3,	Laps = 4,	AIHandicapLevel = 17,	AIUpgradeLevel = 0.35 },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = CupWinnings.Race.Amateur,
+			CupWinningsMedium  = CupWinnings.Race.Amateur,
+			CupWinningsHard  = CupWinnings.Race.Amateur,
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Race,
+			Rules        = GR_DEFAULT,
+			
+			MenuIndex = { 4,2 },
+		},
+		[5] = {
+			Name = Levels[LevelIndex.Racing2A].Name,		-- CHLOE TIME TRIAL 4
+			Background = "Dirt1_bg.tga",
+			Races = {
+				[1] = { Level = LevelIndex.Racing2A,	Laps = 3,	AIHandicapLevel = 19,	AIUpgradeLevel = 0.5, Rules = GR_DEFAULT }, -- custom
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = CupWinnings.Race.Amateur,
+			CupWinningsMedium  = CupWinnings.Race.Amateur,
+			CupWinningsHard  = CupWinnings.Race.Amateur,
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Race,
+
+			MenuIndex = { 5,2 },
+		},
+		[6] = {
+			Name = Levels[LevelIndex.Desert1C].Name,		-- RALLY 5
+			Background = "Dirt1_bg.tga",
+			Races = {
+				[1] = { Level = LevelIndex.Desert1C,	Laps = 3,	AIHandicapLevel = 21,	AIUpgradeLevel = 0.75, Rules = GR_DEFAULT }, -- custom
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Race.Pro, 500),
+			CupWinningsMedium  = addtable(CupWinnings.Race.Pro, 500),
+			CupWinningsHard  = addtable(CupWinnings.Race.Pro, 500),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Race,
+			
+			MenuIndex = { 6,2 },
+		},
+		[7] = {
+			Name = Levels[LevelIndex.Arena5].Name,		-- DIRT 5
+			Background = "Dirt2_bg.tga",
+			Races = {
+				[1] = { Level = LevelIndex.Arena5,	Laps = 5,	AIHandicapLevel = 22,	AIUpgradeLevel = 1.0 },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Race.Pro, 500),
+			CupWinningsMedium  = addtable(CupWinnings.Race.Pro, 500),
+			CupWinningsHard  = addtable(CupWinnings.Race.Pro, 500),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Race,
+			Rules        = GR_DEFAULT,
+			
+			MenuIndex = { 7,2 },
+		},
+		[8] = {
+			Name = Levels[LevelIndex.Fields2C].Name,		-- CHLOE TIME TRIAL 5
+			Background = "Dirt1_bg.tga",
+			Races = {
+				[1] = { Level = LevelIndex.Fields2C,	Laps = 3,	AIHandicapLevel = 23,	AIUpgradeLevel = 1.0, Rules = GR_DEFAULT }, -- custom
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Race.Pro, 500),
+			CupWinningsMedium  = addtable(CupWinnings.Race.Pro, 500),
+			CupWinningsHard  = addtable(CupWinnings.Race.Pro, 500),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Race,
+
+			MenuIndex = { 8,2 },			
+
+		},
+		[9] = {
+			Name = Levels[LevelIndex.Arena6].Name,		-- DIRT 6
+			Background = "Dirt6_bg.tga",
+			Races = {
+				[1] = { Level = LevelIndex.Arena6,	Laps = 4,	AIHandicapLevel = 25,	AIUpgradeLevel = 1.0 },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Race.Pro, 1000),
+			CupWinningsMedium  = addtable(CupWinnings.Race.Pro, 1000),
+			CupWinningsHard  = addtable(CupWinnings.Race.Pro, 1000),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Race,
+			Rules        = GR_DEFAULT,
+			
+			MenuIndex = { 9,2 },
+		},
+	},
+}
+
+ClassA = {
+	Levels = { 8, 9, 10, 11 },
+	InitialGarage = { CarIndex.ChiliPepper, CarIndex.Scorpion, CarIndex.InsettaSport, CarIndex.Sparrowhawk, CarIndex.Crusader },
+	SubClasses = {
+		[1] = { Cups = { 1, 2, 3 },     Events = { 1, 2, 3 },     CarUnlock = {CarIndex.CTRSport, CarIndex.VexterXS, CarIndex.Speedshifter}, MoneyAward = 15000 },
+		[2] = { Cups = { 4, 5, 6, 7 },     Events = { 4, 5, 6, 7 },     CarUnlock = {CarIndex.Terrator, CarIndex.Sunray, CarIndex.Speedevil, CarIndex.BulletGT}, MoneyAward = 18000 },
+		[3] = { Cups = { 8, 9, 10, 11 }, Events = { 8, 9, 10, 11 },                               MoneyAward = 20000 },
+	},
+	Cups = {
+		[1] = {
+			Name    = "STREET CHALLENGE CUP",
+			AIUpgradeLevelEasy = 0.0,
+			AIUpgradeLevelMedium = 0.0,
+			AIUpgradeLevelHard = 0.0,
+			Races   = {
+				[1] = { Level = LevelIndex.Racing1A,	Laps = 3,	AIHandicapLevel = 27, Weather = 1, IsKnockout = true, },
+				[2] = { Level = LevelIndex.Desert1B,	Laps = 3,	AIHandicapLevel = 27, Weather = 1 },
+				[3] = { Level = LevelIndex.City1B,		Laps = 3,	AIHandicapLevel = 27, Weather = 2 },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Street.Beginner, -100),
+			CupWinningsMedium  = addtable(CupWinnings.Street.Beginner, -400),
+			CupWinningsHard  = CupWinnings.Street.Beginner,
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Street,
+			
+			MenuIndex = { 1,1 },
+		},
+		[2] = {
+			Name    = "STREET TWILIGHTS CUP",
+			AIUpgradeLevelEasy = 0.1,
+			AIUpgradeLevelMedium = 0.15,
+			AIUpgradeLevelHard = 0.2,
+			Races   = {
+				[1] = { Level = LevelIndex.City1A,		Laps = 3,	AIHandicapLevel = 28, Weather = 2, IsSpeedtrap = true, },
+				[2] = { Level = LevelIndex.Canal1A,		Laps = 4,	AIHandicapLevel = 28, Weather = 1 },
+				[3] = { Level = LevelIndex.Forest1A,	Laps = 4,	AIHandicapLevel = 28, Weather = 1 },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Street.Beginner, 600),
+			CupWinningsMedium  = addtable(CupWinnings.Street.Beginner, 200),
+			CupWinningsHard  = addtable(CupWinnings.Street.Beginner, 500),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Street,
+	 
+			MenuIndex = { 2,1 },
+		},
+		[3] = {
+			Name    = "STREET WRECK CUP",
+			AIUpgradeLevelEasy = 0.15,
+			AIUpgradeLevelMedium = 0.3,
+			AIUpgradeLevelHard = 0.3,
+			Races   = {
+				[1] = { Level = LevelIndex.Fields2A,	Laps = 3,	AIHandicapLevel = 29, Weather = 1 },
+				[2] = { Level = LevelIndex.City2C,		Laps = 3,	AIHandicapLevel = 29, Weather = 2 },
+				[3] = { Level = LevelIndex.Racing1C,	Laps = 4,	AIHandicapLevel = 29, Weather = 1, IsKnockout = true, },
+				[4] = { Level = LevelIndex.Forest2A,	Laps = 3,	AIHandicapLevel = 29, Weather = 1, IsSpeedtrap = true, },
+				[5] = { Level = LevelIndex.Racing2A,	Laps = 4,	AIHandicapLevel = 29, Weather = 1 },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Street.Beginner, 1000),
+			CupWinningsMedium  = addtable(CupWinnings.Street.Beginner, 1000),
+			CupWinningsHard  = addtable(CupWinnings.Street.Beginner, 1000),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Street,
+			
+			MenuIndex = { 3,1 },
+		},
+		[4] = {
+			Name    = "STREET SURVIVAL CUP",
+			AIUpgradeLevelEasy = 0.25,
+			AIUpgradeLevelMedium = 0.4,
+			AIUpgradeLevelHard = 0.4,
+			Races   = {
+				[1] = { Level = LevelIndex.Forest2C,	Laps = 4,	AIHandicapLevel = 31, Weather = 1, IsKnockout = true, },
+				[2] = { Level = LevelIndex.Forest1A,	Laps = 5,	AIHandicapLevel = 31, Weather = 1, IsKnockout = true, },
+				[3] = { Level = LevelIndex.Canal1B,		Laps = 4,	AIHandicapLevel = 31, Weather = 1, IsKnockout = true, },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Street.Amateur, 2000),
+			CupWinningsMedium  = addtable(CupWinnings.Street.Amateur, 1800),
+			CupWinningsHard  = addtable(CupWinnings.Street.Amateur, 2000),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Street,
+			
+			MenuIndex = { 4,1 },
+		},
+		[5] = {
+			Name  = "STREET RUMBLE CUP",
+			AIUpgradeLevelEasy = 0.35,
+			AIUpgradeLevelMedium = 0.5,
+			AIUpgradeLevelHard = 0.55,
+			Races = {
+				[1] = { Level = LevelIndex.Fields1A,	Laps = 3,	AIHandicapLevel = 32, Weather = 1 },
+				[2] = { Level = LevelIndex.Forest2A,	Laps = 3,	AIHandicapLevel = 32, Weather = 2 },
+				[3] = { Level = LevelIndex.Racing2C,	Laps = 3,	AIHandicapLevel = 32, Weather = 1, IsKnockout = true, },
+				[4] = { Level = LevelIndex.Desert1A,	Laps = 3,	AIHandicapLevel = 32, Weather = 1 },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Street.Amateur, 2000),
+			CupWinningsMedium  = addtable(CupWinnings.Street.Amateur, 2000),
+			CupWinningsHard  = addtable(CupWinnings.Street.Amateur, 2200),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Street,
+			
+			MenuIndex = { 5,1 },
+		},
+		[6] = {
+			Name    = "CROSS CONGESTION CUP",
+			AIUpgradeLevelEasy = 0.45,
+			AIUpgradeLevelMedium = 0.55,
+			AIUpgradeLevelHard = 0.6,
+			Races   = {
+				[1] = { Level = LevelIndex.City1A,		Laps = 3,	AIHandicapLevel = 33, Weather = 1 },
+				[2] = { Level = LevelIndex.City2A,		Laps = 2,	AIHandicapLevel = 33, Weather = 2, IsKnockout = true, },
+				[3] = { Level = LevelIndex.City1B,		Laps = 3,	AIHandicapLevel = 33, Weather = 2, IsSpeedtrap = true },
+				[4] = { Level = LevelIndex.City2B,		Laps = 4,	AIHandicapLevel = 33, Weather = 2 },
+				[5] = { Level = LevelIndex.City1C,		Laps = 3,	AIHandicapLevel = 33, Weather = 2 },
+				[6] = { Level = LevelIndex.City2C,		Laps = 3,	AIHandicapLevel = 33, Weather = 2 },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Street.Amateur, 3000),
+			CupWinningsMedium  = addtable(CupWinnings.Street.Amateur, 2800),
+			CupWinningsHard  = addtable(CupWinnings.Street.Amateur, 3000),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Street,
+			
+			MenuIndex = { 6,1 },
+		},
+		[7] = {
+			Name    = "STREET DEADLINE CUP",
+			AIUpgradeLevelEasy = 0.55,
+			AIUpgradeLevelMedium = 0.65,
+			AIUpgradeLevelHard = 0.7,
+			Races   = {
+				[1] = { Level = LevelIndex.Forest2B,	Laps = 3,	AIHandicapLevel = 33, Weather = 2 },
+				[2] = { Level = LevelIndex.Racing2A,	Laps = 2,	AIHandicapLevel = 33, Weather = 1 },
+				[3] = { Level = LevelIndex.Forest2A,	Laps = 4,	AIHandicapLevel = 33, Weather = 2, IsKnockout = true },
+				[4] = { Level = LevelIndex.Racing2B,	Laps = 4,	AIHandicapLevel = 33, Weather = 1 },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Street.Amateur, 3200),
+			CupWinningsMedium  = addtable(CupWinnings.Street.Amateur, 3000),
+			CupWinningsHard  = addtable(CupWinnings.Street.Amateur, 3000),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Street,
+			
+			MenuIndex = { 7,1 },
+		},
+		[8] = {
+			Name    = "RUSH HOUR CUP",
+			AIUpgradeLevelEasy = 0.65,
+			AIUpgradeLevelMedium = 0.75,
+			AIUpgradeLevelHard = 0.85,
+			Races   = {
+				[1] = { Level = LevelIndex.City2B,		Laps = 3,	AIHandicapLevel = 36, Weather = 1 },
+				[2] = { Level = LevelIndex.Racing1B,	Laps = 3,	AIHandicapLevel = 36, Weather = 1 },
+				[3] = { Level = LevelIndex.Canal1B,		Laps = 3,	AIHandicapLevel = 36, Weather = 1, IsKnockout = true },
+				[4] = { Level = LevelIndex.City2A,		Laps = 3,	AIHandicapLevel = 36, Weather = 1 },
+				[5] = { Level = LevelIndex.Racing1A,	Laps = 3,	AIHandicapLevel = 36, Weather = 1, IsSpeedtrap = true, },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Street.Pro, 5000),
+			CupWinningsMedium  = addtable(CupWinnings.Street.Pro, 5000),
+			CupWinningsHard  = addtable(CupWinnings.Street.Pro, 5000),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Street,
+			
+			MenuIndex = { 8,1 },
+		},
+		[9] = {
+			Name    = "STREET RURAL CUP",
+			AIUpgradeLevelEasy = 0.75,
+			AIUpgradeLevelMedium = 0.85,
+			AIUpgradeLevelHard = 0.9,
+			Races   = {
+				[1] = { Level = LevelIndex.Forest2B,	Laps = 2,	AIHandicapLevel = 35, Weather = 1 },
+				[2] = { Level = LevelIndex.Desert1A,	Laps = 2,	AIHandicapLevel = 35, Weather = 2 },
+				[3] = { Level = LevelIndex.Forest1A,	Laps = 3,	AIHandicapLevel = 35, Weather = 1, IsSpeedtrap = true, },
+				[4] = { Level = LevelIndex.Fields1C,	Laps = 2,	AIHandicapLevel = 35, Weather = 1 }
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Street.Pro, 6000),
+			CupWinningsMedium  = addtable(CupWinnings.Street.Pro, 6000),
+			CupWinningsHard  = addtable(CupWinnings.Street.Pro, 6000),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Street,
+	 
+			MenuIndex = { 9,1 },
+		},
+		[10] = {
+			Name    = "STREET BIG BANG CUP",
+			AIUpgradeLevelEasy = 0.85,
+			AIUpgradeLevelMedium = 0.95,
+			AIUpgradeLevelHard = 1.0,
+			Races   = {
+				[1] = { Level = LevelIndex.Fields1B,	Laps = 4,	AIHandicapLevel = 37, Weather = 2 },
+				[2] = { Level = LevelIndex.Desert1C,	Laps = 3,	AIHandicapLevel = 37, Weather = 1 },
+				[3] = { Level = LevelIndex.City2C,		Laps = 3,	AIHandicapLevel = 37, Weather = 1, IsSpeedtrap = true, },
+				[4] = { Level = LevelIndex.Canal1C,		Laps = 3,	AIHandicapLevel = 37, Weather = 1 },
+				[5] = { Level = LevelIndex.Forest1C,	Laps = 4,	AIHandicapLevel = 37, Weather = 1, IsKnockout = true, },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Street.Pro, 7500),
+			CupWinningsMedium  = addtable(CupWinnings.Street.Pro, 7500),
+			CupWinningsHard  = addtable(CupWinnings.Street.Pro, 7500),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Street,
+			
+			MenuIndex = { 10,1 },
+		},
+		[11] = {
+			Name    = "RAGING REVOLUTION CUP",
+			AIUpgradeLevelEasy = 0.9,
+			AIUpgradeLevelMedium = 1.0,
+			AIUpgradeLevelHard = 1.0,
+			Races   = {
+				[1] = { Level = LevelIndex.Racing1A,	Laps = 3,	AIHandicapLevel = 38, Weather = 1 },
+				[2] = { Level = LevelIndex.Racing2A,	Laps = 3,	AIHandicapLevel = 38, Weather = 1 },
+				[3] = { Level = LevelIndex.Racing1C,	Laps = 4,	AIHandicapLevel = 38, Weather = 1, IsSpeedtrap = true, },
+				[4] = { Level = LevelIndex.Racing2B,	Laps = 3,	AIHandicapLevel = 38, Weather = 1, IsKnockout = true, },
+				[5] = { Level = LevelIndex.Racing1B,	Laps = 3,	AIHandicapLevel = 38, Weather = 1 },
+				[6] = { Level = LevelIndex.Racing2C,	Laps = 3,	AIHandicapLevel = 38, Weather = 1 },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Street.Pro, 10000),
+			CupWinningsMedium  = addtable(CupWinnings.Street.Pro, 10000),
+			CupWinningsHard  = addtable(CupWinnings.Street.Pro, 10000),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Street,
+			
+			MenuIndex = { 11,1 },
+		},
+	},
+Events = {
+		[1] = {
+			Name = Levels[LevelIndex.City2A].Name,		-- RALLY 7
+			Background = "Dirt1_bg.tga",
+			Races = {
+				[1] = { Level = LevelIndex.City2A,	Laps = 3,	AIHandicapLevel = 27,	AIUpgradeLevel = 1.0, Rules = GR_DEFAULT }, -- custom
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Race.Beginner, -500),
+			CupWinningsMedium  = addtable(CupWinnings.Race.Beginner, -500),
+			CupWinningsHard  = addtable(CupWinnings.Race.Beginner, -500),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Street,
+
+			MenuIndex = { 1,2 },			
+
+		},
+		[2] = {
+			Name = Levels[LevelIndex.Canal1B].Name,		-- CHLOE TIME TRIAL 6
+			Background = "Dirt1_bg.tga",
+			Races = {
+				[1] = { Level = LevelIndex.Canal1B,	Laps = 3,	AIHandicapLevel = 29,	AIUpgradeLevel = 1.0, Rules = GR_DEFAULT }, -- custom
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Street.Beginner, -500),
+			CupWinningsMedium  = addtable(CupWinnings.Street.Beginner, -500),
+			CupWinningsHard  = addtable(CupWinnings.Street.Beginner, -500),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Street,
+
+			MenuIndex = { 2,2 },
+
+		},
+		[3] = {
+			Name = Levels[LevelIndex.City1A].Name,		-- CHLOE TIME TRIAL 7
+			Background = "Dirt1_bg.tga",
+			Races = {
+				[1] = { Level = LevelIndex.City1A,	Laps = 3,	AIHandicapLevel = 12,	AIUpgradeLevel = 0.0, ChloeTimeTrial = true, ChloeTimeTrialUpgrades = 1, Car = CarIndex.ChiliPepper },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = CupWinnings.Street.Beginner,
+			CupWinningsMedium  = CupWinnings.Street.Beginner,
+			CupWinningsHard  = CupWinnings.Street.Beginner,
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Street,
+			
+			MenuIndex = { 3,2 },
+		},
+		[4] = {
+			Name = Levels[LevelIndex.Forest2B].Name,		-- RALLY 4
+			Background = "Dirt1_bg.tga",
+			Races = {
+				[1] = { Level = LevelIndex.Forest2B,	Laps = 3,	AIHandicapLevel = 31,	AIUpgradeLevel = 1.0, Rules = GR_DEFAULT }, -- custom
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = CupWinnings.Street.Amateur,
+			CupWinningsMedium  = CupWinnings.Street.Amateur,
+			CupWinningsHard  = CupWinnings.Street.Amateur,
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Street,
+
+			MenuIndex = { 4,2 },
+		},
+		[5] = {
+			Name = Levels[LevelIndex.Racing2B].Name,		-- CHLOE TIME TRIAL 8
+			Background = "Dirt1_bg.tga",
+			Races = {
+				[1] = { Level = LevelIndex.Racing2B,	Laps = 3,	AIHandicapLevel = 12,	AIUpgradeLevel = 0.0, ChloeTimeTrial = true, ChloeTimeTrialUpgrades = 1, Car = CarIndex.Sunray },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = CupWinnings.Street.Amateur,
+			CupWinningsMedium  = CupWinnings.Street.Amateur,
+			CupWinningsHard  = CupWinnings.Street.Amateur,
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Street,
+
+			MenuIndex = { 5,2 },
+		},
+		[6] = {
+			Name = Levels[LevelIndex.Nascar1A].Name,  -- Oval 1
+			Background = "Oval1_bg.tga",
+			Races = {
+				[1] = { Level = LevelIndex.Nascar1A,	Laps = 3,	AIHandicapLevel = 30,	AIUpgradeLevel = 0.2 },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = CupWinnings.Street.Amateur,
+			CupWinningsMedium  = CupWinnings.Street.Amateur,
+			CupWinningsHard  = CupWinnings.Street.Amateur,
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Street,
+			Rules        = GR_DEFAULT,
+	 
+			MenuIndex = { 6,2 },
+		},
+		[7] = {
+			Name = Levels[LevelIndex.Derby4A].Name,		-- DERBY 4
+			Background = "Derby5_bg.tga",
+			Races = {
+				[1] = { Level = LevelIndex.Derby4A,	Laps = 1,	AIHandicapLevel = 42,	AIUpgradeLevel = 0.75, Rules = GR_DERBY },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = CupWinnings.Street.Amateur,
+			CupWinningsMedium  = CupWinnings.Street.Amateur,
+			CupWinningsHard  = CupWinnings.Street.Amateur,
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Street,
+	 
+			MenuIndex = { 7,2 },
+		},
+		[8] = {
+			Name = Levels[LevelIndex.City2B].Name,		-- CHLOE TIME TRIAL 9
+			Background = "Dirt1_bg.tga",
+			Races = {
+				[1] = { Level = LevelIndex.City2B,	Laps = 3,	AIHandicapLevel = 12,	AIUpgradeLevel = 0.0, ChloeTimeTrial = true, ChloeTimeTrialUpgrades = 1, Car = CarIndex.RoadKing },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Street.Pro, 1000),
+			CupWinningsMedium  = addtable(CupWinnings.Street.Pro, 1000),
+			CupWinningsHard  = addtable(CupWinnings.Street.Pro, 1000),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Street,
+
+			MenuIndex = { 8,2 },
+		},
+		[9] = {
+			Name = Levels[LevelIndex.Racing1C].Name,		-- CHLOE TIME TRIAL 10
+			Background = "Dirt1_bg.tga",
+			Races = {
+				[1] = { Level = LevelIndex.Racing1C,	Laps = 3,	AIHandicapLevel = 12,	AIUpgradeLevel = 0.0, ChloeTimeTrial = true, ChloeTimeTrialUpgrades = 1, Car = CarIndex.BulletGT },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Street.Pro, 1000),
+			CupWinningsMedium  = addtable(CupWinnings.Street.Pro, 1000),
+			CupWinningsHard  = addtable(CupWinnings.Street.Pro, 1000),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Street,
+
+			MenuIndex = { 9,2 },
+		},
+		[10] = {
+			Name = Levels[LevelIndex.Racing2C].Name,		-- RALLY 6
+			Background = "Dirt1_bg.tga",
+			Races = {
+				[1] = { Level = LevelIndex.Racing2C,	Laps = 3,	AIHandicapLevel = 33,	AIUpgradeLevel = 1.0, Rules = GR_DEFAULT }, -- custom
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Street.Pro, 1000),
+			CupWinningsMedium  = addtable(CupWinnings.Street.Pro, 1000),
+			CupWinningsHard  = addtable(CupWinnings.Street.Pro, 1000),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Street,
+
+			MenuIndex = { 10,2 },
+		},
+		[11] = {
+			Name = Levels[LevelIndex.Nascar1C].Name,  -- Oval 3
+			Background = "Oval3_bg.tga",
+			Races = {
+				[1] = { Level = LevelIndex.Nascar1C,	Laps = 3,	AIHandicapLevel = 39,	AIUpgradeLevel = 1.0 },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Street.Pro, 1000),
+			CupWinningsMedium  = addtable(CupWinnings.Street.Pro, 1000),
+			CupWinningsHard  = addtable(CupWinnings.Street.Pro, 1000),
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Street,
+			Rules        = GR_DEFAULT,
+			
+			MenuIndex = { 11,2 },
+		},
+	},
+}
+
+Finals = {
+	SubClasses = {
+		[1] = { Cups = { 1, 2, 3, 4 } },
+	},
+	Cups = {
+		[1] = {
+			Name	= "DERBY FINALS",
+			AIUpgradeLevelEasy = 1.0,
+			AIUpgradeLevelMedium = 1.0,
+			AIUpgradeLevelHard = 1.0,
+			Races	= {
+				[1] = { Level = LevelIndex.Forest1C,	Laps = 3,	AIHandicapLevel = 10, Weather = 2 },
+				[2] = { Level = LevelIndex.Fields1B,	Laps = 3,	AIHandicapLevel = 10, Weather = 2 },
+				[3] = { Level = LevelIndex.Canal1A,		Laps = 3,	AIHandicapLevel = 10, Weather = 1 },
+				[4] = { Level = LevelIndex.City1A,		Laps = 3,	AIHandicapLevel = 10, Weather = 1 },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Finals.Derby, 2500),
+			CupWinningsMedium  = addtable(CupWinnings.Finals.Derby, 1000),
+			CupWinningsHard  = CupWinnings.Finals.Derby,
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Derby,
+	 
+			MenuIndex = { 1,1 },
+		},
+		[2] = {
+			Name    = "RACE FINALS",
+			AIUpgradeLevelEasy = 1.0,
+			AIUpgradeLevelMedium = 1.0,
+			AIUpgradeLevelHard = 1.0,
+			Races   = {
+				[1] = { Level = LevelIndex.Forest2C,	Laps = 3,	AIHandicapLevel = 26, Weather = 2 },
+				[2] = { Level = LevelIndex.Desert1C,	Laps = 3,	AIHandicapLevel = 26, Weather = 1 },
+				[3] = { Level = LevelIndex.City2B,		Laps = 3,	AIHandicapLevel = 26, Weather = 1 },
+				[4] = { Level = LevelIndex.Canal1B,		Laps = 3,	AIHandicapLevel = 26, Weather = 1 },
+				[5] = { Level = LevelIndex.Racing2B,	Laps = 3,	AIHandicapLevel = 26, Weather = 2 },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = addtable(CupWinnings.Finals.Race, 5000),
+			CupWinningsMedium  = addtable(CupWinnings.Finals.Race, 1000),
+			CupWinningsHard  = CupWinnings.Finals.Race,
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Race,
+			
+			MenuIndex = { 2,1 },
+		},
+		[3] = {
+			Name    = "STREET FINALS",
+			AIUpgradeLevelEasy = 1.0,
+			AIUpgradeLevelMedium = 1.0,
+			AIUpgradeLevelHard = 1.0,
+			Races   = {
+				[1] = { Level = LevelIndex.Fields1A,	Laps = 3,	AIHandicapLevel = 40, Weather = 1 },
+				[2] = { Level = LevelIndex.Racing1A,	Laps = 3,	AIHandicapLevel = 40, Weather = 1 },
+				[3] = { Level = LevelIndex.Forest2C,	Laps = 3,	AIHandicapLevel = 40, Weather = 2 },
+				[4] = { Level = LevelIndex.Desert1A,	Laps = 3,	AIHandicapLevel = 40, Weather = 1 },
+				[5] = { Level = LevelIndex.Canal1C,		Laps = 3,	AIHandicapLevel = 40, Weather = 2 },
+				[6] = { Level = LevelIndex.City2A,		Laps = 3,	AIHandicapLevel = 40, Weather = 2 },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = CupWinnings.Finals.Street,
+			CupWinningsMedium  = CupWinnings.Finals.Street,
+			CupWinningsHard  = CupWinnings.Finals.Street,
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.Street,
+			
+			MenuIndex = { 1,2 },
+		},
+		[4] = {
+			Name    = "GRAND FINAL",
+			AIUpgradeLevelEasy = 1.0,
+			AIUpgradeLevelMedium = 1.0,
+			AIUpgradeLevelHard = 1.0,
+			Races   = {
+				[1] = { Level = LevelIndex.Derby1A,		Laps = 1,	AIHandicapLevel = 42 },
+				[2] = { Level = LevelIndex.Arena2,		Laps = 3,	AIHandicapLevel = 41 },
+				[3] = { Level = LevelIndex.Nascar1A,	Laps = 3,	AIHandicapLevel = 43 },
+				[4] = { Level = LevelIndex.Derby2A,		Laps = 1,	AIHandicapLevel = 42 },
+				[5] = { Level = LevelIndex.Nascar1C,	Laps = 4,	AIHandicapLevel = 44 },
+				[6] = { Level = LevelIndex.Arena3,		Laps = 6,	AIHandicapLevel = 45 },
+			},
+			RaceWinnings = RaceWinnings.Default,
+			CupWinningsEasy  = CupWinnings.Finals.GrandFinal,
+			CupWinningsMedium  = CupWinnings.Finals.GrandFinal,
+			CupWinningsHard  = CupWinnings.Finals.GrandFinal,
+			CrashBonuses = CrashBonuses.Default,
+			TopDrivers   = TopDrivers.GrandFinal,
+			
+			UseGrandFinalComments = true,
+
+			MenuIndex = { 2,2 },
+		},
+	},
+}
+
+Classes = {
+	[1] = ClassC,
+	[2] = ClassB,
+	[3] = ClassA,
+	[4] = Finals,
+}

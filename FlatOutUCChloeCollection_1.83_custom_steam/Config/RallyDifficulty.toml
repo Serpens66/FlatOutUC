@@ -1,0 +1,90 @@
+# Rally difficulty data
+# each AI rolls a random number between AIXMin and AIXMax every split
+# to determine at what speed they should play the stage replay
+# FailChance is a percentage rolled once per split, if it passes the AI wrecks
+
+[normal]
+Class1Speed=0.8
+Class2Speed=0.9
+Class3Speed=0.95
+Class1RubberbandSpeed=0.9
+Class2RubberbandSpeed=0.95
+Class3RubberbandSpeed=1.0
+
+[competitive]
+Class1Speed=0.9
+Class2Speed=0.94
+Class3Speed=0.97
+Class1RubberbandSpeed=0.95
+Class2RubberbandSpeed=0.98
+Class3RubberbandSpeed=1.0
+
+[sadistic]
+Class1Speed=1.05
+Class2Speed=1.02
+Class3Speed=1.0
+Class1RubberbandSpeed=1.0
+Class2RubberbandSpeed=1.0
+Class3RubberbandSpeed=1.0
+
+[AI]
+# JACK BENTON
+AI1Min=0.98
+AI1Max=1.02
+AI1Rubberband=1.2
+AI1FailChance=0.5
+# KATIE JACKSON
+AI2Min=0.7
+AI2Max=1.0
+AI2Rubberband=1.0
+AI2FailChance=1.5
+# SOFIA MARTINEZ
+AI3Min=1.0
+AI3Max=1.0
+AI3Rubberband=1.0
+AI3FailChance=0
+# SALLY TAYLOR
+AI4Min=0.7
+AI4Max=0.98
+AI4Rubberband=1.0
+AI4FailChance=1
+# JASON WALKER
+AI5Min=0.6
+AI5Max=1.0
+AI5Rubberband=1.0
+AI5FailChance=0.7
+# RAY CARTER
+AI6Min=0.5
+AI6Max=1.015
+AI6Rubberband=1.0
+AI6FailChance=0.5
+# FRANK MALCOV
+AI7Min=0.4
+AI7Max=1.2
+AI7Rubberband=1.5
+AI7FailChance=10
+# CURTIS WOLFE
+AI8Min=0.7
+AI8Max=1.0
+AI8Rubberband=1.0
+AI8FailChance=1
+# LEWIS DURAN
+AI9Min=0.4
+AI9Max=0.9
+AI9Rubberband=1.0
+AI9FailChance=1.5
+# LEI BING
+AI10Min=0.93
+AI10Max=1.005
+AI10Rubberband=1.1
+AI10FailChance=0.1
+# JILL RICHARDS
+AI11Min=0.8
+AI11Max=1.005
+AI11Rubberband=1.05
+AI11FailChance=0.2
+# NEVILLE
+AI12Min=0.6
+AI12Max=0.9
+AI12Rubberband=1.0
+AI12FailChance=0.5

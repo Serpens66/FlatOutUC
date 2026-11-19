@@ -1,0 +1,214 @@
+# Car unlock matchup data
+# Usage: car_X=Y
+# where X is the car ID, and Y is the vanilla car ID to unlock it alongside
+# both IDs are data path order, but can be specified in DB order through [db_override]
+# custom cars in the DB begin at ID 47 (45 and 46 are Bonecracker and Grinder)
+# with this pack 44-47 are the addon stunt cars, 48 is Truck, 49 and 50 are Bonecracker and Grinder
+
+[named]
+"Starflight SS"="Rocket SS"
+"Trailblazer SS"="Rocket SS"
+"Afterburner SS"="Rocket SS"
+"Nucleon SS"="Rocket SS"
+"FO2 Starflight SS"="Rocket SS"
+"FO2 Trailblazer SS"="Rocket SS"
+"FO2 Afterburner SS"="Rocket SS"
+"FO2 Rocket SS"="Rocket SS"
+"FO2 Nucleon SS"="Rocket SS"
+
+[main]
+car_45=45	# Truck
+car_46=46	# Bonecracker
+car_47=47	# Grinder
+
+# FO1 car matchups
+car_101=101	# FO1 Speedevil
+car_102=102	# FO1 Blade
+car_103=2	# FO1 Pepper - Chili
+car_104=1	# FO1 Overrunner - CTR
+car_105=30	# FO1 Thunderbolt - Scorpion
+car_106=19	# FO1 Fasthammer - Nevada
+car_107=107	# FO1 Trasher
+car_108=13	# FO1 Grinder - Shaker
+car_109=109	# FO1 Blockhead
+car_110=3	# FO1 Road King - Boxer
+car_111=111	# FO1 Slider
+car_112=8	# FO1 Blocker - Banger
+car_113=32	# FO1 Bonecracker - Speedshifter
+car_114=34	# FO1 Machine - Speedevil
+car_115=17	# FO1 Bullet - Switchblade
+car_116=25	# FO1 Ranker1 - Road King
+
+# retro demo car matchups
+car_151=3	# Retro Road King - Boxer
+car_152=101	# Retro Speedevil - FO1 Speedevil
+car_153=8	# Retro Beetle - Banger
+car_154=111	# Retro Slider - FO1 Slider
+
+# FO2 car matchups
+car_201=1
+car_202=2
+car_203=3
+car_204=4
+car_205=5
+car_206=6
+car_207=7
+car_208=8
+car_209=9
+car_210=10
+car_211=11
+car_212=12
+car_213=13
+car_214=14
+car_215=15
+car_216=16
+car_217=17
+car_218=18
+car_219=19
+car_220=20
+car_221=21
+car_222=22
+car_223=23
+car_224=24
+car_225=25
+car_226=26
+car_227=27
+car_228=28
+car_229=29
+car_230=30
+car_231=31
+car_232=32
+car_233=33
+car_234=34
+car_235=35
+car_236=36
+car_237=37
+car_238=38
+car_239=39
+car_240=40
+car_241=41
+car_242=42
+car_243=43
+car_245=45
+
+# custom car matchups
+car_344=15	# Judge - Terrator
+car_345=15	# Judge 2 - Terrator
+
+# rally trophy car matchups
+car_401=2	# Mini Cooper S - Chili
+car_402=2	# Mini Cooper S - Chili
+car_403=17	# Ford Cortina - Switchblade
+car_404=17	# Ford Cortina - Switchblade
+car_405=17	# Volvo Amazon - Switchblade
+car_406=17	# Volvo Amazon - Switchblade
+car_407=6	# Saab 96 - Malice
+car_408=6	# Saab 96 - Malice
+car_409=28	# Fiat 600 - Chili Pepper
+car_410=28	# Fiat 600 - Chili Pepper
+car_411=32	# Ford Escort - Speedshifter
+car_412=32	# Ford Escort - Speedshifter
+car_413=7	# Lancia Fulvia - Fortune
+car_414=7	# Lancia Fulvia - Fortune
+car_415=4	# Opel Kadett - Lancea
+car_416=4	# Opel Kadett - Lancea
+car_417=16	# Alfa Romeo - Bullet
+car_418=16	# Alfa Romeo - Bullet
+car_419=27	# Renault Alpine - CTR Sport
+car_420=27	# Renault Alpine - CTR Sport
+car_421=9	# Lancia Stratos - Sparrowhawk
+car_422=9	# Lancia Stratos - Sparrowhawk
+
+[always_unlocked]
+car_40=true	# Pimpster
+car_41=true	# Flatmobile
+car_42=true	# Mob Car
+car_43=true	# School Bus
+car_45=true	# Truck
+car_161=true	# Bandit
+car_162=true	# Monster Dog
+car_163=true	# Cougar
+car_164=true	# Digger
+car_165=true	# Highlander
+car_166=true	# Sledgehammer
+car_301=true	# Prop RT Bus
+car_302=true	# Prop Police
+car_303=true	# Prop Trasher
+car_304=true	# Prop Station Wagon
+car_305=true	# Prop Siboner 6
+car_306=true	# Prop Lincoln
+car_307=true	# Prop Lincoln Taxi
+car_308=true	# Prop Van
+car_309=true	# Prop Caddy
+car_310=true	# Prop Forklift
+car_311=true	# Prop Roller
+car_312=true	# Prop Cargo Truck
+car_313=true	# Prop Garbage Truck
+car_314=true	# Prop Truck
+car_315=true	# Prop Tarp Car
+car_316=true	# Prop Tarp Car Stripped
+car_317=true	# Prop Foerd
+car_318=true	# Prop Tractor
+car_319=true	# Prop Motorhome
+car_320=true	# Prop Bus
+car_321=true	# Prop Fire Truck
+car_322=true	# Prop Ambulance
+car_323=true	# Prop Dump Truck
+car_324=true	# Prop Bus 2
+car_325=true	# Prop Truck 2
+car_326=true	# Prop Retro Pickup
+car_327=true	# Prop TrafPizza
+car_328=true	# Prop Retro Bus
+car_329=true	# Prop Retro Quarry
+car_330=true	# Prop FO1 Flatbed
+car_331=true	# Prop Tanker
+car_332=true	# Prop Chassis
+car_333=true	# Prop Pickup
+car_334=true	# Prop FO1 Flatbed Hay
+car_335=true	# Prop Retro Folk 1
+car_336=true	# Prop Retro Folk 2
+car_337=true	# Prop Retro Folk 3
+car_338=true	# Prop Retro Folk 4
+car_339=true	# Prop TrafHa
+car_340=true	# Prop Sedan
+car_341=true	# VWCup
+car_342=true	# Toyeca
+car_343=true	# Stratum
+car_346=true	# Prop Crane Truck
+car_347=true	# Diablo SV
+car_348=true	# Evo 5
+car_349=true	# Freeman
+car_350=true	# CopSport
+car_351=true	# CopSportGhost
+car_352=true	# 350Z
+car_353=true	# SportCar
+car_354=true	# Mona Car
+car_355=true	# Prop Caddy 2
+car_356=true	# Prop Siboner 5
+car_357=true	# Prop Caddy FO2
+car_358=true	# Prop Retro Van
+car_359=true	# Prop Retro Family Car
+car_360=true	# Prop Retro Motorhome
+car_361=true	# Prop Lincoln FO2
+car_362=true	# Nuke Car
+car_363=true	# Train Car
+car_364=true	# Italy Car
+car_365=true	# HLA Trabant
+car_366=true	# Dust Car
+car_367=true	# Re-Volt BMW
+car_368=true	# HQ Diablo SV
+car_369=true	# Evo X
+car_370=true	# Skyline GTR
+car_371=true	# Supra
+car_372=true	# Mazda RX8
+car_373=true	# Delta HF
+car_374=true	# RX7 Drift
+car_375=true	# RX7 Stock
+car_376=true	# Tempesta
+car_377=true	# Civic
+car_378=true	# CopMidSize
+car_379=true	# S2000
+car_380=true	# CopGhost
+car_381=true	# ProStreet Viper
+car_382=true	# BMW M3 GTR E46
+car_383=true	# HQ 350Z

@@ -1,0 +1,1008 @@
+--///////////////////////////////////////////////////////////////////////////
+--// MultiplayerBuildTournament.bed
+--///////////////////////////////////////////////////////////////////////////
+--// Copyright (c) 2005 Bugbear Entertainment ltd. 
+--// All Rights Reserved.
+--// 
+--// Created on 5.1.2006 16:14
+--// Modified on 20.3.2007 15:37
+--// 
+--// @Author Pasi Matilainen (pasi.matilainen@bugbear.fi)
+--///////////////////////////////////////////////////////////////////////////
+
+dofile("data/menu/backdrops2.bed")
+dofile("data/menu/garage_elements_2.bed")
+dofile("data/menu/track_images.bed")
+dofile("data/menu/game_mode_selector.bed")
+dofile("data/menu/cup_next_race_elements.bed")
+
+if USE_NETWORK then
+
+local MULTIPLAYER_TOURNAMENT_ICON_PRESET = ICON_MULTIPLAYER_PRESET
+local MULTIPLAYER_TOURNAMENT_ICON_CUSTOM = ICON_LIVE_BUILD_EDITTRACK
+local MULTIPLAYER_TOURNAMENT_TITLE = TITLE_MULTIPLAYER_BUILDTOURNAMENT
+local MULTIPLAYER_TOURNAMENT_CUSTOMEVENTS = MULTIPLAYER_CUSTOMEVENTS_DESCRIPTION
+local MULTIPLAYER_TOURNAMENT_PRESETS = MULTIPLAYER_PRESETS_DESCRIPTION
+
+local state={}
+
+local BuildMenuButtons
+local RefreshEventGrid
+local ShowPresetEvents
+
+Events = { }
+local EventGrid = { }
+local ValidPresets = { }
+local PresetSelection
+
+local CurrentEvent
+local CurRow
+local CurCol
+
+local ValidTracks
+local SelectedTrack = 1
+
+menu_multiplayer_buildtournament = CreateMenuFromTemplate("template_multiplayer")
+menu_multiplayer_buildtournament.options.title = L""
+menu_multiplayer_buildtournament.back = function() menu_multiplayer_buildtournament.backaction() end
+
+local Presets = {
+	{ name=PRESETS_NAME_OUTDOOR, desc=PRESETS_OUTDOOR, type=ReplicatedSession.GAMETYPE_RACE, events={
+		{ trackid=LevelIndex.Forest1A },
+		{ trackid=LevelIndex.Desert1B },
+		{ trackid=LevelIndex.Fields1A },
+		{ trackid=LevelIndex.Forest1C },
+		{ trackid=LevelIndex.Desert1A },
+		{ trackid=LevelIndex.Fields1C },
+		{ trackid=LevelIndex.Forest1B },
+		{ trackid=LevelIndex.Desert1C },
+		{ trackid=LevelIndex.Fields1B },
+	} },
+	{ name=PRESETS_NAME_FOREST, desc=PRESETS_FOREST, type=ReplicatedSession.GAMETYPE_RACE, events={
+		{ trackid=LevelIndex.Forest1A },
+		{ trackid=LevelIndex.Forest2B },
+		{ trackid=LevelIndex.Forest1C },
+		{ trackid=LevelIndex.Forest2A },
+		{ trackid=LevelIndex.Forest1B },
+		{ trackid=LevelIndex.Forest2C },
+	} },
+	{ name=PRESETS_NAME_URBAN, desc=PRESETS_URBAN, type=ReplicatedSession.GAMETYPE_RACE, events={
+		{ trackid=LevelIndex.City2A },
+		{ trackid=LevelIndex.Canal1B },
+		{ trackid=LevelIndex.City2C },
+		{ trackid=LevelIndex.Canal1A },
+		{ trackid=LevelIndex.City1B },
+		{ trackid=LevelIndex.Canal1C },
+		{ trackid=LevelIndex.City1A },
+		{ trackid=LevelIndex.City2B },
+		{ trackid=LevelIndex.City1C },
+	} },
+	{ name=PRESETS_NAME_DESERT, desc=PRESETS_DESERT, type=ReplicatedSession.GAMETYPE_RACE, events={
+		{ trackid=LevelIndex.Desert1A },
+		{ trackid=LevelIndex.Desert1B },
+		{ trackid=LevelIndex.Desert1C },
+	} },
+	{ name=PRESETS_NAME_CANAL, desc=PRESETS_CANAL, type=ReplicatedSession.GAMETYPE_RACE, events={
+		{ trackid=LevelIndex.Canal1A },
+		{ trackid=LevelIndex.Canal1B },
+		{ trackid=LevelIndex.Canal1C },
+	} },
+	{ name=PRESETS_NAME_RACING, desc=PRESETS_RACING, type=ReplicatedSession.GAMETYPE_RACE, events={
+		{ trackid=LevelIndex.Racing1A },
+		{ trackid=LevelIndex.Racing2C },
+		{ trackid=LevelIndex.Racing1B },
+		{ trackid=LevelIndex.Racing2A },
+		{ trackid=LevelIndex.Racing2B },
+		{ trackid=LevelIndex.Racing1C },
+	} },
+	{ name=PRESETS_NAME_FIELD, desc=PRESETS_FIELD, type=ReplicatedSession.GAMETYPE_RACE, events={
+		{ trackid=LevelIndex.Fields2A },
+		{ trackid=LevelIndex.Fields1A },
+		{ trackid=LevelIndex.Fields2B },
+		{ trackid=LevelIndex.Fields1B },
+		{ trackid=LevelIndex.Fields2C },
+		{ trackid=LevelIndex.Fields1C },
+	} },
+	{ name=PRESETS_NAME_MIXED1, desc=PRESETS_MIXED1, type=ReplicatedSession.GAMETYPE_TOURNAMENT, events={
+		{ trackid=LevelIndex.Derby1A, lapsOrTimeLimit=6, rules=ReplicatedSession.GAMETYPE_DERBY_WRECKING },
+		{ trackid=LevelIndex.Racing2B, rules=ReplicatedSession.GAMETYPE_RACE },
+		{ trackid=LevelIndex.STONESKIPPING, rules=ReplicatedSession.GAMETYPE_STUNT },
+		{ trackid=LevelIndex.Fields1A, rules=ReplicatedSession.GAMETYPE_RACE },
+		{ trackid=LevelIndex.RINGOFFIRE, rules=ReplicatedSession.GAMETYPE_STUNT },
+		{ trackid=LevelIndex.Derby6A, lapsOrTimeLimit=6, rules=ReplicatedSession.GAMETYPE_DERBY_WRECKING },
+		{ trackid=LevelIndex.City2B, rules=ReplicatedSession.GAMETYPE_RACE },
+		{ trackid=LevelIndex.Nascar1A, rules=ReplicatedSession.GAMETYPE_RACE },
+		{ trackid=LevelIndex.SKIJUMP, rules=ReplicatedSession.GAMETYPE_STUNT },
+		{ trackid=LevelIndex.Forest1B, rules=ReplicatedSession.GAMETYPE_RACE },
+		{ trackid=LevelIndex.Arena6, lapsOrTimeLimit=6, rules=ReplicatedSession.GAMETYPE_DERBY_WRECKING },
+		{ trackid=LevelIndex.CURLING, rules=ReplicatedSession.GAMETYPE_STUNT },
+	} },
+	{ name=PRESETS_NAME_MIXED2, desc=PRESETS_MIXED2, type=ReplicatedSession.GAMETYPE_TOURNAMENT, events={
+		{ trackid=LevelIndex.SOCCER, rules=ReplicatedSession.GAMETYPE_STUNT },
+		{ trackid=LevelIndex.Desert1C, rules=ReplicatedSession.GAMETYPE_RACE },
+		{ trackid=LevelIndex.Derby4A, lapsOrTimeLimit=6, rules=ReplicatedSession.GAMETYPE_DERBY_WRECKING },
+		{ trackid=LevelIndex.BASKETBALL, rules=ReplicatedSession.GAMETYPE_STUNT },
+		{ trackid=LevelIndex.Canal1A, rules=ReplicatedSession.GAMETYPE_RACE },
+		{ trackid=LevelIndex.Arena5, lapsOrTimeLimit=6, rules=ReplicatedSession.GAMETYPE_DERBY_WRECKING },
+		{ trackid=LevelIndex.HIGHJUMP, rules=ReplicatedSession.GAMETYPE_STUNT },
+		{ trackid=LevelIndex.Forest2A, rules=ReplicatedSession.GAMETYPE_RACE },
+		{ trackid=LevelIndex.Nascar1B, rules=ReplicatedSession.GAMETYPE_RACE },
+		{ trackid=LevelIndex.Derby3A, lapsOrTimeLimit=6, rules=ReplicatedSession.GAMETYPE_DERBY_WRECKING },
+		{ trackid=LevelIndex.BOWLING, rules=ReplicatedSession.GAMETYPE_STUNT },
+		{ trackid=LevelIndex.City1B, rules=ReplicatedSession.GAMETYPE_RACE },
+	} },
+	{ name=PRESETS_NAME_DERBY, desc=PRESETS_DERBY, type=ReplicatedSession.GAMETYPE_DERBY_WRECKING, events={
+		{ trackid=LevelIndex.Derby1A, lapsOrTimeLimit=6 },
+		{ trackid=LevelIndex.Derby2A, lapsOrTimeLimit=6 },
+		{ trackid=LevelIndex.Derby3A, lapsOrTimeLimit=6 },
+		{ trackid=LevelIndex.Derby4A, lapsOrTimeLimit=6 },
+		{ trackid=LevelIndex.Derby5A, lapsOrTimeLimit=6 },
+		{ trackid=LevelIndex.Derby6A, lapsOrTimeLimit=6 },
+	} },
+	{ name=PRESETS_NAME_SPECIAL, desc=PRESETS_SPECIAL, type=ReplicatedSession.GAMETYPE_RACE, events={
+		{ trackid=LevelIndex.Nascar1A },
+		{ trackid=LevelIndex.Arena1 },
+		{ trackid=LevelIndex.Arena5 },
+		{ trackid=LevelIndex.Arena3 },
+		{ trackid=LevelIndex.Nascar1C },
+		{ trackid=LevelIndex.Arena4 },
+		{ trackid=LevelIndex.Arena2 },
+		{ trackid=LevelIndex.Arena6 },
+		{ trackid=LevelIndex.Nascar1B },
+	} },
+	{ name=PRESETS_NAME_STUNTEASY, desc=PRESETS_STUNTEASY, type=ReplicatedSession.GAMETYPE_STUNT, events={
+		{ trackid=LevelIndex.RINGOFFIRE },
+		{ trackid=LevelIndex.SKIJUMP },
+		{ trackid=LevelIndex.BOWLING },
+		{ trackid=LevelIndex.SOCCER }, 
+		{ trackid=LevelIndex.CURLING },
+		{ trackid=LevelIndex.BASKETBALL },
+	} },
+	{ name=PRESETS_NAME_STUNTCOMPLEX, desc=PRESETS_STUNTCOMPLEX, type=ReplicatedSession.GAMETYPE_STUNT, events={
+		{ trackid=LevelIndex.STONESKIPPING },
+		{ trackid=LevelIndex.DARTS },
+		{ trackid=LevelIndex.ROYALFLUSH },
+		{ trackid=LevelIndex.FIELDGOAL },
+		{ trackid=LevelIndex.BASEBALL },
+		{ trackid=LevelIndex.HIGHJUMP },
+	} },
+	{ name=PRESETS_NAME_STUNT, desc=PRESETS_STUNT, type=ReplicatedSession.GAMETYPE_STUNT, events={
+		{ trackid=LevelIndex.SOCCER },
+		{ trackid=LevelIndex.DARTS },
+		{ trackid=LevelIndex.RINGOFFIRE },
+		{ trackid=LevelIndex.FIELDGOAL },
+		{ trackid=LevelIndex.BASKETBALL },
+		{ trackid=LevelIndex.STONESKIPPING },
+		{ trackid=LevelIndex.HIGHJUMP },
+		{ trackid=LevelIndex.SKIJUMP },
+		{ trackid=LevelIndex.BOWLING },
+		{ trackid=LevelIndex.ROYALFLUSH },
+		{ trackid=LevelIndex.CURLING },
+		{ trackid=LevelIndex.BASEBALL }, 
+	} },
+}
+
+local function UpdateInfo(newButton)
+	local desc = IconDescs[newButton]
+	if desc ~= nil then
+		W("info1"):SetTitle(desc)
+	else
+		W("info1"):SetTitle(L"")
+	end
+end
+
+local function SetValidPresets()
+	local ttype = menu_multiplayer_buildtournament.type
+	ValidPresets = { }
+	for k,p in pairs(Presets) do
+		local add = false
+		if ttype == ReplicatedSession.GAMETYPE_TOURNAMENT_DERBY and (p.type == ReplicatedSession.GAMETYPE_DERBY_FRAG or p.type == ReplicatedSession.GAMETYPE_DERBY_LMS or p.type == ReplicatedSession.GAMETYPE_DERBY_WRECKING or p.type == ReplicatedSession.GAMETYPE_HUNTER_PREY) then
+			add = true
+		elseif ttype == ReplicatedSession.GAMETYPE_TOURNAMENT_RACE and (p.type == ReplicatedSession.GAMETYPE_PONGRACE or p.type == ReplicatedSession.GAMETYPE_RACE) then
+			add = true
+		elseif ttype == ReplicatedSession.GAMETYPE_TOURNAMENT then
+			add = true
+		elseif ttype == p.type then
+			add = true
+		end
+
+		if add then
+			local preset = { }
+			preset.name = p.name
+			preset.desc = p.desc
+			preset.type = p.type
+			preset.events = { }
+			
+			-- Copy events and set missing event parameters where needed
+			for pk,e in pairs(p.events) do
+				local event = { }
+				for ek,ev in pairs(e) do
+					event[ek] = ev
+				end
+				if event.rules == nil then
+					event.rules = p.type
+				end
+				if event.lapsOrTimeLimit == nil and Levels[event.trackid].Laps ~= nil then
+					event.lapsOrTimeLimit = Levels[event.trackid].Laps
+				end
+				local race = false
+				local derby = false
+				if event.rules == ReplicatedSession.GAMETYPE_RACE or event.rules == ReplicatedSession.GAMETYPE_PONGRACE then
+					race = true
+				elseif event.rules == ReplicatedSession.GAMETYPE_DERBY_WRECKING or event.rules == ReplicatedSession.GAMETYPE_DERBY_FRAG then
+					derby = true
+				end
+				if event.tracktype == nil and (race or derby) then
+					local level = Levels[event.trackid]
+					event.tracktype = level.TrackType
+				end
+				table.insert(preset.events, event)
+			end
+			table.insert(ValidPresets, preset)
+			
+			-- Limit the number of presets to 8, because we only have 8 icons
+			if table.getn(ValidPresets) == 8 then
+				return
+			end
+		end
+	end
+end
+
+local function InitEvents()
+	for i = 1, 12 do
+		Events[i] = nil
+	end
+end
+
+function EnterBuildPartyTournamentMenu(okaction, backaction, partycar)
+	menu_multiplayer_buildtournament.okaction = okaction
+	local f = function()
+		backaction()
+--[[		if PresetSelection then
+			PresetSelection = false
+			RefreshEventGrid(menu_multiplayer_buildtournament)
+			BuildMenuButtons()
+			UpdateInfo(1)
+		else
+			backaction()
+		end--]]
+	end
+	menu_multiplayer_buildtournament.backaction = f
+	menu_multiplayer_buildtournament.partymode = true
+	menu_multiplayer_buildtournament.partycar = partycar
+	menu_multiplayer_buildtournament.type = ReplicatedSession.GAMETYPE_STUNT
+	menu_multiplayer_buildtournament.editEvent = false
+	menu_multiplayer_buildtournament.editTournament = false
+	
+	SetValidPresets()
+
+	InitEvents()
+
+	EnterMenu("menu_multiplayer_buildtournament")
+end
+
+function EnterBuildTournamentMenu(tournamenttype, okaction, backaction, editEvent, editTournament)
+	menu_multiplayer_buildtournament.okaction = okaction
+	local f = function()
+		--backaction()
+		if menu_multiplayer_buildtournament.editTournament and PresetSelection then
+			PresetSelection = false
+			RefreshEventGrid(menu_multiplayer_buildtournament, Events)
+			BuildMenuButtons()
+			--UpdateInfo(1)
+		else
+			backaction()
+		end
+	end
+	menu_multiplayer_buildtournament.backaction = f
+	menu_multiplayer_buildtournament.type = tournamenttype
+	menu_multiplayer_buildtournament.numplayers = numplayers
+	menu_multiplayer_buildtournament.partymode = false
+	menu_multiplayer_buildtournament.editEvent = false
+	menu_multiplayer_buildtournament.editTournament = editTournament
+	
+	SetValidPresets()
+
+	InitEvents()
+	
+	if editTournament and Session and Session:GetNumRaces() > 0 then
+		local info = Session:GetInfo()
+		for i = 1, Session:GetNumRaces() do
+			Events[i] = { trackid = info.Races[i].StageNr, lapsOrTimeLimit = info.Races[i].LapsOrTimeLimit, numhunters = info.Races[i].NumHunters, rules = info.Races[i].EventType, weather = info.Races[i].Weather }
+		end
+	end
+	 
+	EnterMenu("menu_multiplayer_buildtournament")
+end
+
+function EnterBuildTournamentMenuAfterEdit(currentevent)
+	CurrentEvent = currentevent
+	menu_multiplayer_buildtournament.editEvent = true
+	EnterMenu("menu_multiplayer_buildtournament")
+	if menu_multiplayer_buildtournament.partymode and menu_multiplayer_buildtournament.partycar ~= nil then
+		UpdateCarInfo(menu_multiplayer_buildtournament.partycar, menu_multiplayer_buildtournament, false, 1)
+	end
+end
+
+
+local function ShowEventWindows(posanim)
+	local startdelay = 0
+	local delay = startdelay
+	local num_windows=table.getn(state.eventwindows)
+
+	for i=1,num_windows do
+		local w=state.eventwindows[i]
+		
+		if posanim then
+			w.image:SetAlpha(1)
+			w.info:SetAlpha(1)
+			local animstartpos = POS(640 - 290 + w.position[1], w.position[2])
+			w.animhandle = AnimateWindowPos(w,animstartpos,w.position,0.3,delay,w.animhandle)
+			
+			if i == CurrentEvent then
+				local hilite = W("highlight")
+				if hilite then
+					local pos = { hilite:GetPosition() }
+					local animstartpos = POS(640 - 290 + pos[1], pos[2])
+					hilite:SetPosition(animstartpos[1], animstartpos[2])
+					hilite.animhandle = AnimateWindowPos(hilite, animstartpos, pos, 0.3, delay, hilite.animhandle)
+				end
+			end
+		else
+			w.image.animhandle = AnimateWindowAlpha(w.image,0.0,1.0,0.2,delay,w.image.animhandle)
+			w.info.animhandle = AnimateWindowAlpha(w.info,0.0,1.0,0.2,delay,w.info.animhandle)
+		end
+		
+		delay=delay+0.05
+	end
+end
+
+local function HideEventWindows()
+end
+
+local TrackTypeOffsets = {
+	[TRACKTYPE_FOREST] = LevelIndex.Forest1A - 1,
+	[TRACKTYPE_FIELDS] = LevelIndex.Fields1A - 1,
+	[TRACKTYPE_DESERT] = LevelIndex.Desert1A - 1,
+	[TRACKTYPE_CANAL] = LevelIndex.Canal1A - 1,
+	[TRACKTYPE_CITY] = LevelIndex.City1A - 1,
+	[TRACKTYPE_RACING] = LevelIndex.Racing1A - 1,
+}
+
+local function GetTrackIndex(tracknum)
+	local trackindex
+	if tracknum >= LevelIndex.CURLING and tracknum <= LevelIndex.ROYALFLUSH then
+		trackindex = tracknum - LevelIndex.CURLING + 1
+	elseif tracknum >= LevelIndex.SKIJUMP and tracknum <= LevelIndex.SOCCER then
+		trackindex = tracknum - LevelIndex.SKIJUMP + 1 + 6
+	elseif tracknum >= LevelIndex.Arena1 and tracknum <= LevelIndex.Arena6 then
+		trackindex = tracknum - LevelIndex.Arena1 + 1
+	elseif tracknum >= LevelIndex.Derby1A and tracknum <= LevelIndex.Derby6A then
+		trackindex = tracknum - LevelIndex.Derby1A + 1
+	elseif tracknum >= LevelIndex.Nascar1A and tracknum <= LevelIndex.Nascar1C then
+		trackindex = tracknum - LevelIndex.Nascar1A + 1
+	else
+		trackindex = tracknum - TrackTypeOffsets[Levels[tracknum].TrackType]
+	end
+	return trackindex
+end
+
+RefreshEventGrid = function(self, events, hidewindows)
+	for i = 1, 12 do
+		local event
+		if events ~= nil then
+			event = events[i]
+		else
+			event = nil
+		end
+		local iconwin = W("event_icon_"..i)
+		if event == nil then
+			local res = self:getResource("track_images1_empty_box")
+			local ressize = wm.GetResourceSize(res)
+			iconwin:AttachResource(res)
+			iconwin:SetSize(ressize[1], ressize[2])
+			iconwin:SetPosition(0, 0)
+			W("event_info_"..i):SetTitle(L"")
+		else
+			local res = self:getResource(Levels[event.trackid].TrackIcon)
+			local ressize = wm.GetResourceSize(res)
+			iconwin:AttachResource(res)
+			iconwin:SetSize(ressize[1], ressize[2])
+			local boxsize = wm.GetResourceSize(self:getResource("track_images1_empty_box"))
+			iconwin:SetPosition((boxsize[1] - ressize[1]) / 2 + 2, (boxsize[2] - ressize[2]) / 2 - 1)
+			if event.rules == ReplicatedSession.GAMETYPE_STUNT or event.rules == ReplicatedSession.GAMETYPE_DERBY_LMS then
+				W("event_info_"..i):SetTitle(L"")
+			else
+				W("event_info_"..i):SetTitle(L(event.lapsOrTimeLimit))
+			end
+		end
+		if hidewindows then
+			W("event_icon_"..i):SetAlpha(0)
+			W("event_info_"..i):SetAlpha(0)
+		end
+	end
+end
+
+local EventVarNames =
+{
+	[ReplicatedSession.GAMETYPE_RACE] = MULTIPLAYER_LAPS,
+	[ReplicatedSession.GAMETYPE_PONGRACE] = MULTIPLAYER_TURNS,
+	[ReplicatedSession.GAMETYPE_DERBY_FRAG] = MULTIPLAYER_ROUNDTIME,
+	[ReplicatedSession.GAMETYPE_HUNTER_PREY] = MULTIPLAYER_ROUNDTIME,
+}
+
+local function UpdateEventInfo(showAddEvent)
+	local event = Events[CurrentEvent]
+	if event == nil then
+		if showAddEvent then
+			W("eventnum"):SetTitle(TRANSLATOR(UI_ADDEVENT))
+		else
+			W("eventnum"):SetTitle(L"")
+		end
+		W("eventtype"):SetTitle(L"")
+		W("trackname"):SetTitle(L"")
+		W("eventdetails"):SetTitle(L"")
+		return
+	end
+	
+	local eventnum = WStringConcat(MULTIPLAYER_EVENT, L(" "..CurrentEvent..":"))
+	W("eventnum"):SetTitle(eventnum)
+	W("eventtype"):SetTitle(GameModeNames[event.rules])
+	
+	--[[local title = WStringConcat(L"#33", eventnum)
+	title = WStringConcat(title, L"#34")
+	title = WStringConcat(title, GameModeNames[event.rules])
+	W("info1"):SetTitle(title)--]]
+
+	title=L""
+	if event.rules == ReplicatedSession.GAMETYPE_RACE then
+		if event.tracktype==TRACKTYPE_REVERSED then
+			title=WStringConcat(GetPhrase(TRANSLATOR(RACETRACKTYPE_REVERSED)), L" ")
+		end
+	end
+	title = WStringConcat(title, L(Levels[event.trackid].Name))
+	W("trackname"):SetTitle(title)
+
+	local lapstxt = nil
+	if event.rules == ReplicatedSession.GAMETYPE_RACE or event.rules == ReplicatedSession.GAMETYPE_PONGRACE then
+		lapstxt = MULTIPLAYER_LAPS
+	elseif event.rules == ReplicatedSession.GAMETYPE_DERBY_WRECKING or event.rules == ReplicatedSession.GAMETYPE_DERBY_FRAG then
+		lapstxt = MULTIPLAYER_MINUTES
+	end
+	
+	title = L""
+	if lapstxt ~= nil then
+		title = WStringConcat(L(event.lapsOrTimeLimit.." "), lapstxt)
+	end
+	W("eventdetails"):SetTitle(title)
+end
+
+local function UpdateHilitePos()
+	local self = menu_multiplayer_buildtournament
+	local x,y = W("event_icon_frame_"..CurrentEvent):GetPosition()
+	local boxsize = wm.GetResourceSize(self:getResource("track_images1_empty_box"))
+	local hlsize = wm.GetResourceSize(self:getResource("track_imagesl_selection_glow"))
+	W("highlight"):SetPosition(x + (boxsize[1] - hlsize[1]) / 2, y + (boxsize[2] - hlsize[2]) / 2)
+end
+
+local function StartEditEvents(eventnum)
+	GUI:HideMenuButtons()
+	if eventnum ~= nil then
+		CurrentEvent = eventnum
+		CurRow = math.floor((CurrentEvent-1) / 3)
+		CurCol = math.mod(CurrentEvent-1, 3)
+	else
+		CurRow = 0
+		CurCol = 0
+		CurrentEvent = 1
+	end
+	UpdateHilitePos()
+	W("highlight"):ShowWindow()
+	UpdateEventInfo(true)
+	W("edit_handler"):SetFocus()
+	
+	W("textparent"):HideWindow()
+	W("infobd"):ShowWindow()
+	
+	if Events[CurrentEvent] == nil then
+		GUI:SetHelpButtons(BUTTON_OK, TRANSLATOR(UI_ADDEVENT), BUTTON_BACK, TRANSLATOR(UI_BACK))
+	else
+		GUI:SetHelpButtons(BUTTON_OK, TRANSLATOR(UI_EDITEVENT), BUTTON_BACK, TRANSLATOR(UI_BACK), BUTTON_EXTRA, TRANSLATOR(UI_DELETE), BUTTON_XBOX_X, TRANSLATOR(UI_MOVEEVENT))
+	end
+	--GUI:SetHelpButtons(BUTTON_OK, UI_SELECT, BUTTON_BACK, UI_BACK, BUTTON_EXTRA, UI_DELETE, BUTTON_X, UI_MOVE)
+end
+
+local function CreateTournament()
+	GUI:HideMenuButtons()
+	-- Compact event table
+	local evnum = 1
+	for i = 1, 12 do
+		if Events[i] ~= nil then
+			if evnum ~= i then
+				Events[evnum] = Events[i]
+				Events[i] = nil
+			end
+			evnum = evnum + 1
+		end
+	end
+	menu_multiplayer_buildtournament.okaction(Events)
+end
+
+local function SelectPreset(presetNum)
+	W("textparent"):HideWindow()
+	PresetSelection = false
+	if presetNum ~= nil then
+		Events = ValidPresets[presetNum].events
+	else
+		Events = { }
+	end
+	BuildMenuButtons()
+	if presetNum == nil then
+		-- Set "Edit queue" button as active when custom preset is selected
+		GUI:SetActiveItem(2)
+	end
+	--W("title"):SetTitle(TRANSLATOR(MULTIPLAYER_TOURNAMENT_TITLE))
+end
+
+ShowPresets = function()
+	PresetSelection = true
+	menu_multiplayer_buildtournament.items = { }
+
+	for i = 1, table.getn(ValidPresets) do
+		table.insert(menu_multiplayer_buildtournament.items,
+			{ WStringConcat(MULTIPLAYER_TOURNAMENT_ICON_PRESET, L(" "..i)), function() SelectPreset(i) end, ICON(menu_multiplayer_buildtournament,"icon_profile_"..i) } )
+	end
+
+	table.insert(menu_multiplayer_buildtournament.items,
+		{ ICON_MULTIPLAYER_CUSTOM, function() SelectPreset(nil) end, ICON(menu_multiplayer_buildtournament,"icon_profile_x") } )
+
+	GUI:InitMenuButtons(menu_multiplayer_buildtournament.items)
+	GUI:SetActiveItem(1)
+	GUI:ShowMenuButtons()
+
+	RefreshEventGrid(menu_multiplayer_buildtournament, ValidPresets[1].events, true)
+	ShowEventWindows()
+	W("textparent"):ShowWindow()
+	W("info1"):SetTitle(ValidPresets[1].desc)
+	W("info1"):WordWrap()
+end
+
+BuildMenuButtons = function()
+	menu_multiplayer_buildtournament.items = { }
+	IconDescs = { }
+	
+	for i = 1, 12 do
+		if Events[i] ~= nil then
+			if menu_multiplayer_buildtournament.partymode == true then
+				iconLabel = INGAME_START_STUNT
+				icon = "icon_go_race"
+				iconDesc = nil
+			else
+				iconLabel = ICON_MULTIPLAYER_CONTINUE
+				icon = "icon_continue"
+				iconDesc = nil
+			end
+			table.insert(menu_multiplayer_buildtournament.items,
+					{ iconLabel, function() CreateTournament() end, ICON(menu_multiplayer_buildtournament, icon), ICON(menu_multiplayer_buildtournament, icon.."_s") } )
+--			table.insert(IconDescs, iconDesc)
+			break
+		end
+	end
+
+	if table.getn(ValidPresets) > 0 then
+		table.insert(menu_multiplayer_buildtournament.items,
+				{ ICON_PARTY_PRESETS, function() --[[W("title"):SetTitle(TRANSLATOR(TITLE_LIVE_PRESETS));--]] ShowPresets(); end, ICON(menu_multiplayer_buildtournament,"icon_presets") } )
+--		table.insert(IconDescs, MULTIPLAYER_TOURNAMENT_PRESETS)
+	end
+	
+	table.insert(menu_multiplayer_buildtournament.items,
+			{ MULTIPLAYER_TOURNAMENT_ICON_CUSTOM, function() StartEditEvents() end, ICON(menu_multiplayer_buildtournament,"icon_profile_x") } )
+--	table.insert(IconDescs, MULTIPLAYER_TOURNAMENT_CUSTOM)
+	
+	GUI:InitMenuButtons(menu_multiplayer_buildtournament.items)
+	GUI:SetActiveItem(1)
+	GUI:ShowMenuButtons()
+end
+
+function menu_multiplayer_buildtournament.create(self)
+	self.parent:create(self)
+
+	self:addResource("backdrops2.tga", backdrops2, backdrops2_size)
+	self:addResource("garage_elements_2.tga", garage_elements_2, garage_elements_2_size)
+	self:addResource("track_images.tga", track_images, track_images_size)
+	self:addResource("game_mode_selector.tga", game_mode_selector, game_mode_selector_size)
+	self:addResource("cup_next_race_elements.tga", cup_next_race_elements, cup_next_race_elements_size)
+
+	self:loadResources()
+	
+	self.items = { }
+end
+
+ShowPresetEvents = function(self, presetNum)
+	local preset = ValidPresets[presetNum]
+	for i = 1, 12 do
+		local event
+		if preset ~= nil then
+			event = preset.events[i]
+		else
+			event = nil
+		end
+		local iconwin = W("event_icon_"..i)
+		if event == nil then
+			local res = self:getResource("track_images1_empty_box")
+			local ressize = wm.GetResourceSize(res)
+			iconwin:AttachResource(res)
+			iconwin:SetSize(ressize[1], ressize[2])
+			iconwin:SetPosition(0, 0)
+			W("event_icon_"..i):AttachResource(self:getResource("track_images1_empty_box"))
+			W("event_info_"..i):SetTitle(L"")
+		else
+			local res = self:getResource(Levels[event.trackid].TrackIcon)
+			local ressize = wm.GetResourceSize(res)
+			iconwin:AttachResource(res)
+			iconwin:SetSize(ressize[1], ressize[2])
+			iconwin:SetPosition(-1, -4.5)
+			W("event_icon_"..i):AttachResource(self:getResource(Levels[event.trackid].TrackIcon))
+			if event.rules == ReplicatedSession.GAMETYPE_STUNT or event.rules == ReplicatedSession.GAMETYPE_DERBY_LMS then
+				W("event_info_"..i):SetTitle(L"")
+			else
+				W("event_info_"..i):SetTitle(L(event.lapsOrTimeLimit))
+			end
+		end
+	end
+	
+	if preset ~= nil then
+		W("info1"):SetTitle(preset.desc)
+	else
+		W("info1"):SetTitle(TRANSLATOR(MULTIPLAYER_TOURNAMENT_CUSTOMEVENTS))
+	end
+	W("info1"):WordWrap()
+end
+
+local function CreateEditRaceItems(self)
+	local origPos
+	
+	-- "Edit events" inputhandler
+	local handler = InputHandler { Name="edit_handler" }
+	handler.onKeyPressed = function(Self, Character, VirtualKey, ScanCode)
+		local prevSel = CurrentEvent
+		if VirtualKey == KeyCodes["BUTTON_START"] then
+			if menu_multiplayer_buildtournament.partymode then
+				local okfunc = function(raceinfo)
+					if raceinfo then
+						Events[CurrentEvent] = { trackid=raceinfo.Level, rules = ReplicatedSession.GAMETYPE_STUNT }
+					end
+					EnterBuildTournamentMenuAfterEdit(CurrentEvent)
+				end
+				local backfunc = function()
+					EnterBuildTournamentMenuAfterEdit(CurrentEvent)
+				end
+				EnterSingleRaceSelection(
+					backfunc,	
+					TRACKTYPE_STUNT,
+					okfunc,
+					nil
+				)
+			else
+				if Events[CurrentEvent] == nil then
+					-- Add event
+					EnterMultiplayerRaceSelection(
+						menu_multiplayer_buildtournament.type,
+						function(event)
+							if event then
+								Events[CurrentEvent] = event
+							end
+							EnterBuildTournamentMenuAfterEdit(CurrentEvent)
+						end,
+						function()
+							EnterBuildTournamentMenuAfterEdit(CurrentEvent)
+						end,		
+						menu_multiplayer_buildtournament.numplayers
+					)
+				else
+					-- Edit event
+					Events[CurrentEvent].num = CurrentEvent
+					EnterMultiplayerRaceEdit(
+						menu_multiplayer_buildtournament.type,
+						Events[CurrentEvent],
+						function(event)
+							local eventnum = event.num
+							event.num = nil
+							Events[eventnum] = event
+							EnterBuildTournamentMenuAfterEdit(eventnum)
+						end,
+						function(event)
+							local eventnum = event.num
+							event.num = nil
+							EnterBuildTournamentMenuAfterEdit(eventnum)
+						end,
+						menu_multiplayer_buildtournament.numplayers
+					)
+				end
+			end
+			playmenusound_action()
+		elseif VirtualKey == KeyCodes["BUTTON_SELECT"] then
+			BuildMenuButtons()
+			GUI:ShowMenuButtons()
+			--GUI:SetActiveItem(table.getn(self.items))
+			W("highlight"):HideWindow()
+
+			--W("textparent"):ShowWindow()
+			W("infobd"):HideWindow()
+			
+			UpdateInfo(table.getn(self.items))
+			W("info2"):SetTitle(L"")
+			GUI:SetHelpButtons(BUTTON_OK, UI_SELECT, BUTTON_BACK, UI_BACK)
+			playmenusound_back()
+		elseif VirtualKey == KeyCodes["BUTTON_Y"] then
+			if Events[CurrentEvent] ~= nil then
+				Events[CurrentEvent] = nil
+				RefreshEventGrid(self, Events)
+				UpdateEventInfo(true)
+				GUI:SetHelpButtons(BUTTON_OK, TRANSLATOR(UI_ADDEVENT), BUTTON_BACK, TRANSLATOR(UI_BACK))
+				playmenusound_action()
+			end
+		elseif VirtualKey == KeyCodes["BUTTON_X"] then
+			if Events[CurrentEvent] ~= nil then
+				origPos = CurrentEvent
+				local x,y = W("event_icon_frame_"..CurrentEvent):GetPosition()
+				W("selected"):SetPosition(x - 4.5, y - 6.5)
+				W("selected"):ShowWindow()
+				W("move_handler"):SetFocus()
+				GUI:SetHelpButtons(BUTTON_OK, TRANSLATOR(UI_MOVEEVENT), BUTTON_BACK, UI_BACK)
+				playmenusound_action()
+			end
+		else
+			local w = W("highlight")
+			if w.animhandle == nil or not IsAnimationActive(w.animhandle) then
+				if VirtualKey == KeyCodes["BUTTON_DOWN"] then
+					CurRow = math.mod(CurRow + 1, 4)
+					CurrentEvent = CurRow*3+CurCol+1
+					UpdateEventInfo(true)
+					playmenusound_move()
+				elseif VirtualKey == KeyCodes["BUTTON_UP"] then
+					CurRow = math.mod(CurRow - 1 + 4, 4)
+					CurrentEvent = CurRow*3+CurCol+1
+					UpdateEventInfo(true)
+					playmenusound_move()
+				elseif VirtualKey == KeyCodes["BUTTON_LEFT"] then
+					local numevents = 12
+					CurrentEvent = math.mod(CurrentEvent - 2 + numevents, numevents) + 1
+					CurCol = math.mod(CurrentEvent - 1, 3)
+					CurRow = math.floor((CurrentEvent - 1) / 3)
+					UpdateEventInfo(true)
+					playmenusound_move()
+				elseif VirtualKey == KeyCodes["BUTTON_RIGHT"] then
+					CurrentEvent = math.mod(CurrentEvent, 12) + 1
+					CurCol = math.mod(CurrentEvent - 1, 3)
+					CurRow = math.floor((CurrentEvent - 1) / 3)
+					UpdateEventInfo(true)
+					playmenusound_move()
+				end
+			end
+		end
+		
+		if prevSel ~= CurrentEvent then
+			if Events[CurrentEvent] == nil and Events[prevSel] ~= nil then
+				GUI:SetHelpButtons(BUTTON_OK, TRANSLATOR(UI_ADDEVENT), BUTTON_BACK, TRANSLATOR(UI_BACK))
+			elseif Events[CurrentEvent] ~= nil and Events[prevSel] == nil then
+				GUI:SetHelpButtons(BUTTON_OK, TRANSLATOR(UI_EDITEVENT), BUTTON_BACK, TRANSLATOR(UI_BACK), BUTTON_EXTRA, TRANSLATOR(UI_DELETE), BUTTON_XBOX_X, TRANSLATOR(UI_MOVEEVENT))
+			end
+		end
+		
+		UpdateHilitePos()
+	end
+
+	local move_handler = InputHandler { Name="move_handler" }
+	move_handler.onKeyPressed = function(Self, Character, VirtualKey, ScanCode)
+		if VirtualKey == KeyCodes["BUTTON_START"] or VirtualKey == KeyCodes["BUTTON_X"] then
+			local origEvent = Events[origPos]
+			Events[origPos] = Events[CurrentEvent]
+			Events[CurrentEvent] = origEvent
+			UpdateEventInfo()
+			RefreshEventGrid(self, Events)
+			W("selected"):HideWindow()
+			W("edit_handler"):SetFocus()
+			GUI:SetHelpButtons(BUTTON_OK, TRANSLATOR(UI_EDITEVENT), BUTTON_BACK, TRANSLATOR(UI_BACK), BUTTON_EXTRA, TRANSLATOR(UI_DELETE), BUTTON_XBOX_X, TRANSLATOR(UI_MOVEEVENT))
+			playmenusound_action()
+		elseif VirtualKey == KeyCodes["BUTTON_SELECT"] then
+			W("selected"):HideWindow()
+			W("edit_handler"):SetFocus()
+			if Events[CurrentEvent] == nil then
+				UpdateEventInfo(true)
+				GUI:SetHelpButtons(BUTTON_OK, TRANSLATOR(UI_ADDEVENT), BUTTON_BACK, TRANSLATOR(UI_BACK))
+			else
+				GUI:SetHelpButtons(BUTTON_OK, TRANSLATOR(UI_EDITEVENT), BUTTON_BACK, TRANSLATOR(UI_BACK), BUTTON_EXTRA, TRANSLATOR(UI_DELETE), BUTTON_XBOX_X, TRANSLATOR(UI_MOVEEVENT))
+			end
+			playmenusound_back()
+		elseif VirtualKey == KeyCodes["BUTTON_DOWN"] then
+			CurRow = math.mod(CurRow + 1, 4)
+			CurrentEvent = CurRow*3+CurCol+1
+			UpdateEventInfo()
+			playmenusound_move()
+		elseif VirtualKey == KeyCodes["BUTTON_UP"] then
+			CurRow = math.mod(CurRow - 1 + 4, 4)
+			CurrentEvent = CurRow*3+CurCol+1
+			UpdateEventInfo()
+			playmenusound_move()
+		elseif VirtualKey == KeyCodes["BUTTON_LEFT"] then
+			local numevents = 12
+			CurrentEvent = math.mod(CurrentEvent - 2 + numevents, numevents) + 1
+			CurCol = math.mod(CurrentEvent - 1, 3)
+			CurRow = math.floor((CurrentEvent - 1) / 3)
+			UpdateEventInfo()
+			playmenusound_move()
+		elseif VirtualKey == KeyCodes["BUTTON_RIGHT"] then
+			CurrentEvent = math.mod(CurrentEvent, 12) + 1
+			CurCol = math.mod(CurrentEvent - 1, 3)
+			CurRow = math.floor((CurrentEvent - 1) / 3)
+			UpdateEventInfo()
+			playmenusound_move()
+		end
+		
+		UpdateHilitePos()
+	end	
+end
+
+function menu_multiplayer_buildtournament.init(self)
+	self.parent:init(self)
+	
+	-- Title + backdrop
+	Frame { Position=POS(0,53), Size=SIZE(640,42) }:AttachResource(self:getResource("game_mode_main_bd"))
+	local win = StaticText { Name="title", Position=POS(320,54), Size=SIZE(200,33), Font=fonttitle(), Color=GetPaletteColor(33), Align=FONTF_CENTER }
+	win:SetTitle(MULTIPLAYER_TOURNAMENT_TITLE)
+
+	-- Event grid backdrop
+	local bd1 = Frame { Position=POS(290,99), Size=SIZE(84,204) }:AttachResource(self:getResource("party_mode_bd"))
+	local bd2 = Frame { Position=POS(374,99), Size=SIZE(266,204) }:AttachResource(self:getResource("party_mode_bd_2"))
+
+	bd1.handle = AnimateWindowPos(bd1, POS(640,99), { bd1:GetPosition() }, 0.3, 0.3, bd1.handle)
+	bd2.handle = AnimateWindowPos(bd2, POS(640-290+374,99), { bd2:GetPosition() }, 0.3, 0.3, bd2.handle)
+
+	-- Info window
+	local textparent = Frame { Name="textparent", Position=POS(0,0), Size=SIZE(640,480) }
+	Frame { Position=POS(0, 309), Size=SIZE(640,42), Parent=textparent }:AttachResource(self:getResource("cup_title_bd"))
+	FadingStaticText { Name="info1", Position=POS(320,313), Size=SIZE(500,24), Font=fontsmall(), Color=GetPaletteColor(34), Align=FONTF_CENTER, Parent=textparent }
+	FadingStaticText { Name="info2", Position=POS(320,329), Size=SIZE(500,12), Font=fontsmall(), Color=GetPaletteColor(34), Align=FONTF_CENTER, Parent=textparent }
+	
+	-- Event info
+	local tip
+	local str
+	if menu_multiplayer_buildtournament.partymode then
+		tip = self:getResource("fo_total_reward_bd_tip")
+		str = self:getResource("fo_total_reward_bd_str")
+	else
+		tip = self:getResource("ac_result_r_4_tip")
+		str = self:getResource("ac_result_r_4_str")
+	end
+	
+	local tipsize = GetResourceSize(tip)
+	local strsize = SIZE(640 - 346 - tipsize[1], tipsize[2])
+
+	local infobd = Frame { Name="infobd", Position=POS(0,0), Size=SIZE(640,480) }
+	Frame { Position=POS(346,304), Size=tipsize, Parent=infobd }:AttachResource(tip)
+	Frame { Position=POS(346 + tipsize[1],304), Size=strsize, Parent=infobd }:AttachResource(str)
+	StaticText { Name="eventnum", Position=POS(485,304), Font=fontmedium(), Color=GetPaletteColor(33), Align=FONTF_CENTER, Parent=infobd }
+	StaticText { Name="eventtype", Position=POS(485,329), Font=fontlarge(), Color=GetPaletteColor(33), Align=FONTF_CENTER, Parent=infobd }
+	StaticText { Name="trackname", Position=POS(485,348), Font=fontsmall(), Color=GetPaletteColor(34), Align=FONTF_CENTER, Parent=infobd }
+	local details = StaticText { Name="eventdetails", Position=POS(485,371), Font=fontsmall(), Color=GetPaletteColor(34), Align=FONTF_CENTER, Parent=infobd }
+	
+	if menu_multiplayer_buildtournament.partymode then
+		details:HideWindow()
+	end
+	
+	infobd:HideWindow()
+	
+	-- Races
+	state.eventwindows = { }
+	
+	local imgsize = wm.GetResourceSize(self:getResource("track_images_forest1"))
+	for i = 1, 12 do
+		local rowNum = math.floor((i - 1) / 3)
+		local pos = POS(306 + rowNum * 13, 111 + rowNum * 48)
+		local x = pos[1] + 78 * math.mod(i - 1, 3)
+		local w = Frame { Name="event_icon_frame_"..i, Position=POS(x,pos[2]), Size=imgsize }
+		w.position = POS(x, pos[2])--pos
+
+		local imageframe = Frame { Name="event_icon_"..i, Position=POS(0,0), Parent=w }
+		
+		w.info = StaticText { Name="event_info_"..i, Position=POS(68,16), Size=SIZE(20,20), Font=fontmedium(), Color=GetPaletteColor(1), Align=FONTF_RIGHT, Parent=w }
+
+		if Events[i] then
+			w.image = imageframe:AttachResource(self:getResource(Levels[Events[i].trackid].TrackIcon))
+			imageframe:SetSize(imgsize[1], imgsize[2])
+			local boxsize = wm.GetResourceSize(self:getResource("track_images1_empty_box"))
+			imageframe:SetPosition((boxsize[1] - imgsize[1]) / 2 + 2, (boxsize[2] - imgsize[2]) / 2 - 1)
+			w.image:SetAlpha(0)
+			if Events[i].rules ~= ReplicatedSession.GAMETYPE_STUNT and Events[i].rules ~= ReplicatedSession.GAMETYPE_DERBY_LMS then
+				w.info:SetTitle(L(Events[i].lapsOrTimeLimit))
+			end
+		else
+			local size = wm.GetResourceSize(self:getResource("track_images1_empty_box"))
+			imageframe:SetSize(size[1], size[2])
+			imageframe:SetPosition(0, 0)
+			w.image = imageframe:AttachResource(self:getResource("track_images1_empty_box"))
+			w.image:SetAlpha(0)
+		end
+
+		table.insert(state.eventwindows,w)
+	end
+
+	imgsize = wm.GetResourceSize(self:getResource("track_imagesl_selection_glow"))
+	local hilite = Frame { Name="highlight", Position=POS(0,0), Size=imgsize, Layer=5 }:AttachResource(self:getResource("track_imagesl_selection_glow"))
+	hilite:HideWindow()
+
+	local selected = Frame { Name="selected", Position=POS(0,0), Size=imgsize, Layer=5 }:AttachResource(self:getResource("track_imagesl_selection_glow"))
+	--selected:SetAlpha(0.6)
+	selected:HideWindow()
+
+	CreateEditRaceItems(self)
+
+	PresetSelection = false
+	
+	if menu_multiplayer_buildtournament.editEvent then
+		menu_multiplayer_buildtournament.editEvent = false
+		StartEditEvents(CurrentEvent)
+		ShowEventWindows(true)
+	else
+		if menu_multiplayer_buildtournament.editTournament then
+			BuildMenuButtons()
+			ShowEventWindows(true)
+		elseif table.getn(ValidPresets) > 0 then
+			--W("title"):SetTitle(TRANSLATOR(TITLE_LIVE_PRESETS))
+			ShowPresets()
+		else
+			--W("title"):SetTitle(TRANSLATOR(MULTIPLAYER_TOURNAMENT_TITLE))
+			BuildMenuButtons()
+			ShowEventWindows(true)
+		end
+	end
+end
+
+function menu_multiplayer_buildtournament.buttonChange(self, oldButton, newButton)
+	if PresetSelection then
+		if newButton < table.getn(menu_multiplayer_buildtournament.items) then
+			RefreshEventGrid(self, ValidPresets[newButton].events, true)
+		else
+			RefreshEventGrid(self, nil, true)
+		end
+		if ValidPresets[newButton] ~= nil then
+			W("info1"):SetTitle(ValidPresets[newButton].desc)
+		else
+			W("info1"):SetTitle(TRANSLATOR(MULTIPLAYER_TOURNAMENT_CUSTOMEVENTS))
+		end
+		W("info1"):WordWrap()
+		local posanim = false
+		if oldButton == 0 then
+			posanim = true
+		end
+		ShowEventWindows(posanim)
+	else
+		UpdateInfo(newButton)
+	end
+end
+
+function menu_multiplayer_buildtournament.update(self,time)
+	self.parent:update(self,time)
+	
+	local alpha = 1 - 0.20 + math.sin(time * 6) * 0.20
+	W("highlight"):SetAlpha(alpha)
+end
+
+function menu_multiplayer_buildtournament.deinit(self)
+	self.parent:deinit(self)
+end
+
+function menu_multiplayer_buildtournament.startshow(self)
+	self.parent:startshow(self)
+
+	--ShowEventWindows()
+end
+
+function menu_multiplayer_buildtournament.starthide(self)
+	self.parent:starthide(self)
+
+	HideEventWindows()
+end
+
+end --//USE_NETWORK

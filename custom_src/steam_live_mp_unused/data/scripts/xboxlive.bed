@@ -1,0 +1,199 @@
+local LiveEventListener
+local JoinInviteEventListener
+local LiveMainMenu=false
+local JoiningInvite
+local FromCheck=false
+local Result
+
+dofile("data/menu/cup_next_race_elements.bed")
+
+local function LiveEventListenerFunc(event)
+end
+
+function OnlineWeatherDisabled()
+	return false
+end
+
+
+local function JoinInviteListenerFunc(event)
+	if event.id == EVENT_NETWORK_REQUEST_PLAYERUPDATE then
+		local player=Session:GetLocalPlayer(1)
+
+		if MultiplayerMode == MPMODE_LAN then
+			player:GenerateUserId()
+			player.Name=PlayerProfile:GetName()
+		elseif MultiplayerMode == MPMODE_GAMESPY then
+			player:GenerateUserId()
+			player.Name=PlayerProfile:GetName()
+		elseif MultiplayerMode == MPMODE_XBOXLIVE then
+			local user=GameFlow.GetSignedInUser()
+			player.Name=ChloeCustomSteam_TagPlayerName(XBoxLive.GetUserName(user)) --// ChloeCustom Steam: modpack marker
+			player.UId=XBoxLive.GetUserId(user)
+			player:SetController(user)
+		end
+
+		local info = Session:GetInfo()
+
+		if info.CarClass >= ReplicatedSession.CARCLASS_SAMEASHOST then
+			player.Car = info.CarClass - ReplicatedSession.CARCLASS_SAMEASHOST
+			player.CarValid = true
+		elseif info.CarClass == ReplicatedSession.CARCLASS_STUNT or info.Races[info.NextRace].EventType == ReplicatedSession.GAMETYPE_STUNT then
+			player.Car = CarlistStuntCars()[1].index
+			player.CarValid = false
+		elseif info.CarClass == ReplicatedSession.CARCLASS_ANY or info.CarClass == ReplicatedSession.CARCLASS_NOBONUS then
+			player.Car = 0
+			player.CarValid = false
+		elseif info.CarClass == ReplicatedSession.CARCLASS_BONUS then
+			local function SplitString(str)
+				local t={}		
+				for w in string.gfind(str,"(%w+)%.?") do
+					table.insert(t,w)
+				end
+				return t
+			end
+			for i = 0, db.FlatOut2.Cars:GetPropertyArraySize("Car") - 1 do
+				local car = db.FlatOut2.Cars:GetProperty("Car", i)
+				
+				local path = SplitString(string.lower(car:GetFullPath()))
+
+				if path[3] == "bonus" and IsValidCar(i) then --// ChloeCustom Steam: only modpack cars (IsValidCar), unfiltered lists contain removed cars and crash the car selection
+					player.Car = i
+					break
+				end
+			end
+			player.CarValid = false
+		else
+			-- Derby, racing or street
+			player.Car = CarlistFromClass(info.CarClass, false, true)[1].index
+			player.CarValid = false
+		end
+
+		player.CarSkin=1
+		player.CharacterType = PlayerProfile:GetGender()
+		player.TournamentPoints = 0
+
+		if info.CarUpgrades ~= ReplicatedSession.CARUPGRADES_ANY then
+			player.UpgradeLevel = info.CarUpgrades
+		else
+			player.UpgradeLevel = SessionInfo.CarUpgrades.All
+		end
+	elseif event.id == EVENT_NETWORK_JOIN_RESULT then
+		Result=event.data
+	end
+end
+
+function CheckGameInvite()
+	if XBoxLive.JoinInvite() then
+		MultiplayerMode = MPMODE_XBOXLIVE
+		JoinInviteEventListener=Event:AddListener(JoinInviteListenerFunc, EVENTTYPE_NETWORK)
+		JoiningInvite=true
+		FromCheck=true
+		Result=-1
+		EnterMenu("menu_xboxlive")
+		GUI:CloseMessageBox()
+		return true
+	else
+		return false;
+	end
+end
+
+menu_xboxlive = CreateMenuFromTemplate("template_multiplayer")
+menu_xboxlive.options.title = TITLE_LIVE_MAIN
+function menu_xboxlive.back()
+	if LiveEventListener then
+		Event:RemoveListener(LiveEventListener)	
+		LiveEventListener=nil
+	end
+	if Session ~= nil then
+		Network:StopMultiplayer()
+	end
+	Event:PostEvent(event(EVENT_GAMEFLOW_REQUIRE_LIVE, 0))
+	EnterMenu("menu_mainmenu")
+end
+
+
+function menu_xboxlive.create(self)
+	self.parent:create(self)
+
+	self:addResource("cup_next_race_elements.tga", cup_next_race_elements, cup_next_race_elements_size)
+	self:loadResources()
+
+	self.items = {
+		{ ICON_LIVE_PLAYER_MATCH, function() CheckPrivileges(function()EnterOptimatchMenu("menu_xboxlive", false)end, XPRIVILEGE_MULTIPLAYER_SESSIONS) end, ICON(self,"icon_player_match")},
+		--// ChloeCustom Steam: ranked match and scoreboards need the online statistics/highscores that
+		--// FlatOutUCChloeCollection_gcp.asi disables (nonetwork.h), so they are not offered.
+		--{ ICON_LIVE_RANKED_MATCH, function() CheckPrivileges(function()EnterOptimatchMenu("menu_xboxlive", true)end, XPRIVILEGE_MULTIPLAYER_SESSIONS) end, ICON(self,"icon_ranked_match")},
+		{ ICON_LIVE_CREATE_PLAYER_MATCH, function() CheckPrivileges(function()EnterCreateGameMenu("menu_xboxlive")end, XPRIVILEGE_MULTIPLAYER_SESSIONS) end, ICON(self,"icon_xbl_create_game")},
+		--{ ICON_LIVE_SCOREBOARDS, function() CheckPrivileges(function()EnterMenu("menu_multiplayer_scoreboards")end, XPRIVILEGE_MULTIPLAYER_SESSIONS) end, ICON(self,"icon_scoreboards")},
+	}
+	
+	if PC then
+		table.insert(self.items, 3, { TRANSLATOR(ICON_LIVE_JOINLISTPLAY), function() CheckPrivileges(function()StartSearchListplay()end, XPRIVILEGE_MULTIPLAYER_DEDICATED_SERVER) end, ICON(self, "icon_player_match")} )
+		table.insert(self.items, 4, { TRANSLATOR(ICON_LIVE_CREATELISTPLAY), function() CheckPrivileges(function()EnterCreateGameMenu("menu_xboxlive", true)end, XPRIVILEGE_MULTIPLAYER_DEDICATED_SERVER) end, ICON(self,"icon_xbl_create_game")} )
+	end
+end
+
+function menu_xboxlive.init(self)
+	self.parent:init(self)
+
+	SetCurrentMenuCar()
+	
+	Frame { Position=POS(0,66), Size=SIZE(640,42) }:AttachResource(self:getResource("cup_title_bd"))
+	StaticText { Title=TITLE_LIVE_MAIN, Font=fonttitle(), Color=GetPaletteColor(33), Position=POS(320,66), Size=SIZE(300,33), Align=FONTF_CENTER }
+	
+	MultiplayerMode = MPMODE_XBOXLIVE
+
+	LiveMainMenu=true
+	if not LiveEventListener then
+		LiveEventListener=Event:AddListener(LiveEventListenerFunc, EVENTTYPE_PLATFORM)
+	end
+	if not FromCheck then
+		JoiningInvite=false
+		Result=-1
+	else
+		ShowThinkingWindow()
+	end
+	FromCheck=false
+	
+	MultiplayerFunctions.InitMultiplayerOptions()
+	XBoxLive.GetRichPresence():SetContextValue(X_CONTEXT_PRESENCE, CONTEXT_PRESENCE_PRESENCE_MENU)
+	GUI:CloseMessageBox()
+	
+	Event:PostEvent(event(EVENT_GAMEFLOW_REQUIRE_LIVE, 1))
+end
+
+function menu_xboxlive.deinit(self)
+	self.parent:deinit(self)
+	LiveMainMenu=false
+	if JoinInviteEventListener then
+		Event:RemoveListener(JoinInviteEventListener)	
+		JoinInviteEventListener=nil
+	end	
+end
+
+function menu_xboxlive.update(self, time)
+	if not GUI:IsMenuAnimating() then
+		if JoiningInvite then
+			
+			if Result==0 then
+				JoiningInvite=false
+				HideThinkingWindow()
+				Network:DeleteSession()
+				MessageBox(	MULTIPLAYER_NOSESSION,
+							MESSAGEBOX_OK,
+							function()end
+							)
+			elseif Result == 1 then
+				JoiningInvite=false
+				HideThinkingWindow()
+				EnterLobby("menu_xboxlive")
+			end		
+		elseif XBoxLive.JoinInvite() then
+				JoinInviteEventListener=Event:AddListener(JoinInviteListenerFunc, EVENTTYPE_NETWORK)
+				ShowThinkingWindow()
+				JoiningInvite=true
+				Result=-1
+				GUI:CloseMessageBox()
+		end
+	end
+end

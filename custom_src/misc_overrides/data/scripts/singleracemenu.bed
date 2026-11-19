@@ -1,0 +1,1589 @@
+--///////////////////////////////////////////////////////////////////////////
+--// SingleRaceMenu.bed
+--///////////////////////////////////////////////////////////////////////////
+--// Copyright (c) 2005 Bugbear Entertainment ltd. 
+--// All Rights Reserved.
+--// 
+--// Created on 15.4.2005 11:46:09
+--// 
+--// @Author Mikko Sivulainen (mikko.sivulainen@bugbear.fi)
+--///////////////////////////////////////////////////////////////////////////
+
+local RaceSelectionState
+
+local tracks
+
+dofile("data/menu/game_mode_selector.bed")
+
+dofile("data/menu/event_type_icons.bed")
+dofile("data/menu/event_type_icons_2.bed")
+dofile("data/menu/event_type_icons_3.bed")
+dofile("data/menu/event_type_icons_4.bed")
+
+dofile("data/menu/event_type_images_wide.bed")
+dofile("data/menu/event_type_images_wide_2.bed")
+dofile("data/menu/event_type_images_wide_3.bed")
+dofile("data/menu/event_type_images_wide_tt.bed")
+dofile("data/menu/event_type_images_wide_karelia.bed")
+dofile("data/menu/event_type_images_wide_kenya.bed")
+dofile("data/menu/event_type_images_wide_finland.bed")
+dofile("data/menu/event_type_images_wide_sweden.bed")
+dofile("data/menu/event_type_images_wide_switzerland.bed")
+dofile("data/menu/event_type_images_wide_arcade.bed")
+dofile("data/menu/event_type_images_wide_mainmenu.bed")
+dofile("data/menu/event_type_images_wide_extras.bed")
+dofile("data/menu/track_images_wide_1.bed")
+dofile("data/menu/track_images_wide_2.bed")
+dofile("data/menu/track_images_wide_3.bed")
+dofile("data/menu/track_images_wide_4.bed")
+dofile("data/menu/track_images_wide_5.bed")
+dofile("data/menu/track_images_wide_6.bed")
+dofile("data/menu/track_images_wide_7.bed")
+
+dofile("data/menu/track_images.bed")
+
+
+local track_settings = {}
+
+local weathers = {
+	[WEATHER_SUNRISE] = TRANSLATOR(TRACKOPTIONS_TIMEOFDAY_SUNRISE),
+	[WEATHER_DAY] = TRANSLATOR(TRACKOPTIONS_TIMEOFDAY_DAY),
+	[WEATHER_CLOUDYDAY] = TRANSLATOR(TRACKOPTIONS_TIMEOFDAY_CLOUDYDAY),
+	[WEATHER_SUNSET] = TRANSLATOR(TRACKOPTIONS_TIMEOFDAY_SUNSET),
+	[WEATHER_NIGHT] = TRANSLATOR(TRACKOPTIONS_TIMEOFDAY_NIGHT),
+}
+
+
+--//TRACKOPTIONS_TIMEOFDAY_DUSK
+--//TRACKOPTIONS_TIMEOFDAY_SUNDOWN
+
+
+local track_options_race = {
+	[1] = { title=TRANSLATOR(TRACKOPTIONS_TIMEOFDAY), setting="Weather", 
+		visualdata = { TRANSLATOR(TRACKOPTIONS_TIMEOFDAY_DAY), TRANSLATOR(TRACKOPTIONS_TIMEOFDAY_NIGHT),},
+		data = { 1, 2 },
+	},
+	[2] = { title=TRANSLATOR(TRACKOPTIONS_LAPCOUNT), setting="Laps", 
+		visualdata = { L"1", L"2", L"3",L"4",L"5",L"6",L"7",L"8",L"9",L"10"},
+		data	   = { 1,2,3,4,5,6,7,8,9,10 },
+	},
+	[3] = { title=TRANSLATOR(MULTIPLAYER_DAMAGE), setting="DamageMultiplier", 
+		visualdata = { L"0x", L"0.5x", L"1x", L"1.5x", L"2x", L"50x" },
+		data = { 0.0, 0.5, 1.0, 1.5, 2.0, 50.0 },
+	},
+	[4] = { title=TRANSLATOR(TITLE_GARAGE_CARSTAT_NITRO), setting="NitroMultiplier", 
+		visualdata = { L"0x", L"0.5x", L"1x", L"1.5x", L"2x", L"50x" },
+		data = { 0.0, 0.5, 1.0, 1.5, 2.0, 50.0},
+	},
+	[5] = { title=TRANSLATOR(OPTIONS_UPGRADE), setting="UpgradeLevel", 
+		visualdata = { L"0%",L"50%",L"100%" },
+		data = { 0.0, 0.50, 1.0,},
+	},
+	[6] = { title=TRANSLATOR(MULTIPLAYER_HANDLINGDAMAGE), setting="HandlingDamage", 
+		visualdata = { L"0FF",L"ON" },
+		data = { false, true },
+	},
+}
+
+local track_options_event = {
+	[1] = { title=TRANSLATOR(TRACKOPTIONS_LAPCOUNT), setting="Laps", 
+		visualdata = { L"1",L"2", L"3",L"4",L"5",L"6",L"7",L"8",L"9",L"10"},
+		data	   = {  1,2,3,4,5,6,7,8,9,10 },
+	},
+	[2] = { title=TRANSLATOR(MULTIPLAYER_DAMAGE), setting="DamageMultiplier", 
+		visualdata = { L"0x", L"0.5x", L"1x", L"1.5x", L"2x", L"50x" },
+		data = { 0.0, 0.5, 1.0, 1.5, 2.0, 50.0 },
+	},
+	[3] = { title=TRANSLATOR(TITLE_GARAGE_CARSTAT_NITRO), setting="NitroMultiplier", 
+		visualdata = { L"0x", L"0.5x", L"1x", L"1.5x", L"2x", L"50x" },
+		data = { 0.0, 0.5, 1.0, 1.5, 2.0, 50.0},
+	},
+	[4] = { title=TRANSLATOR(OPTIONS_UPGRADE), setting="UpgradeLevel", 
+		visualdata = { L"0%",L"50%",L"100%" },
+		data = { 0.0, 0.50, 1.0,},
+	},
+	[5] = { title=TRANSLATOR(MULTIPLAYER_HANDLINGDAMAGE), setting="HandlingDamage", 
+		visualdata = { L"0FF",L"ON" },
+		data = { false, true },
+	},
+}
+
+local track_options_rallytrophy = {
+	[1] = { title=TRANSLATOR(MULTIPLAYER_DAMAGE), setting="DamageMultiplier", 
+		visualdata = { L"0x", L"0.5x", L"1x", L"1.5x", L"2x", L"50x" },
+		data = { 0.0, 0.5, 1.0, 1.5, 2.0, 50.0 },
+	},
+	[2] = { title=TRANSLATOR(TITLE_GARAGE_CARSTAT_NITRO), setting="NitroMultiplier", 
+		visualdata = { L"0x", L"0.5x", L"1x", L"1.5x", L"2x", L"50x" },
+		data = { 0.0, 0.5, 1.0, 1.5, 2.0, 50.0},
+	},
+	[3] = { title=TRANSLATOR(OPTIONS_UPGRADE), setting="UpgradeLevel", 
+		visualdata = { L"0%",L"50%",L"100%" },
+		data = { 0.0, 0.50, 1.0,},
+	},
+	[4] = { title=TRANSLATOR(MULTIPLAYER_HANDLINGDAMAGE), setting="HandlingDamage", 
+		visualdata = { L"0FF",L"ON" },
+		data = { false, true },
+	},
+}
+
+local track_options_derby = {
+	[1] = { title=TRANSLATOR(MULTIPLAYER_DAMAGE), setting="DamageMultiplier", 
+		visualdata = { L"0.5x", L"1x", L"1.5x", L"2x", L"50x" },
+		data = { 0.5, 1.0, 1.5, 2.0, 50.0 },
+	},
+	[2] = { title=TRANSLATOR(TITLE_GARAGE_CARSTAT_NITRO), setting="NitroMultiplier", 
+		visualdata = { L"0x", L"0.5x", L"1x", L"1.5x", L"2x", L"50x" },
+		data = { 0.0, 0.5, 1.0, 1.5, 2.0, 50.0},
+	},
+	[3] = { title=TRANSLATOR(OPTIONS_UPGRADE), setting="UpgradeLevel", 
+		visualdata = { L"0%",L"50%",L"100%" },
+		data = { 0.0, 0.50, 1.0,},
+	},
+	[4] = { title=TRANSLATOR(MULTIPLAYER_HANDLINGDAMAGE), setting="HandlingDamage", 
+		visualdata = { L"0FF",L"ON" },
+		data = { false, true },
+	},
+	[5] = { title=TRANSLATOR(MULTIPLAYER_GAMEMODE), setting="DerbyType", 
+		visualdata = { TRANSLATOR(MULTIPLAYER_GAMEMODE_WRECKINGDERBY), TRANSLATOR(MULTIPLAYER_GAMEMODE_FRAGDERBY), TRANSLATOR(MULTIPLAYER_GAMEMODE_SURVIVORDERBY) },
+		data = { DERBY_WRECKING, DERBY_FRAG, DERBY_LMS },
+	},
+}
+
+local track_options_tonyhawk = {
+	[1] = { title=TRANSLATOR(TRACKOPTIONS_TIMEOFDAY), setting="Weather", 
+		visualdata = { TRANSLATOR(TRACKOPTIONS_TIMEOFDAY_DAY), TRANSLATOR(TRACKOPTIONS_TIMEOFDAY_DAY) },
+		data = { 1, 2 },
+	},
+	[2] = { title=TRANSLATOR(MULTIPLAYER_DAMAGE), setting="DamageMultiplier", 
+		visualdata = { L"0x", L"0.5x", L"1x", L"1.5x", L"2x", L"50x" },
+		data = { 0, 0.5, 1.0, 1.5, 2.0, 50.0 },
+	},
+	[3] = { title=TRANSLATOR(TITLE_GARAGE_CARSTAT_NITRO), setting="NitroMultiplier", 
+		visualdata = { L"0x", L"0.5x", L"1x", L"1.5x", L"2x", L"50x" },
+		data = { 0.0, 0.5, 1.0, 1.5, 2.0, 50.0},
+	},
+	[4] = { title=TRANSLATOR(OPTIONS_UPGRADE), setting="UpgradeLevel", 
+		visualdata = { L"0%",L"100%" },
+		data = { 0.0, 1.0 },
+	},
+	[5] = { title=L("HANDLING MODE"), setting="TonyHawkHandling", 
+		visualdata = { L"DEFAULT", L"STUNT SHOW" },
+		data = { 0, 1 },
+	},
+	[6] = { title=TRANSLATOR(MULTIPLAYER_MINUTES), setting="TonyHawkTime", 
+		visualdata = { L"3", L"4", L"5", L"10", L"15" },
+		data = { 3, 4, 5, 10, 15 },
+	},
+}
+
+local track_options_tonyhawk_event = {
+	[1] = { title=TRANSLATOR(MULTIPLAYER_DAMAGE), setting="DamageMultiplier", 
+		visualdata = { L"0x", L"0.5x", L"1x", L"1.5x", L"2x", L"50x" },
+		data = { 0, 0.5, 1.0, 1.5, 2.0, 50.0 },
+	},
+	[2] = { title=TRANSLATOR(TITLE_GARAGE_CARSTAT_NITRO), setting="NitroMultiplier", 
+		visualdata = { L"0x", L"0.5x", L"1x", L"1.5x", L"2x", L"50x" },
+		data = { 0.0, 0.5, 1.0, 1.5, 2.0, 50.0},
+	},
+	[3] = { title=TRANSLATOR(OPTIONS_UPGRADE), setting="UpgradeLevel", 
+		visualdata = { L"0%",L"100%" },
+		data = { 0.0, 1.0 },
+	},
+	[4] = { title=L("HANDLING MODE"), setting="TonyHawkHandling", 
+		visualdata = { L"DEFAULT", L"STUNT SHOW" },
+		data = { 0, 1 },
+	},
+	[5] = { title=TRANSLATOR(MULTIPLAYER_MINUTES), setting="TonyHawkTime", 
+		visualdata = { L"3", L"4", L"5", L"10", L"15" },
+		data = { 3, 4, 5, 10, 15 },
+	},
+}
+
+local track_options_drift = {
+	[1] = { title=TRANSLATOR(TRACKOPTIONS_TIMEOFDAY), setting="Weather", 
+		visualdata = { TRANSLATOR(TRACKOPTIONS_TIMEOFDAY_DAY), TRANSLATOR(TRACKOPTIONS_TIMEOFDAY_DAY) },
+		data = { 1, 2 },
+	},
+	[2] = { title=TRANSLATOR(MULTIPLAYER_DAMAGE), setting="DamageMultiplier", 
+		visualdata = { L"0x", L"0.5x", L"1x", L"1.5x", L"2x", L"50x" },
+		data = { 0, 0.5, 1.0, 1.5, 2.0, 50.0 },
+	},
+	[3] = { title=TRANSLATOR(TITLE_GARAGE_CARSTAT_NITRO), setting="NitroMultiplier", 
+		visualdata = { L"0x", L"0.5x", L"1x", L"1.5x", L"2x", L"50x" },
+		data = { 0.0, 0.5, 1.0, 1.5, 2.0, 50.0},
+	},
+	[4] = { title=TRANSLATOR(OPTIONS_UPGRADE), setting="UpgradeLevel", 
+		visualdata = { L"0%",L"100%" },
+		data = { 0.0, 1.0 },
+	},
+	[5] = { title=TRANSLATOR(MULTIPLAYER_MINUTES), setting="TonyHawkTime", 
+		visualdata = { L"3", L"4", L"5", L"10", L"15" },
+		data = { 3, 4, 5, 10, 15 },
+	},
+}
+
+local track_options_drift_event = {
+	[1] = { title=TRANSLATOR(MULTIPLAYER_DAMAGE), setting="DamageMultiplier", 
+		visualdata = { L"0x", L"0.5x", L"1x", L"1.5x", L"2x", L"50x" },
+		data = { 0, 0.5, 1.0, 1.5, 2.0, 50.0 },
+	},
+	[2] = { title=TRANSLATOR(TITLE_GARAGE_CARSTAT_NITRO), setting="NitroMultiplier", 
+		visualdata = { L"0x", L"0.5x", L"1x", L"1.5x", L"2x", L"50x" },
+		data = { 0.0, 0.5, 1.0, 1.5, 2.0, 50.0},
+	},
+	[3] = { title=TRANSLATOR(OPTIONS_UPGRADE), setting="UpgradeLevel", 
+		visualdata = { L"0%",L"100%" },
+		data = { 0.0, 1.0 },
+	},
+	[4] = { title=TRANSLATOR(MULTIPLAYER_MINUTES), setting="TonyHawkTime", 
+		visualdata = { L"3", L"4", L"5", L"10", L"15" },
+		data = { 3, 4, 5, 10, 15 },
+	},
+}
+
+local track_options_knockout = {
+	[1] = { title=TRANSLATOR(TRACKOPTIONS_TIMEOFDAY), setting="Weather", 
+		visualdata = { TRANSLATOR(TRACKOPTIONS_TIMEOFDAY_DAY), TRANSLATOR(TRACKOPTIONS_TIMEOFDAY_DAY) },
+		data = { 1, 2 },
+	},
+	[2] = { title=TRANSLATOR(MULTIPLAYER_DAMAGE), setting="DamageMultiplier", 
+		visualdata = { L"0x", L"0.5x", L"1x", L"1.5x", L"2x", L"50x" },
+		data = { 0, 0.5, 1.0, 1.5, 2.0, 50.0 },
+	},
+	[3] = { title=TRANSLATOR(TITLE_GARAGE_CARSTAT_NITRO), setting="NitroMultiplier", 
+		visualdata = { L"0x", L"0.5x", L"1x", L"1.5x", L"2x", L"50x" },
+		data = { 0.0, 0.5, 1.0, 1.5, 2.0, 50.0},
+	},
+	[4] = { title=TRANSLATOR(OPTIONS_UPGRADE), setting="UpgradeLevel", 
+		visualdata = { L"0%",L"100%" },
+		data = { 0.0, 1.0 },
+	},
+}
+
+local track_options_knockout_event = {
+	[1] = { title=TRANSLATOR(MULTIPLAYER_DAMAGE), setting="DamageMultiplier", 
+		visualdata = { L"0x", L"0.5x", L"1x", L"1.5x", L"2x", L"50x" },
+		data = { 0, 0.5, 1.0, 1.5, 2.0, 50.0 },
+	},
+	[2] = { title=TRANSLATOR(TITLE_GARAGE_CARSTAT_NITRO), setting="NitroMultiplier", 
+		visualdata = { L"0x", L"0.5x", L"1x", L"1.5x", L"2x", L"50x" },
+		data = { 0.0, 0.5, 1.0, 1.5, 2.0, 50.0},
+	},
+	[3] = { title=TRANSLATOR(OPTIONS_UPGRADE), setting="UpgradeLevel", 
+		visualdata = { L"0%",L"100%" },
+		data = { 0.0, 1.0 },
+	},
+}
+
+local track_options_speedtrap_event = {
+	[1] = { title=TRANSLATOR(TRACKOPTIONS_LAPCOUNT), setting="Laps", 
+		visualdata = { L"1", L"2", L"3",L"4",L"5",L"6",L"7",L"8",L"9",L"10"},
+		data	   = { 1,2,3,4,5,6,7,8,9,10 },
+	},
+	[2] = { title=TRANSLATOR(MULTIPLAYER_DAMAGE), setting="DamageMultiplier", 
+		visualdata = { L"0x", L"0.5x", L"1x", L"1.5x", L"2x", L"50x" },
+		data = { 0, 0.5, 1.0, 1.5, 2.0, 50.0 },
+	},
+	[3] = { title=TRANSLATOR(TITLE_GARAGE_CARSTAT_NITRO), setting="NitroMultiplier", 
+		visualdata = { L"0x", L"0.5x", L"1x", L"1.5x", L"2x", L"50x" },
+		data = { 0.0, 0.5, 1.0, 1.5, 2.0, 50.0},
+	},
+	[4] = { title=TRANSLATOR(OPTIONS_UPGRADE), setting="UpgradeLevel", 
+		visualdata = { L"0%",L"100%" },
+		data = { 0.0, 1.0 },
+	},
+}
+
+local track_options_time_trial = {
+	[1] = { title=TRANSLATOR(TRACKOPTIONS_TIMEOFDAY), setting="Weather", 
+		visualdata = { TRANSLATOR(TRACKOPTIONS_TIMEOFDAY_DAY), TRANSLATOR(TRACKOPTIONS_TIMEOFDAY_DAY) },
+		data = { 1, 2 },
+	},
+	[2] = { title=TRANSLATOR(OPTIONS_UPGRADE), setting="UpgradeLevel", 
+		visualdata = { L"0%",L"100%" },
+		data = { 0.0, 1.0 },
+	},
+	[3] = { title=TRANSLATOR(TITLE_GARAGE_CARSTAT_NITRO), setting="NitroType", 
+		visualdata = { L"0x", L"1x", L"2x", L"INFINITE" },
+		data = { 0, 1, 2, 3 },
+	},
+	[4] = { title=L("PROPS"), setting="PropsEnabled", 
+		visualdata = { L"OFF",L"ON" },
+		data = { 0, 1 },
+	},
+	[5] = { title=L("MODE"), setting="ThreeLapMode", 
+		visualdata = { L"HOTLAPS",L"3 LAP RUN" },
+		data = { 0, 1 },
+	},
+
+}
+
+local track_options_time_trial_event = {
+	[1] = { title=TRANSLATOR(OPTIONS_UPGRADE), setting="UpgradeLevel", 
+		visualdata = { L"0%",L"100%" },
+		data = { 0.0, 1.0 },
+	},
+	[2] = { title=TRANSLATOR(TITLE_GARAGE_CARSTAT_NITRO), setting="NitroType", 
+		visualdata = { L"0x", L"1x", L"2x", L"INFINITE" },
+		data = { 0, 1, 2, 3 },
+	},
+	[3] = { title=L("PROPS"), setting="PropsEnabled", 
+		visualdata = { L"OFF",L"ON" },
+		data = { 0, 1 },
+	},
+	[4] = { title=L("MODE"), setting="ThreeLapMode", 
+		visualdata = { L"HOTLAPS",L"3 LAP RUN" },
+		data = { 0, 1 },
+	},
+}
+
+local track_options_time_trial_rallytrophy = {
+	[1] = { title=TRANSLATOR(OPTIONS_UPGRADE), setting="UpgradeLevel", 
+		visualdata = { L"0%",L"100%" },
+		data = { 0.0, 1.0 },
+	},
+	[2] = { title=TRANSLATOR(TITLE_GARAGE_CARSTAT_NITRO), setting="NitroType", 
+		visualdata = { L"0x", L"1x", L"2x", L"INFINITE" },
+		data = { 0, 1, 2, 3 },
+	},
+	[3] = { title=L("PROPS"), setting="PropsEnabled", 
+		visualdata = { L"OFF",L"ON" },
+		data = { 0, 1 },
+	},
+}
+
+-- OLD
+-- wide_2: fo1 town, pit, winter, racing
+-- wide_3: fo1 forest, retrodemo, toughtrucks 1-4
+-- wide_4: toughtrucks 5-13
+-- wide_5: toughtrucks 14-16, rt karelia 1-6
+-- wide_6: rt karelia 7-8, rt kenya, rt finland 1
+-- wide_7: rt finland 2-6, rt sweden 1-4
+-- wide_8: rt sweden 5-6, rt switzerland 1-6, rt arcade karelia 1
+-- wide_9: rt arcade karelia 2, all other rt arcade stages
+
+-- new
+-- wide_2: fo1 town, pit, winter, racing, retrodemo pit
+-- wide_3: fo1 forest, retrodemo, toughtrucks 1-4
+
+local tracktype_images = {
+	[TRACKTYPE_RACING] = { "track_images_wide_4", "event_type_images_wide_2", "event_type_images_wide_extras" },
+	[TRACKTYPE_FIELDS] = { "track_images_wide_1", "track_images_wide_2", "event_type_images_wide_2", },
+	[TRACKTYPE_FOREST] = { "track_images_wide_1", "event_type_images_wide_3", },
+	[TRACKTYPE_CITY] = { "track_images_wide_3", "track_images_wide_4", "event_type_images_wide_extras" },
+	[TRACKTYPE_DESERT] = { "track_images_wide_2", },
+	[TRACKTYPE_CANAL] = { "track_images_wide_3", },
+	[TRACKTYPE_FO1_TOWN] = { "event_type_images_wide_2", },
+	[TRACKTYPE_FO1_PIT] = { "event_type_images_wide_2", },
+	[TRACKTYPE_FO1_WINTER] = { "event_type_images_wide_2", },
+	[TRACKTYPE_TOUGHTRUCKS] = { "event_type_images_wide_tt" },
+	[TRACKTYPE_RALLYTROPHY] = { "event_type_images_wide_karelia", "event_type_images_wide_kenya", "event_type_images_wide_finland", "event_type_images_wide_sweden", "event_type_images_wide_switzerland" },
+	[TRACKTYPE_RALLYTROPHYARCADE] = { "event_type_images_wide_arcade" },
+	[TRACKTYPE_TONYHAWK] = { "track_images_wide_1", },
+	[TRACKTYPE_SPEEDTRAP] = { "track_images_wide_1", },
+	[TRACKTYPE_EVENT] = { "track_images_wide_6", "track_images_wide_7", "event_type_images_wide_extras" },
+	[TRACKTYPE_STUNT] = { "track_images_wide_5", "track_images_wide_6",},
+	[TRACKTYPE_DERBY] = { "track_images_wide_7", },
+}
+
+local tracktype_descriptions = {
+	[TRACKTYPE_RACING] = TRANSLATOR(TRACK_DESCRIPTION_RACING),
+	[TRACKTYPE_FIELDS] = TRANSLATOR(TRACK_DESCRIPTION_FIELDS),
+	[TRACKTYPE_FOREST] = TRANSLATOR(TRACK_DESCRIPTION_FOREST),
+	[TRACKTYPE_CITY] = TRANSLATOR(TRACK_DESCRIPTION_CITY),
+	[TRACKTYPE_DESERT] = TRANSLATOR(TRACK_DESCRIPTION_DESERT),
+	[TRACKTYPE_CANAL] = TRANSLATOR(TRACK_DESCRIPTION_CANAL),
+	[TRACKTYPE_FO1_TOWN] = L(TRACK_DESCRIPTION_FO1_TOWN),
+	[TRACKTYPE_FO1_PIT] = L(TRACK_DESCRIPTION_FO1_PIT),
+	[TRACKTYPE_FO1_WINTER] = L(TRACK_DESCRIPTION_FO1_WINTER),
+	[TRACKTYPE_TOUGHTRUCKS] = L(TRACK_DESCRIPTION_TOUGHTRUCKS),
+	[TRACKTYPE_RALLYTROPHY] = L(TRACK_DESCRIPTION_RALLYTROPHY),
+	[TRACKTYPE_RALLYTROPHYARCADE] = L(TRACK_DESCRIPTION_RALLYTROPHYARCADE),
+	[TRACKTYPE_STUNT] = TRANSLATOR(TRACK_DESCRIPTION_STUNT),
+	[TRACKTYPE_EVENT] = TRANSLATOR(TRACK_DESCRIPTION_ARENA),
+	[TRACKTYPE_DERBY] = TRANSLATOR(TRACK_DESCRIPTION_DERBY),
+}
+
+local stunt_goals = {
+	[STUNT_CURLING] = TRACK_DESCRIPTION_CURLING_GOAL,
+	[STUNT_HIGHJUMP] = TRACK_DESCRIPTION_HIGHJUMP_GOAL,
+	[STUNT_STONESKIPPING] = TRACK_DESCRIPTION_STONESKIPPING_GOAL,
+	[STUNT_RINGOFFIRE] = TRACK_DESCRIPTION_RINGOFFIRE_GOAL,
+	[STUNT_DARTS] = TRACK_DESCRIPTION_DARTS_GOAL,
+	[STUNT_BLACKDANNY] = TRACK_DESCRIPTION_ROYALFLUSH_GOAL,
+	[STUNT_SKIJUMP] = TRACK_DESCRIPTION_SKIJUMP_GOAL,
+	[STUNT_FIELDGOAL] = TRACK_DESCRIPTION_FIELDGOAL_GOAL,
+	[STUNT_BOWLING] = TRACK_DESCRIPTION_BOWLING_GOAL,
+	[STUNT_BASKETBALL] = TRACK_DESCRIPTION_BASKETBALL_GOAL,
+	[STUNT_BASEBALL] = TRACK_DESCRIPTION_BASEBALL_GOAL,
+	[STUNT_SOCCER] = TRACK_DESCRIPTION_SOCCER_GOAL,
+}
+
+
+local singlerace_selected
+
+local function IsNormalRace()
+	if not RaceSelectionState.RaceType or 
+		RaceSelectionState.RaceType == TRACKTYPE_STUNT or
+		RaceSelectionState.Rules == GR_STUNT then
+			return false
+	end
+
+	return true
+end
+
+local function SetUpgradeLevelForStats()
+	db.GameFlow.PreRace.UpgradeLevel = RaceSelectionState.UpgradeLevel
+end
+
+
+local function carselected(car,skin)
+	--//db.GameFlow.PreRace.Mode=RaceSelectionState.GameMode
+	GameFlow.ClearRace()
+	db.GameFlow.PreRace.Mode=GM_SINGLE_RACE
+	db.GameFlow.PreRace.Car=car
+	db.GameFlow.PreRace.CarSkin=skin or 1
+	db.GameFlow.PreRace.Level=RaceSelectionState.Level
+	
+	if RaceSelectionState.Rules then 
+		db.GameFlow.PreRace.Rules = RaceSelectionState.Rules
+	end
+	
+	db.GameFlow.PreRace.HandlingDamage = 0
+	if IsNormalRace() then
+		db.GameFlow.PreRace.Laps = RaceSelectionState.Laps
+		db.GameFlow.PreRace.Weather = RaceSelectionState.Weather
+		db.GameFlow.PreRace.UpgradeLevel = RaceSelectionState.UpgradeLevel
+		db.GameFlow.PreRace.HandlingDamage = RaceSelectionState.HandlingDamage
+		db.GameFlow.PreRace.DamageMultiplier = RaceSelectionState.DamageMultiplier
+		db.GameFlow.PreRace.NitroMultiplier = RaceSelectionState.NitroMultiplier
+		
+		if RaceSelectionState.RaceType == TRACKTYPE_DERBY or RaceSelectionState.Rules == GR_DERBY then
+			db.GameFlow.PreRace.DerbyType = RaceSelectionState.DerbyType
+		end
+			
+		if Levels[RaceSelectionState.Level].Weathers == nil or Levels[RaceSelectionState.Level].Weathers[2] == nil then
+			db.GameFlow.PreRace.Weather = 1
+		end
+		
+		if Levels[RaceSelectionState.Level].ForceOneLapOnly then
+			db.GameFlow.PreRace.Laps=1
+		end
+	end
+	
+	ChloeCollection_ReinitHooks()
+	if db.GameFlow.PreRace.Rules == GR_TIME_TRIAL then
+		db.GameFlow.PreRace.Rules=GR_DEFAULT
+		if Levels[RaceSelectionState.Level].ForceOneLapOnly then
+			db.GameFlow.PreRace.Laps=1
+			RaceSelectionState.ThreeLapMode = 0
+		elseif RaceSelectionState.ThreeLapMode == 1 then
+			db.GameFlow.PreRace.Laps=3
+		else
+			db.GameFlow.PreRace.Laps=10
+		end
+		TimeTrial_SetEnabled(1)
+		TimeTrial_SetPropsEnabled(RaceSelectionState.PropsEnabled)
+		TimeTrial_SetNitroType(RaceSelectionState.NitroType)
+		TimeTrial_SetUpgradeLevel(RaceSelectionState.UpgradeLevel)
+		TimeTrial_SetHandlingMode(Settings["Game"]["HandlingMode"])
+		if RaceSelectionState.IsFO2Track ~= nil and RaceSelectionState.IsFO2Track == true then
+			TimeTrial_SetIsFO2Track(1)
+		else
+			TimeTrial_SetIsFO2Track(0)
+		end
+		TimeTrial_Set3LapMode(RaceSelectionState.ThreeLapMode)
+		TimeTrial_SetCareerMode(0)
+		TimeTrial_SetCareerRallyMode(0)
+		ChloeCollection_SetIsTimeTrial(1)
+	elseif db.GameFlow.PreRace.Rules == GR_TONYHAWK then
+		db.GameFlow.PreRace.Rules=GR_ARCADE_RACE
+		db.GameFlow.PreRace.Laps=10
+		ChloeCollection_SetStuntSimpleUI(1)
+		ChloeCollection_SetStuntTime(RaceSelectionState.TonyHawkTime)
+		ChloeCollection_SetStuntHandling(RaceSelectionState.TonyHawkHandling)
+		ChloeCollection_SetStuntMode(1)
+	elseif db.GameFlow.PreRace.Rules == GR_SPEEDTRAP then
+		if Levels[RaceSelectionState.Level].ForceOneLapOnly then
+			RaceSelectionState.Laps=1
+		end
+		db.GameFlow.PreRace.Rules=GR_ARCADE_RACE
+		db.GameFlow.PreRace.Laps=RaceSelectionState.Laps
+		ChloeCollection_SetSpeedtrapSimpleUI(1)
+		--ChloeCollection_SetSpeedtrapLaps(RaceSelectionState.Laps)
+		ChloeCollection_SetSpeedtrapMode(1)
+	elseif db.GameFlow.PreRace.Rules == GR_DRIFT then
+		if Levels[RaceSelectionState.Level].ForceOneLapOnly then
+			db.GameFlow.PreRace.Laps=1
+		else
+			db.GameFlow.PreRace.Laps=10
+		end
+		db.GameFlow.PreRace.Rules=GR_ARCADE_RACE
+		ChloeCollection_SetDriftSimpleUI(1)
+		ChloeCollection_SetDriftTime(RaceSelectionState.TonyHawkTime)
+		ChloeCollection_SetDriftMode(1)
+	elseif db.GameFlow.PreRace.Rules == GR_LAPKNOCKOUT then
+		if Levels[RaceSelectionState.Level].ForceOneLapOnly then
+			db.GameFlow.PreRace.Laps=1
+		else
+			db.GameFlow.PreRace.Laps = RaceSelectionState.Laps
+		end
+		db.GameFlow.PreRace.Rules=GR_RACE
+		ChloeCollection_SetLapKnockoutMode(1)
+	elseif db.GameFlow.PreRace.Rules == GR_KNOCKOUT then
+		if Levels[RaceSelectionState.Level].ForceOneLapOnly then
+			db.GameFlow.PreRace.Laps=1
+		else
+			db.GameFlow.PreRace.Laps=10
+		end
+		db.GameFlow.PreRace.Rules=GR_RACE
+		ChloeCollection_SetTimedKnockoutMode(1)
+	end
+	
+	if RaceSelectionState.IsFO2Track ~= nil and RaceSelectionState.IsFO2Track == true then
+		ChloeCollection_SetTrackFO2Variant(1)
+	else
+		ChloeCollection_SetTrackFO2Variant(0)
+	end
+	
+	Event:PostEvent(event(EVENT_RACE_BEGIN))
+end
+
+function EnterSingleRaceSelection(backfunction,type,okfunction,rule)
+
+	--//db.GameFlow.PreRace.Mode=GM_SINGLE_RACE --//RaceSelectionState.GameMode
+
+	RaceSelectionState={} --//newTransaction()
+	RaceSelectionState.GameMode=GM_SINGLE_RACE
+	RaceSelectionState.RaceType=type
+	RaceSelectionState.backmenu=backfunction
+	RaceSelectionState.Rules=rule
+
+	singlerace_selected=okfunction
+	--//RaceSelectionState:nextPhase()
+
+	if type then
+		EnterMenu("menu_singleplayer_trackselection")
+	else
+		EnterMenu("menu_singleplayer_racetype")
+	end
+end
+
+
+
+
+
+local state
+
+local event_type_names = {
+	TRANSLATOR(EVENTSET_RACE),
+	TRANSLATOR(EVENTSET_DERBIESDIRTSOVALS),
+	TRANSLATOR(EVENTSET_STUNTS),
+}
+
+local race_type_names = {
+	{ name=TRANSLATOR(RACETRACKTYPE_FOREST), bg="event_forest", tracktype=TRACKTYPE_FOREST, },
+	{ name=TRANSLATOR(RACETRACKTYPE_FIELDS), bg="event_field", tracktype=TRACKTYPE_FIELDS, },
+	{ name=TRANSLATOR(RACETRACKTYPE_DESERT), bg="event_desert", tracktype=TRACKTYPE_DESERT, },
+	{ name=TRANSLATOR(RACETRACKTYPE_CANAL), bg="event_canal", tracktype=TRACKTYPE_CANAL, },
+	{ name=TRANSLATOR(RACETRACKTYPE_CITY), bg="event_city", tracktype=TRACKTYPE_CITY, },
+	{ name=TRANSLATOR(RACETRACKTYPE_RACING), bg="event_racing", tracktype=TRACKTYPE_RACING, },
+	{ name=L(RACETRACKTYPE_FO1_TOWN), bg="event_fo1_town2", tracktype=TRACKTYPE_FO1_TOWN, },
+	{ name=L(RACETRACKTYPE_FO1_PIT), bg="event_fo1_pit1", tracktype=TRACKTYPE_FO1_PIT, },
+	{ name=L(RACETRACKTYPE_FO1_WINTER), bg="event_fo1_winter1", tracktype=TRACKTYPE_FO1_WINTER, },
+	{ name=L(RACETRACKTYPE_TOUGHTRUCKS), bg="event_toughtrucks1", tracktype=TRACKTYPE_TOUGHTRUCKS, },
+	{ name=L(RACETRACKTYPE_RALLYTROPHY), bg="event_rallytrophyfinland1", tracktype=TRACKTYPE_RALLYTROPHY, },
+	{ name=L(RACETRACKTYPE_RALLYTROPHYARCADE), bg="event_rallytrophyarcadefinland1", tracktype=TRACKTYPE_RALLYTROPHYARCADE, },
+	{ name=TRANSLATOR(RACETRACKTYPE_EVENTS), bg="single_bonus_pic", tracktype=TRACKTYPE_EVENT, },
+	{ name=TRANSLATOR(RACETRACKTYPE_STUNT), bg="event_stunt", tracktype=TRACKTYPE_STUNT, },
+	{ name=TRANSLATOR(RACETRACKTYPE_DERBY), bg="event_derby", tracktype=TRACKTYPE_DERBY, },
+	{ name=TRANSLATOR(RACETRACKTYPE_PITTHEBOMB), bg="event_derby", tracktype=TRACKTYPE_PITTHEBOMB, },
+	{ name=TRANSLATOR(RACETRACKTYPE_ARCADE_RACE), bg="event_race", tracktype=TRACKTYPE_ARCADE_RACING, },
+	{ name=TRANSLATOR(RACETRACKTYPE_TIME_TRIAL), bg="event_race", tracktype=TRACKTYPE_TIME_TRIAL, },
+}
+
+
+
+
+local function create_value(item,parent)
+	
+	local value=0
+	local o
+
+	if item.setting == "PropsEnabled" then
+		value=TimeTrial_GetPropsEnabled()
+	elseif item.setting == "ThreeLapMode" then
+		value=TimeTrial_Get3LapMode()
+	elseif item.setting == "TonyHawkTime" then
+		value=5
+	elseif item.setting == "TonyHawkHandling" then
+		value=ChloeCollection_GetStuntHandling()
+	elseif item.setting == "NitroType" then
+		value=TimeTrial_GetNitroType()
+	elseif item.setting and item.setting ~= "" then
+		value=db.GameFlow.PreRace[item.setting]
+	end
+
+
+	local arrowsize=GetResourceSize(menu_singleplayer_trackselection:getResource("ingame_options_arrow_left"))
+	local parentsize={ parent:GetSize() }
+
+	o=StaticText{Title=item.visualdata[value] or TRANSLATOR(MULTIPLAYER_MESSAGE_ERROR), Position=POS(parent.itempos[1]+9+arrowsize[1]+4,0),Color=GetPaletteColor(34),Font=fontextratiny(),Parent=parent}
+
+	o.item=item
+	o.parent=parent
+
+	o.activate = function(self)
+		self:SetColor(GetPaletteColor(33),false)
+
+		if table.getn(self.item.data) > 1 then
+			local x,y = self.parent:GetPosition()
+			local arrowsize=GetResourceSize(menu_singleplayer_trackselection:getResource("ingame_options_arrow_left_glow"))
+			local textw=wm.GetTextWidth(self:GetTitle(),fontextratiny())
+
+			menu_singleplayer_trackselection.leftarrow:SetPosition(self.parent.itempos[1]+9,y)--+(parentsize[2]/2-arrowsize[2]/2))
+			menu_singleplayer_trackselection.rightarrow:SetPosition(self.parent.itempos[1]+9+arrowsize[1]+4+textw+4,y)--+(parentsize[2]/2-arrowsize[2]/2))
+		end
+	end
+
+	o.deactivate = function(self)
+		self:SetColor(GetPaletteColor(1),false)
+		menu_singleplayer_trackselection.leftarrow:StopFlash()
+		menu_singleplayer_trackselection.rightarrow:StopFlash()
+	end
+
+	o.moveLeft = function(self)
+		local value=self:getValue()
+
+		if value > 1 then
+			self:setValue(value-1)
+		else
+			self:setValue(table.getn(self.item.data))
+		end
+
+		playmenusound_move()
+		self:setTitle()
+		menu_singleplayer_trackselection.leftarrow:Flash(-1)
+	end
+
+	o.moveRight = function(self)
+		local value=self:getValue()
+		local maxvalue=table.getn(self.item.data)
+
+		if value < maxvalue then
+			self:setValue(value+1)
+		else
+			self:setValue(1)
+		end
+
+		playmenusound_move()
+		self:setTitle()
+		menu_singleplayer_trackselection.rightarrow:Flash(1)
+	end
+
+	
+
+	o.setTitle = function(self)
+		local value=self:getValue()		
+
+
+		local title=self.item.visualdata[value] or TRANSLATOR(MULTIPLAYER_MESSAGE_ERROR)
+
+		if self.item.setting == "Weather" then
+			if RaceSelectionState.Level and Levels[RaceSelectionState.Level].Weathers and Levels[RaceSelectionState.Level].Weathers[value] then
+				title=weathers[Levels[RaceSelectionState.Level].Weathers[value]] or title
+			else
+				title=weathers[WEATHER_DAY]
+			end
+		end
+
+		self:SetTitle(title)
+
+
+		local textw=wm.GetTextWidth(self:GetTitle(),fontextratiny())
+
+		local _,y=self.parent:GetPosition()--menu_singleplayer_trackselection.rightarrow:GetPosition()
+		local arrowsize=GetResourceSize(menu_singleplayer_trackselection:getResource("ingame_options_arrow_left_glow"))
+
+		menu_singleplayer_trackselection.rightarrow:SetPosition(self.parent.itempos[1]+9+arrowsize[1]+4+textw+4,y)
+
+	end
+
+	o.setValue = function(self,value)
+
+		if self.item.action then
+			self.item.action(self:getValue(),value)
+		end
+
+		self.value=value
+
+		if self.item.setting and self.item.setting ~= "" then
+			if RaceSelectionState then
+				RaceSelectionState[self.item.setting]=self.item.data[value]
+			end
+		end
+	end
+
+
+	o.getValue = function(self)
+
+		if not self.value then
+			self.value = 1
+		end
+
+		local value=self.value
+		return value
+	end
+
+	o.updateValue = function(self)
+		self.value=1
+		if self.item.setting and self.item.setting ~= "" then
+			local value=nil
+			if self.item.setting == "PropsEnabled" then
+				value=TimeTrial_GetPropsEnabled()
+			elseif self.item.setting == "ThreeLapMode" then
+				value=TimeTrial_Get3LapMode()
+			elseif self.item.setting == "TonyHawkTime" then
+				value=5
+			elseif self.item.setting == "TonyHawkHandling" then
+				value=ChloeCollection_GetStuntHandling()
+			elseif self.item.setting == "NitroType" then
+				value=TimeTrial_GetNitroType()
+			else
+				value=db.GameFlow.PreRace[self.item.setting]
+			end
+			for k,v in ipairs(self.item.data) do
+				if v == value then
+					self.value=k
+					break
+				end
+			end
+			self:setValue(self.value)
+		end
+		self:setTitle()
+	end
+
+	o:setTitle()
+
+	return o
+end
+
+local function create_option(item,parent)
+
+
+	local o
+
+	parent.title=StaticText{Title=item.title,Position=POS(parent.itempos[1]-9,0),Font=fontextratiny(),Align=FONTF_RIGHT,Color=GetPaletteColor(33),Parent=parent}
+
+
+	parent.moveLeft = function(self)
+		self.value:moveLeft()
+	end
+
+	parent.moveRight = function(self)
+		self.value:moveRight()
+	end
+
+
+	o=create_value(item,parent)
+
+	parent.value=o
+
+end
+
+local function update_options(options)
+	if not IsNormalRace() then return end	
+
+	for k,v in ipairs(options) do
+		if v.frame then 
+			v.frame.value:updateValue()
+		end
+	end
+end
+
+
+
+local function create_options(options,pos)
+	
+	local pos=pos or POS(0,271)
+	local parent
+
+	local itempos=POS(487,0)
+	local gfxpos=POS(330,0)
+
+	for k,v in ipairs(options) do
+		if v.title then
+
+		
+			if v.ypos then
+				pos[2]=v.ypos
+			end
+			
+			parent=Frame{Position=pos,Size=SIZE(640,14)}
+
+			parent.gfx={}
+			parent.gfx[1]=Frame{Position=gfxpos,Size=SIZE(14,14),Parent=parent}:AttachResource(menu_singleplayer_trackselection:getResource("track_options_bd_black_1"))
+			parent.gfx[2]=Frame{Position=POS(gfxpos[1]+14,gfxpos[2]),Size=SIZE(ChloeWidescreen_GetRight(),14),Parent=parent}:AttachResource(menu_singleplayer_trackselection:getResource("track_options_bd_black_2"))
+
+			parent.itempos=CopyTable(itempos)
+
+			parent.activate = function(self)
+				self.gfx[1]:AttachResource(menu_singleplayer_trackselection:getResource("track_options_bd_white_1"))
+				self.gfx[2]:AttachResource(menu_singleplayer_trackselection:getResource("track_options_bd_white_2"))
+
+				self.value:activate()
+			end
+
+			parent.deactivate = function(self)
+				self.gfx[1]:AttachResource(menu_singleplayer_trackselection:getResource("track_options_bd_black_1"))
+				self.gfx[2]:AttachResource(menu_singleplayer_trackselection:getResource("track_options_bd_black_2"))
+
+
+				self.value:deactivate()
+			end
+
+			parent.onPressed = function(self)
+				if self.value.onPressed then
+					self.value:onPressed()
+				end
+			end
+
+			create_option(v,parent)
+
+			v.frame=parent
+
+			parent:deactivate()
+
+		end
+
+		pos[2] = pos[2] + 15
+
+		gfxpos[1] = gfxpos[1] + 4
+	end
+end
+
+
+--// ---------------------------------------------------------------------------------------------------------------------------------
+--// SINGLE RACE RACETYPE
+--// ---------------------------------------------------------------------------------------------------------------------------------
+
+local function SetBackground(id)
+	GUI:SetBackground("data/menu/"..race_type_names[id].bg)
+end
+
+
+
+
+menu_singleplayer_racetype = CreateMenuFromTemplate("template_basic")
+
+
+menu_singleplayer_racetype.options.title=TRANSLATOR(TITLE_RACETYPE)
+
+menu_singleplayer_racetype.back=function()
+	RaceSelectionState=nil
+	EnterMenu("menu_singleplayer_events")
+end
+
+
+
+function menu_singleplayer_racetype.create(self)
+	self.parent:create(self)
+
+	self:addResource("event_type_icons.tga",event_type_icons,event_type_icons_size)
+	self:addResource("event_type_icons_2.tga",event_type_icons_2,event_type_icons_2_size)
+	self:addResource("event_type_icons_3.tga",event_type_icons_3,event_type_icons_3_size)
+	self:addResource("event_type_icons_4.tga",event_type_icons_4,event_type_icons_4_size)
+
+	self:addResource("event_type_images_wide_ws.tga",event_type_images_wide,event_type_images_wide_size)
+	self:addResource("event_type_images_wide_mainmenu.tga",event_type_images_wide_mainmenu,event_type_images_wide_mainmenu_size)
+
+	self:addResource("game_mode_selector_ws.tga",game_mode_selector,game_mode_selector_size)	
+
+
+	self:loadResources()
+
+	local function onChildAction()
+		EnterMenu("menu_singleplayer_trackselection")
+	end
+
+	local function getOnChildAction()
+		return onChildAction
+	end
+
+	local function icon(name)
+		return self:getResource(name),self:getResource(name)
+	end
+
+	self.items= {
+		{ L"",getOnChildAction(),icon("race_type_1") }, --//icon("race_type_1")),
+		{ L"",getOnChildAction(),icon("race_type_2") },
+		{ L"",getOnChildAction(),icon("race_type_3") },
+		{ L"",getOnChildAction(),icon("race_type_4") },
+		{ L"",getOnChildAction(),icon("race_type_5") },
+		{ L"",getOnChildAction(),icon("race_type_6") },
+		-- custom: FO1 / Tough Trucks / Rally Trophy categories removed (see racetype_button_map)
+		{ L"",getOnChildAction(),icon("event_type_2") },
+	}
+
+
+end
+
+
+function menu_singleplayer_racetype.init(self)
+	self.parent:init(self)
+
+
+	state={}
+
+
+
+
+	Frame{Position=POS(ChloeWidescreen_GetLeft(),64),Size=SIZE(ChloeWidescreen_GetRight(),42)}:AttachResource(self:getResource("game_mode_main_bd"))
+	Frame{Position=POS(ChloeWidescreen_GetLeft(),110),Size=SIZE(ChloeWidescreen_GetRight(),128)}:AttachResource(self:getResource("game_mode_main_bd_2"))
+
+
+	FadingFrame{Name="type_image",Position=POS(64,118),Size=SIZE(512,112)}
+
+	FadingStaticText{Name="type_name",Position=POS(320,67),Align=FONTF_CENTER,Font=fonttitle(),Color=GetPaletteColor(33)}
+
+	Frame{Position=POS(ChloeWidescreen_GetLeft(),244),Size=SIZE(ChloeWidescreen_GetRight(),114)}:AttachResource(self:getResource("game_mode_bd_str"))
+
+	StaticText{Title=TRANSLATOR(CAREER_DESCRIPTION),Position=POS(320,244),Font=fontsmall(),Align=FONTF_CENTER,Color=GetPaletteColor(33)}
+
+
+	FadingStaticText{Name="type_description",Position=POS(320,275),Size=SIZE(400,110),Font=fontextratiny(),Color=GetPaletteColor(34),Align=FONTF_CENTER}
+
+	GUI:SetMenuSelectionResource(self:getResource("selection_additive_glow"))
+	GUI:InitMenuButtons(self.items)
+
+	GUI:SetHelpButtons(BUTTON_BACK,TRANSLATOR(UI_BACK),BUTTON_OK,TRANSLATOR(UI_SELECT))
+end
+
+function menu_singleplayer_racetype.deinit(self)
+	self.parent:deinit(self)
+
+
+
+end
+
+-- custom: menu button index -> TRACKTYPE (buttons 7-12 removed, button 7 is now TRACKTYPE_EVENT)
+local racetype_button_map = { 1, 2, 3, 4, 5, 6, 13 }
+
+function menu_singleplayer_racetype.buttonChange(self,oldbutton,newbutton)
+	local id = racetype_button_map[newbutton] or newbutton
+	RaceSelectionState.RaceType=id
+	W("type_image"):AttachResource(self:getResource(race_type_names[id].bg))
+	W("type_name"):SetTitle(race_type_names[id].name)
+	W("type_description"):SetTitle(tracktype_descriptions[id])
+	W("type_description"):WordWrap()
+end
+
+function GetTracksByTypeUnlocked(type)
+	local tracks={}
+
+	for k,v in ipairs(Levels) do
+		if v.TrackType and v.TrackType == type and not v.IsMultiplayerOnly and not v.ChloeCustomHidden and not ChloeCollection_IsTrackLockedByCheatCode(k) then
+			if RaceSelectionState.Rules == GR_TIME_TRIAL or RaceSelectionState.Rules == GR_DRIFT or RaceSelectionState.Rules == GR_TONYHAWK or not v.NoAI then
+				table.insert(tracks,{level_id=k,locked=false,name=ConvertToWString(v.Name),image=v.TrackImage,logo=v.TrackLogo})
+			end
+		end
+	end
+
+	return tracks
+end
+
+function GetTracksForTonyHawk(type)
+	local tracks={}
+
+	for k,v in ipairs(Levels) do
+		if v.TrackType and v.AllowTonyHawk and not v.IsMultiplayerOnly and not v.ChloeCustomHidden and not ChloeCollection_IsTrackLockedByCheatCode(k) then
+			table.insert(tracks,{level_id=k,locked=false,name=ConvertToWString(v.Name),image=v.TrackImage,logo=v.TrackLogo})
+		end
+	end
+
+	return tracks
+end
+
+function GetTracksForSpeedtrap(type)
+	local tracks={}
+
+	for k,v in ipairs(Levels) do
+		if v.TrackType and v.AllowSpeedtrap and not v.IsMultiplayerOnly and not v.ChloeCustomHidden and not ChloeCollection_IsTrackLockedByCheatCode(k) then
+			if RaceSelectionState.Rules == GR_TIME_TRIAL or RaceSelectionState.Rules == GR_DRIFT or RaceSelectionState.Rules == GR_TONYHAWK or not v.NoAI then
+				table.insert(tracks,{level_id=k,locked=false,name=ConvertToWString(v.Name),image=v.TrackImage,logo=v.TrackLogo})
+			end
+		end
+	end
+
+	return tracks
+end
+
+local DIRECTION_NONE = 0
+local DIRECTION_LEFT = 1
+local DIRECTION_RIGHT = 2
+
+local function SwitchTrackInfoName()
+	local levelid=tracks[RaceSelectionState.Id].level_id
+	local leveldata=Levels[levelid]
+	if ChloeCollection_DoesTrackHaveFO2Variant(levelid) then
+		if RaceSelectionState.IsFO2Track ~= nil and RaceSelectionState.IsFO2Track == true then
+			W("track_name"):SetTitle(ConvertToWString("FO2 "..leveldata.Name))
+		else
+			W("track_name"):SetTitle(ConvertToWString(leveldata.Name))
+		end
+	else
+		RaceSelectionState.IsFO2Track = false
+		AUDIO.PlayMenuSound(AUDIO.MENUSFX_ERROR)
+	end
+end
+
+local function SwitchTrackInfo(self,direction,id)
+	if IsNormalRace() then
+		if ChloeCollection_DoesTrackHaveFO2Variant(tracks[id].level_id) then
+			GUI:SetHelpButtons(BUTTON_OPTIONS,TRANSLATOR(UI_TRACKOPTIONS),BUTTON_INFO,TRANSLATOR(MULTIPLAYER_ICON_CHANGETRACK),BUTTON_OK,TRANSLATOR(UI_SELECT),BUTTON_BACK,TRANSLATOR(UI_BACK))
+		else
+			GUI:SetHelpButtons(BUTTON_OPTIONS,TRANSLATOR(UI_TRACKOPTIONS),BUTTON_OK,TRANSLATOR(UI_SELECT),BUTTON_BACK,TRANSLATOR(UI_BACK))
+		end
+	end
+	
+	RaceSelectionState.IsFO2Track = false
+
+	local leveldata=Levels[tracks[id].level_id]
+
+	db.GameFlow.PreRace.Laps = leveldata.Laps
+	if RaceSelectionState.NitroMultiplier then
+		db.GameFlow.PreRace.NitroMultiplier = RaceSelectionState.NitroMultiplier
+	end
+	if RaceSelectionState.DamageMultiplier then
+		db.GameFlow.PreRace.DamageMultiplier = RaceSelectionState.DamageMultiplier
+	end
+	if RaceSelectionState.UpgradeLevel then
+		db.GameFlow.PreRace.UpgradeLevel = RaceSelectionState.UpgradeLevel
+	end
+	if RaceSelectionState.HandlingDamage then
+		db.GameFlow.PreRace.HandlingDamage = RaceSelectionState.HandlingDamage
+	end
+	if RaceSelectionState.DerbyType then
+		db.GameFlow.PreRace.DerbyType = RaceSelectionState.DerbyType
+	end
+	if RaceSelectionState.NitroType then
+		TimeTrial_SetNitroType(RaceSelectionState.NitroType)
+	end
+	if RaceSelectionState.PropsEnabled then
+		TimeTrial_SetPropsEnabledBool(RaceSelectionState.PropsEnabled)
+	end
+	if RaceSelectionState.ThreeLapMode then
+		TimeTrial_Set3LapMode(RaceSelectionState.ThreeLapMode)
+	end
+	if RaceSelectionState.TonyHawkHandling then
+		ChloeCollection_SetStuntHandling(RaceSelectionState.TonyHawkHandling)
+	end
+	db.GameFlow.PreRace.Weather = 1
+
+	update_options(track_options)
+
+	local w=W("track_name")
+	W("track_name"):SetTitle(ConvertToWString(leveldata.Name))
+
+	if W("lapcount") then
+		if W("stunt_goal") then W("stunt_goal"):HideWindow() end
+
+		if leveldata.Rules and leveldata.Rules == GR_DERBY then
+			W("lap_icon"):HideWindow()
+			W("lapcount"):HideWindow()
+			W("track_info_title"):HideWindow()
+		else
+			W("track_info_title"):ShowWindow()
+			W("lap_icon"):ShowWindow()
+			W("lapcount"):ShowWindow()
+			W("lapcount"):SetTitle(ConvertToWString(string.format("%d LAPS",leveldata.Laps or 0)))
+		end
+	end
+
+	if W("stunt_goal") and leveldata.StuntType then
+		if W("lap_icon") then W("lap_icon"):HideWindow() end
+		if W("lapcount") then W("lapcount"):HideWindow() end
+
+		W("track_info_title"):ShowWindow()
+		W("stunt_goal"):ShowWindow()
+		W("stunt_goal"):SetTitle(TRANSLATOR(stunt_goals[leveldata.StuntType]))
+	end
+
+
+
+	if W("highscore") then
+		local highscore=GetHighScore(tracks[id].level_id)
+		W("highscore"):SetTitle(FormatHighScore(highscore))
+	end
+
+
+	local trackDesc = TRANSLATOR(leveldata.Description)
+	if (trackDesc == 65535) then
+        trackDesc = L(leveldata.Description)
+	end
+	W("track_description"):SetTitle(trackDesc)
+	W("track_description"):WordWrap()
+
+	local image=leveldata.TrackImage or ""
+	W("track_image"):AttachResource(self:getResource(image))
+end
+
+
+menu_singleplayer_trackselection = CreateMenuFromTemplate("template_basic")
+
+
+menu_singleplayer_trackselection.options.title=TRANSLATOR(TITLE_SELECTRACE)
+menu_singleplayer_trackselection.options.forgetselection = true
+menu_singleplayer_trackselection.items={}
+
+menu_singleplayer_trackselection.back = function()
+
+	--//RaceSelectionState:prevPhase()
+	if RaceSelectionState.backmenu then
+		RaceSelectionState.backmenu()
+	else
+		EnterMenu("menu_singleplayer_racetype")
+	end
+end
+
+menu_singleplayer_trackselection.buttonPressed=function(self,button,selected)
+	if button == KeyCodes.BUTTON_OPTIONS then
+		if not IsNormalRace() then
+			return
+		end
+
+		self.leftarrow:ShowWindow()
+		self.rightarrow:ShowWindow()
+		W("inputhandler"):activate(1)
+	elseif button == KeyCodes.BUTTON_INFO then
+		if not IsNormalRace() then
+			return
+		end
+		
+		if RaceSelectionState.IsFO2Track == nil or RaceSelectionState.IsFO2Track == false then
+			RaceSelectionState.IsFO2Track = true
+		else
+			RaceSelectionState.IsFO2Track = false
+		end
+		SwitchTrackInfoName()
+	end
+end
+
+
+
+local function onChildAction()
+	local self=menu_singleplayer_trackselection
+
+	if self.pressed then return end
+	self.pressed=true
+
+
+	--//playmenusound_action()
+
+	
+	if singlerace_selected then
+		local selection=CopyTable(RaceSelectionState)
+		singlerace_selected(selection)
+		RaceSelectionState=nil
+	else
+		local carlist
+		local bg
+		if RaceSelectionState.RaceType == TRACKTYPE_STUNT then
+			carlist=CarlistStuntCars()
+			bg="data/menu/stunt_car_selection_bg.tga"
+		else
+			carlist=CarlistAllCars()
+		end
+		
+		SetUpgradeLevelForStats()
+
+		EnterCarSelection(carselected,
+				function()
+					--//RaceSelectionState:prevPhase()
+					EnterMenu("menu_singleplayer_trackselection")
+				end,carlist,false,true,false,false,bg,nil,true,TRANSLATOR(TITLE_SELECTCAR),true)
+	end
+end
+
+
+
+function menu_singleplayer_trackselection.create(self)
+
+	
+	self.pressed=nil
+	self.backpressed=nil
+
+	self.parent:create(self)	
+
+	self.items={}
+
+	self.options.title=TRANSLATOR(TITLE_SELECTRACE)
+	
+	local racetype=RaceSelectionState.RaceType
+
+	if racetype == TRACKTYPE_STUNT then
+		self.options.title=TRANSLATOR(TITLE_SELECTSTUNT)
+	elseif racetype == TRACKTYPE_EVENT or racetype == TRACKTYPE_TONYHAWK or racetype == TRACKTYPE_SPEEDTRAP then
+		self.options.title=TRANSLATOR(TITLE_SELECT_EVENT)
+	elseif racetype == TRACKTYPE_DERBY then
+		self.options.title=TRANSLATOR(TITLE_SELECT_DERBY)
+	end
+
+	self:addResource("game_mode_selector_ws.tga",game_mode_selector,game_mode_selector_size)	
+	self:addResource("track_images.tga",track_images,track_images_size)
+	self:addResource("event_type_icons_2.tga",event_type_icons_2,event_type_icons_2_size)
+	self:addResource("event_type_icons_3.tga",event_type_icons_3,event_type_icons_3_size)
+	self:addResource("event_type_icons_4.tga",event_type_icons_4,event_type_icons_4_size)
+	
+	if racetype == TRACKTYPE_TONYHAWK or racetype == TRACKTYPE_SPEEDTRAP then
+		self:addResource("track_images_wide_1_ws.tga",track_images_wide_1,track_images_wide_1_size)
+		self:addResource("track_images_wide_2_ws.tga",track_images_wide_2,track_images_wide_2_size)
+		self:addResource("track_images_wide_3_ws.tga",track_images_wide_3,track_images_wide_3_size)
+		self:addResource("track_images_wide_4_ws.tga",track_images_wide_4,track_images_wide_4_size)
+		self:addResource("track_images_wide_5_ws.tga",track_images_wide_5,track_images_wide_5_size)
+		self:addResource("track_images_wide_6_ws.tga",track_images_wide_6,track_images_wide_6_size)
+		self:addResource("track_images_wide_7_ws.tga",track_images_wide_7,track_images_wide_7_size)
+		self:addResource("event_type_images_wide_2.tga",event_type_images_wide_2,event_type_images_wide_2_size)
+		self:addResource("event_type_images_wide_tt.tga",event_type_images_wide_tt,event_type_images_wide_tt_size)
+		self:addResource("event_type_images_wide_karelia.tga",event_type_images_wide_karelia,event_type_images_wide_karelia_size)
+		self:addResource("event_type_images_wide_kenya.tga",event_type_images_wide_kenya,event_type_images_wide_kenya_size)
+		self:addResource("event_type_images_wide_finland.tga",event_type_images_wide_finland,event_type_images_wide_finland_size)
+		self:addResource("event_type_images_wide_sweden.tga",event_type_images_wide_sweden,event_type_images_wide_sweden_size)
+		self:addResource("event_type_images_wide_switzerland.tga",event_type_images_wide_switzerland,event_type_images_wide_switzerland_size)
+		self:addResource("event_type_images_wide_arcade.tga",event_type_images_wide_arcade,event_type_images_wide_arcade_size)
+		self:addResource("event_type_images_wide_extras.tga",event_type_images_wide_extras,event_type_images_wide_extras_size)
+	else
+		local images = tracktype_images[racetype]
+	
+		for k,v in ipairs(images) do
+			if string.find(v, "event_type_images")==nil then
+				self:addResource(v.."_ws.tga",_G[v],_G[v.."_size"])
+			else
+				self:addResource(v..".tga",_G[v],_G[v.."_size"])
+			end
+		end
+	end
+
+	self:loadResources()
+
+	local function getIcon(name)
+		return menu_singleplayer_trackselection:getResource(name),menu_singleplayer_trackselection:getResource(name)
+	end
+
+	tracks=nil
+	
+	if racetype == TRACKTYPE_TONYHAWK then
+		tracks=GetTracksForTonyHawk(racetype)
+	elseif racetype == TRACKTYPE_SPEEDTRAP then
+		tracks=GetTracksForSpeedtrap(racetype)
+	else
+		tracks=GetTracksByTypeUnlocked(racetype)
+	end
+	
+	for k,v in ipairs(tracks) do
+		local data=Levels[v.level_id]
+		OUTPUTDEBUGSTRING(string.format("level %d %s icon=%s",v.level_id,data.Name,data.TrackIcon))
+		table.insert(self.items,{ L"", onChildAction,getIcon(data.TrackIcon) } )
+	end
+end
+
+
+function menu_singleplayer_trackselection.init(self)
+	self.parent:init(self)
+
+	state={}
+
+	SetCurrentMenuCar()
+
+
+	RaceSelectionState.Id=nil
+
+	Frame{Position=POS(ChloeWidescreen_GetLeft(),70),Size=SIZE(ChloeWidescreen_GetRight(),35)}:AttachResource(self:getResource("game_mode_main_bd"))
+	Frame{Position=POS(ChloeWidescreen_GetLeft(),110),Size=SIZE(ChloeWidescreen_GetRight(),128)}:AttachResource(self:getResource("game_mode_main_bd_2"))
+
+	FadingFrame{Name="track_image",Position=POS(64,118),Size=SIZE(512,112)}
+
+	FadingStaticText{Name="track_name",Position=POS(320,67),Align=FONTF_CENTER,Font=fonttitle(),Color=GetPaletteColor(33)}
+
+	local rules = RaceSelectionState.Rules
+	local racetype=RaceSelectionState.RaceType
+
+	local derby
+	local time_trial
+	local race
+	local event
+	local tonyhawk
+	local speedtrap
+	local drift
+	local knockout
+
+	if rules == GR_TIME_TRIAL then
+		time_trial=true
+	elseif rules == GR_TONYHAWK then
+		tonyhawk=true
+	elseif rules == GR_SPEEDTRAP then
+		speedtrap=true
+	elseif rules == GR_DRIFT then
+		drift=true
+	elseif rules == GR_KNOCKOUT then
+		knockout=true
+	elseif racetype == TRACKTYPE_DERBY or rules == GR_DERBY then
+		derby=true
+	elseif racetype == TRACKTYPE_EVENT then
+		event=true
+	elseif rules == GR_DEFAULT or rules == GR_RACE then
+		race=true
+	end
+
+
+	if IsNormalRace() then
+		Frame{Position=POS(ChloeWidescreen_GetLeft(),244),Size=SIZE(292-ChloeWidescreen_GetLeft(),114)}:AttachResource(self:getResource("game_mode_bd_str"))
+		Frame{Position=POS(292,244),Size=SIZE(67,114)}:AttachResource(self:getResource("game_mode_bd_tips"))
+		Frame{Position=POS(359,244),Size=SIZE(ChloeWidescreen_GetRight()-359,114)}:AttachResource(self:getResource("game_mode_bd_str"))
+
+		StaticText{Title=TRANSLATOR(CAREER_DESCRIPTION),Align=FONTF_CENTER,Position=POS(170,244),Font=fontsmall(),Color=GetPaletteColor(33)}
+
+		FadingStaticText{Name="track_description",Position=POS(170,277),Size=SIZE(260,110),Font=fontextratiny(),Align=FONTF_CENTER,Color=GetPaletteColor(34)}
+
+
+		StaticText{Title=TRANSLATOR(OPTIONS_RACEOPTIONS),Align=FONTF_CENTER,Position=POS(473,244),Font=fontsmall(),Color=GetPaletteColor(33)}
+
+		
+		if derby then
+			track_options=track_options_derby
+		elseif time_trial then
+			if racetype == TRACKTYPE_EVENT then
+				track_options=track_options_time_trial_event
+			elseif racetype == TRACKTYPE_RALLYTROPHY then
+				track_options=track_options_time_trial_rallytrophy
+			else
+				track_options=track_options_time_trial
+			end
+		elseif drift then
+			if racetype == TRACKTYPE_EVENT or racetype == TRACKTYPE_RALLYTROPHY then
+				track_options=track_options_drift_event
+			else
+				track_options=track_options_drift
+			end
+		elseif knockout then
+			if racetype == TRACKTYPE_EVENT or racetype == TRACKTYPE_RALLYTROPHY then
+				track_options=track_options_knockout_event
+			else
+				track_options=track_options_knockout
+			end
+		elseif tonyhawk then
+			track_options=track_options_tonyhawk_event
+		elseif speedtrap then
+			track_options=track_options_speedtrap_event
+		elseif event then
+			track_options=track_options_event
+		elseif racetype == TRACKTYPE_RALLYTROPHY then
+			track_options=track_options_rallytrophy
+		else
+			track_options=track_options_race
+		end
+
+		self.leftarrow = CreateArrow(self, "leftarrow", "ingame_options_arrow_left")
+		self.rightarrow = CreateArrow(self, "rightarrow", "ingame_options_arrow_right")
+		self.leftarrow:HideWindow()
+		self.rightarrow:HideWindow()
+
+		create_options(track_options)
+	else
+		Frame{Position=POS(ChloeWidescreen_GetLeft(),244),Size=SIZE(ChloeWidescreen_GetRight(),114)}:AttachResource(self:getResource("game_mode_bd_str"))
+		
+		StaticText{Title=TRANSLATOR(CAREER_DESCRIPTION),Align=FONTF_CENTER,Position=POS(320,244),Font=fontsmall(),Color=GetPaletteColor(33)}
+
+		FadingStaticText{Name="track_description",Position=POS(320,277),Size=SIZE(260,110),Font=fontextratiny(),Align=FONTF_CENTER,Color=GetPaletteColor(34),Align=FONTF_CENTER}
+	end
+
+	GUI:SetMenuSelectionResource(self:getResource("selection_additive_glow"))
+	GUI:InitMenuButtons(self.items)
+
+	if IsNormalRace() then
+		if ChloeCollection_DoesTrackHaveFO2Variant(tracks[1].level_id) then
+			GUI:SetHelpButtons(BUTTON_OPTIONS,TRANSLATOR(UI_TRACKOPTIONS),BUTTON_INFO,TRANSLATOR(MULTIPLAYER_ICON_CHANGETRACK),BUTTON_OK,TRANSLATOR(UI_SELECT),BUTTON_BACK,TRANSLATOR(UI_BACK))
+		else
+			GUI:SetHelpButtons(BUTTON_OPTIONS,TRANSLATOR(UI_TRACKOPTIONS),BUTTON_OK,TRANSLATOR(UI_SELECT),BUTTON_BACK,TRANSLATOR(UI_BACK))
+		end
+	else
+		GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_SELECT),BUTTON_BACK,TRANSLATOR(UI_BACK))
+	end
+
+
+	local input=InputHandler{Name="inputhandler"}
+	input.options=track_options
+
+	input.onKeyPressed = function(self,character,virtualkey,scancode)
+		if virtualkey == KeyCodes.BUTTON_SELECT then
+			playmenusound_back()
+			self:deactivate(self.item)
+			menu_singleplayer_trackselection.leftarrow:HideWindow()
+			menu_singleplayer_trackselection.rightarrow:HideWindow()
+			GUI:SetActiveItem(RaceSelectionState.Id)
+			GUI:ShowMenuButtons()
+			if ChloeCollection_DoesTrackHaveFO2Variant(tracks[RaceSelectionState.Id].level_id) then
+				GUI:SetHelpButtons(BUTTON_OPTIONS,TRANSLATOR(UI_TRACKOPTIONS),BUTTON_INFO,TRANSLATOR(MULTIPLAYER_ICON_CHANGETRACK),BUTTON_OK,TRANSLATOR(UI_SELECT),BUTTON_BACK,TRANSLATOR(UI_BACK))
+			else
+				GUI:SetHelpButtons(BUTTON_OPTIONS,TRANSLATOR(UI_TRACKOPTIONS),BUTTON_OK,TRANSLATOR(UI_SELECT),BUTTON_BACK,TRANSLATOR(UI_BACK))
+			end
+		elseif virtualkey == KeyCodes.BUTTON_LEFT then
+			playmenusound_move()
+			self.options[self.item].frame:moveLeft()
+
+		elseif virtualkey == KeyCodes.BUTTON_RIGHT then
+			playmenusound_move()
+			self.options[self.item].frame:moveRight()
+
+		elseif virtualkey == KeyCodes.BUTTON_DOWN then
+			local maxitems=table.getn(self.options)
+
+			local value=self.item+1
+			if value > maxitems then
+				value=1
+			end
+
+			while not self.options[value].title do
+				value=value + 1
+				if value > maxitems then
+					value=0
+				end
+			end
+
+			self:activate(value)
+			
+			playmenusound_move()
+
+		elseif virtualkey == KeyCodes.BUTTON_UP then
+
+			local value=self.item-1
+
+			if value < 1 then
+				value=table.getn(self.options)
+			end
+
+			while not self.options[value].title do
+				value=value-1
+
+				if value < 1 then
+					value=table.getn(self.options)
+				end
+			end
+
+			self:activate(value)
+
+			playmenusound_move()
+		end
+	end
+
+	input.activate = function(self,item)
+
+		local old_type
+
+		if self.item then
+			self:deactivate(self.item)
+			old_type=self.options[self.item].type
+		else
+			--//old_type=self.options[item].type
+		end
+
+		self.item=item
+
+		GUI:SetHelpButtons(BUTTON_BACK,TRANSLATOR(UI_BACK))
+
+		self.options[item].frame:activate()
+
+		self:SetFocus()
+		GUI:HideMenuButtons()
+	end
+
+	input.deactivate = function(self,item)
+
+		self.options[item].frame:deactivate()
+
+	end
+
+
+end
+
+function menu_singleplayer_trackselection.update(self,time)
+	self.parent:update(self,time)
+	
+	if RaceSelectionState ~= nil and IsNormalRace() then
+		self.leftarrow:AnimateAlpha(time)
+		self.rightarrow:AnimateAlpha(time)
+	end
+end
+
+function menu_singleplayer_trackselection.deinit(self)
+	self.parent:deinit(self)
+end
+
+function menu_singleplayer_trackselection.buttonChange(self,oldbutton,newbutton)
+	if self.pressed or self.backpressed then return end
+
+	local id=newbutton
+	playmenusound_move()
+	--//local old_id=RaceSelectionState.Id
+	RaceSelectionState.Id=id
+	--//db.GameFlow.PreRace.Level=tracks[id].level_id
+	RaceSelectionState.Level=tracks[id].level_id
+	RaceSelectionState.Laps=Levels[RaceSelectionState.Level].Laps or 1
+
+	--//GUI:SwitchButtonText(tracks[id].name)
+
+	SwitchTrackInfo(self,DIRECTION_NONE,id)
+end
+
+function menu_singleplayer_trackselection.moveUp(self)
+	if self.pressed or self.backpressed then return end
+	if RaceSelectionState.RaceType ~= TRACKTYPE_RALLYTROPHY then return end
+
+	local id = 27 -- switzerland 1
+	if RaceSelectionState.Id > 21 then
+		id = 21 -- sweden 1
+	elseif RaceSelectionState.Id > 15 then
+		id = 15 -- finland 1
+	elseif RaceSelectionState.Id > 9 then
+		id = 9 -- kenya 1
+	elseif RaceSelectionState.Id > 1 then
+		id = 1 -- karelia 1
+	end
+	
+	GUI:SetActiveItem(id)
+
+	playmenusound_move()
+	RaceSelectionState.Id=id
+	RaceSelectionState.Level=tracks[id].level_id
+	RaceSelectionState.Laps=Levels[RaceSelectionState.Level].Laps or 1
+
+	SwitchTrackInfo(self,DIRECTION_NONE,id)
+end
+
+function menu_singleplayer_trackselection.moveDown(self)
+	if self.pressed or self.backpressed then return end
+	if RaceSelectionState.RaceType ~= TRACKTYPE_RALLYTROPHY then return end
+
+	local id = 1 -- karelia 1
+	if RaceSelectionState.Id < 9 then
+		id = 9 -- kenya 1
+	elseif RaceSelectionState.Id < 15 then
+		id = 15 -- finland 1
+	elseif RaceSelectionState.Id < 21 then
+		id = 21 -- sweden 1
+	elseif RaceSelectionState.Id < 27 then
+		id = 27 -- switzerland 1
+	end
+	
+	GUI:SetActiveItem(id)
+
+	playmenusound_move()
+	RaceSelectionState.Id=id
+	RaceSelectionState.Level=tracks[id].level_id
+	RaceSelectionState.Laps=Levels[RaceSelectionState.Level].Laps or 1
+
+	SwitchTrackInfo(self,DIRECTION_NONE,id)
+end
+
+

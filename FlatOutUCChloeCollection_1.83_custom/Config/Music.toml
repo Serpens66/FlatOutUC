@@ -1,0 +1,81 @@
+# Music playlist data
+
+[main]
+playlist_count=8
+menuplaylist_count=6
+stuntplaylist_count=2
+default_menu=1
+default_race=1
+default_fo1_race=4
+default_tt_race=4
+default_rt_race=8
+default_arcade_race=1
+default_derby=1
+default_frag_derby=1
+default_stunt=2
+default_stuntshow=7
+default_drift=7
+
+[playlist1]
+name="FLATOUT 2 + UC"
+file="playlist_ingame"
+
+[playlist2]
+name="FLATOUT 2"
+file="playlist_ingamefo2"
+
+[playlist3]
+name="FLATOUT UC"
+file="playlist_ingamefouc"
+
+[playlist4]
+name="FLATOUT 1"
+file="playlist_ingamefo1"
+
+[playlist5]
+name="MODERN"
+file="playlist_ingamemodern"
+
+[playlist6]
+name="FOREIGN"
+file="playlist_ingameforeign"
+
+[playlist7]
+name="STUNT SHOW"
+file="playlist_ingamestuntshow"
+
+[playlist8]
+name="RALLY"
+file="playlist_ingamerally"
+
+[menuplaylist1]
+name="FLATOUT 2 + UC"
+file="playlist_title"
+
+[menuplaylist2]
+name="FLATOUT 2"
+file="playlist_titlefo2"
+
+[menuplaylist3]
+name="FLATOUT UC"
+file="playlist_titlefouc"
+
+[menuplaylist4]
+name="MODERN"
+file="playlist_titlemodern"
+
+[menuplaylist5]
+name="FOREIGN"
+file="playlist_titleforeign"
+
+[menuplaylist6]
+name="FLATOUT 1"
+file="playlist_titlefo1"
+
+[stuntplaylist1]
+name="FLATOUT UC"
+file="playlist_stunt"
+
+[stuntplaylist2]
+name="FLATOUT 2"
+file="playlist_stuntfo2"

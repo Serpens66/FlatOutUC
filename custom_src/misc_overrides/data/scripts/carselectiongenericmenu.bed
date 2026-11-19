@@ -1,0 +1,1172 @@
+--///////////////////////////////////////////////////////////////////////////
+--// CarSelectionGenericMenu.bed
+--///////////////////////////////////////////////////////////////////////////
+--// Copyright (c) 2005 Bugbear Entertainment ltd. 
+--// All Rights Reserved.
+--// 
+--// Created on 8.9.2005 14:58:54
+--// 
+--// @Author Mikko Sivulainen (mikko.sivulainen@bugbear.fi)
+--///////////////////////////////////////////////////////////////////////////
+
+menu_carselection = CreateMenuFromTemplate("template_cars")
+
+
+dofile("data/menu/cup_next_race_elements.bed")
+dofile("data/menu/upgrade_and_car_bd.bed")
+dofile("data/menu/garage_elements_2.bed")
+
+function GetCarData(car_idx)
+	return db.FlatOut2.Cars:GetProperty("Car",car_idx)
+end
+
+function SortCarsByClass(cars)
+	local sort=function(a,b)
+		if a.index and b.index then
+			local ac = Garage:GetCarClass(a.index)
+			local bc = Garage:GetCarClass(b.index)
+
+			if ac < bc then return true end
+			
+			if ac == bc then 
+				return a.index < b.index 
+			end
+		end
+		return false
+	end
+	table.sort(cars,sort)
+	return cars
+end
+
+function SortCarsByClassAndTier(cars)
+	local sort=function(a,b)
+		if a.index and b.index then
+			local ac = Garage:GetCarClass(a.index)
+			local bc = Garage:GetCarClass(b.index)
+
+			if ac < bc then return true end
+			
+			if ac == bc then
+				local at = ChloeCollection_GetCarTier(a.index)
+				local bt = ChloeCollection_GetCarTier(b.index)
+	
+				if at < bt then return true end
+				
+				if at == bt then
+					local ap = Garage:GetCarValue(a.index)
+					local bp = Garage:GetCarValue(b.index)
+		
+					if ap < bp then return true end
+					
+					if ap == bp then
+						return a.index < b.index 
+					end
+				end
+			end
+		end
+		return false
+	end
+	table.sort(cars,sort)
+	return cars
+end
+
+function IsValidCarIncludeTemp350(car_idx)
+	if not ChloeCustom_IsFO2Car(car_idx) then return false end -- custom (used by Chloe's multiplayer lobby)
+	local function SplitString(str)
+		local t={}		
+		for w in string.gfind(str,"(%w+)%.?") do
+			table.insert(t,w)
+		end
+		return t
+	end
+
+	local car=db.FlatOut2.Cars:GetProperty("Car",car_idx)
+	
+	local path=SplitString(string.lower(car:GetFullPath()))
+	
+	if ChloeCollection_GetCarMatchupInverse(car_idx) then
+		return false
+	end
+
+	return true
+end
+
+function IsValidCarNoTemp350(car_idx)
+	if not ChloeCustom_IsFO2Car(car_idx) then return false end -- custom (used by Chloe's multiplayer lobby)
+	local function SplitString(str)
+		local t={}		
+		for w in string.gfind(str,"(%w+)%.?") do
+			table.insert(t,w)
+		end
+		return t
+	end
+
+	local car=db.FlatOut2.Cars:GetProperty("Car",car_idx)
+	
+	local path=SplitString(string.lower(car:GetFullPath()))
+
+	if car_idx ~= CarIndex.PropModern5 and string.find(car:GetFullPath(), ".Prop")~=nil then
+		return false
+	end
+	
+	if ChloeCollection_DoesCarHaveCheatCode(car_idx) then
+		return false
+	end
+	
+	if ChloeCollection_GetCarMatchupInverse(car_idx) then
+		return false
+	end
+
+	return true
+end
+
+function IsValidCarIncludeTemp350NoProps(car_idx)
+	if not ChloeCustom_IsFO2Car(car_idx) then return false end -- custom (used by Chloe's multiplayer lobby)
+	local function SplitString(str)
+		local t={}		
+		for w in string.gfind(str,"(%w+)%.?") do
+			table.insert(t,w)
+		end
+		return t
+	end
+
+	local car=db.FlatOut2.Cars:GetProperty("Car",car_idx)
+	
+	local path=SplitString(string.lower(car:GetFullPath()))
+
+	if car_idx ~= CarIndex.PropModern5 and string.find(car:GetFullPath(), ".Prop")~=nil then
+		return false
+	end
+	
+	if ChloeCollection_GetCarMatchupInverse(car_idx) then
+		return false
+	end
+
+	return true
+end
+
+-- custom (FlatOutUCChloeCollection_1.83_custom): only FlatOut 2 / Ultimate Carnage cars
+-- data folders car_1..car_99 are vanilla, car_201..car_299 are the FlatOut 2 variants
+function ChloeCustom_IsFO2Car(car_idx)
+	local car=db.FlatOut2.Cars:GetProperty("Car",car_idx)
+	if not car or not car.DataPath then return true end
+	local _,__,index=string.find(string.lower(car.DataPath),"car_(%d+)/")
+	index=tonumber(index)
+	if not index then return true end
+	return index < 100 or (index > 200 and index < 300)
+end
+
+function IsValidCar(car_idx)
+	if not ChloeCustom_IsFO2Car(car_idx) then return false end -- custom
+	local function SplitString(str)
+		local t={}		
+		for w in string.gfind(str,"(%w+)%.?") do
+			table.insert(t,w)
+		end
+		return t
+	end
+
+	local car=db.FlatOut2.Cars:GetProperty("Car",car_idx)
+	
+	local path=SplitString(string.lower(car:GetFullPath()))
+
+	if string.find(car:GetFullPath(), ".Prop")~=nil and (not ChloeCollection_DoesCarHaveCheatCode(car_idx) or ChloeCollection_IsCarLockedByCheatCode(car_idx)) then
+		if car_idx ~= CarIndex.PropModern5 and not ChloeCollection_ArePropCarsUnlocked() then
+			return false
+		end
+	elseif ChloeCollection_IsCarLockedByCheatCode(car_idx) then
+		return false
+	end
+	
+	if ChloeCollection_GetCarMatchupInverse(car_idx) then
+		return false
+	end
+
+	return true
+end
+
+function IsValidCarIncludeMatchups(car_idx)
+	if not ChloeCustom_IsFO2Car(car_idx) then return false end -- custom
+	local function SplitString(str)
+		local t={}		
+		for w in string.gfind(str,"(%w+)%.?") do
+			table.insert(t,w)
+		end
+		return t
+	end
+
+	local car=db.FlatOut2.Cars:GetProperty("Car",car_idx)
+	
+	local path=SplitString(string.lower(car:GetFullPath()))
+
+	if string.find(car:GetFullPath(), ".Prop")~=nil and (not ChloeCollection_DoesCarHaveCheatCode(car_idx) or ChloeCollection_IsCarLockedByCheatCode(car_idx)) then
+		if car_idx ~= CarIndex.PropModern5 and not ChloeCollection_ArePropCarsUnlocked() then
+			return false
+		end
+	elseif ChloeCollection_IsCarLockedByCheatCode(car_idx) then
+		return false
+	end
+
+	return true
+end
+
+function IsValidCarForCareer(car_idx)
+	local car=db.FlatOut2.Cars:GetProperty("Car",car_idx)
+	
+	--if not Settings["Game"]["CareerRallyTrophyCars"] and string.find(car:GetFullPath(), ".RT")~=nil then
+	if string.find(car:GetFullPath(), ".RT")~=nil then
+		return false
+	end
+
+	return true
+end
+
+function IsValidAndPurchasedCar(car_idx)
+	if not Garage:IsCarPurchased(car_idx) then
+		return false
+	end
+
+	local function SplitString(str)
+		local t={}		
+		for w in string.gfind(str,"(%w+)%.?") do
+			table.insert(t,w)
+		end
+		return t
+	end
+
+	if Garage:GetCarSkinIndex(car_idx) > ChloeSkins_GetNumSkinsForCar(car_idx) then
+		Garage:SetCarPurchased(car_idx, false)
+		return false
+	end
+
+	local car=db.FlatOut2.Cars:GetProperty("Car",car_idx)
+	local path=SplitString(string.lower(car:GetFullPath()))
+	if path[3] == "bonus" or path[3] == "stunt" then
+		Garage:SetCarPurchased(car_idx, false)
+		return false
+	end
+	return true
+end
+
+function IsStuntCar(car)
+	local cars=StuntCars
+
+	if not cars then return false end
+
+	for k,v in pairs(cars) do
+		if car == v then return true end
+	end
+
+end
+
+function CarlistAllCars()
+	local cars={}
+	local locked={}
+
+	for i=0,Garage:GetNumCars()-1 do
+		if IsValidCar(i) then
+			local t={}
+			t.index=i
+			if Garage:IsCarLocked(i) then
+				table.insert(locked,t)
+			else
+				table.insert(cars,t)
+			end
+		end
+	end
+
+	for k,v in pairs(locked) do
+		table.insert(cars,v)
+	end
+
+	return SortCarsByClass(cars)
+end
+
+function CarlistUnpurchasedFromClass(index)
+	local cars=Classes[index].ClassCars
+
+	local t={}
+	local locked={}
+
+	if not cars then LOG("CarlistUnpurchasedFromClass: class %d doesn't have ClassCars",index); return t; end
+
+	for k,v in pairs(cars) do
+		if IsValidCar(v) and IsValidCarForCareer(v) and not IsValidAndPurchasedCar(v) and (not ChloeCollection_GetCarMatchup(v) or not IsValidAndPurchasedCar(ChloeCollection_GetCarMatchup(v))) then
+			if Garage:IsCarLocked(v) then
+				table.insert(locked,{index=v})
+			else
+				table.insert(t,{ index=v })
+			end
+		end
+	end
+	
+	SortCarsByClassAndTier(t)
+	SortCarsByClassAndTier(locked)
+
+	for k,v in pairs(locked) do
+		table.insert(t,v)
+	end
+
+	return t
+end
+
+function CarlistFromClassStart(index,only_purchased,all_cars)
+	local cars=Classes[index].ClassCars
+
+	local t={}
+	local locked={}
+
+
+	if not cars then LOG("CarlistFromClass: class %d doesn't have ClassCars",index); return t; end
+
+	for k,v in pairs(cars) do
+		if IsValidCar(v) and IsValidCarForCareer(v) then
+			if only_purchased then
+				if IsValidAndPurchasedCar(v) then
+					table.insert(t,{ index=v })
+				end
+			else
+				if all_cars or not Garage:IsCarLocked(v) then
+					if Garage:IsCarLocked(v) then
+						table.insert(locked,{index=v})
+					else
+						table.insert(t,{ index=v })
+					end
+				end
+			end
+		end
+	end
+	
+	SortCarsByClassAndTier(t)
+	SortCarsByClassAndTier(locked)
+
+	for k,v in pairs(locked) do
+		table.insert(t,v)
+	end
+
+	return t
+end
+
+function CarlistFromClass(index,only_purchased,all_cars)
+	local cars=Classes[index].ClassCars
+
+	local t={}
+	local locked={}
+
+
+	if not cars then LOG("CarlistFromClass: class %d doesn't have ClassCars",index); return t; end
+
+	for k,v in pairs(cars) do
+		if only_purchased then
+			if IsValidCarIncludeMatchups(v) and IsValidAndPurchasedCar(v) then
+				table.insert(t,{ index=v })
+			end
+		elseif IsValidCar(v) then
+			if all_cars or not Garage:IsCarLocked(v) then
+				if Garage:IsCarLocked(v) then
+					table.insert(locked,{index=v})
+				else
+					table.insert(t,{ index=v })
+				end
+			end
+		end
+	end
+	
+	if not all_cars then
+		SortCarsByClassAndTier(t)
+		SortCarsByClassAndTier(locked)
+	end
+
+	for k,v in pairs(locked) do
+		table.insert(t,v)
+	end
+
+	return t
+end
+
+function CarlistAllUnlocked()
+	local t={}
+
+	for i=0,db.FlatOut2.Cars:GetPropertyArraySize("Car")-1 do
+
+		if IsValidCar(i) and not Garage:IsCarLocked(i) and not IsStuntCar(i) then
+			table.insert(t,{ index=i })
+		end
+	end
+
+
+	return SortCarsByClass(t)
+end
+
+function CarlistStuntCars()
+	local cars=StuntCars
+
+	local t={}
+
+	if not cars then LOG("CarlistStuntCars: StuntCars not defined."); return t; end
+
+	for k,v in pairs(cars) do
+		if IsValidCar(v) then
+			table.insert(t,{ index=v })
+		end
+	end
+
+	return t
+end
+
+function CarlistStuntCarsUnlocked()
+	local cars=StuntCars
+
+	local t={}
+
+	if not cars then LOG("CarlistStuntCars: StuntCars not defined."); return t; end
+
+	for k,v in pairs(cars) do
+		if IsValidCar(v) and not Garage:IsCarLocked(v) then
+			table.insert(t,{ index=v })
+		end
+	end
+
+	return t
+end
+
+
+function CarlistAllPurchased()
+	local cars={}
+
+	for i=0,Garage:GetNumCars()-1 do
+		if IsValidCarIncludeMatchups(i) and IsValidAndPurchasedCar(i) then
+			local t={}
+			t.index=i
+			table.insert(cars,t)
+		end
+	end
+
+	return SortCarsByClassAndTier(cars)
+end
+
+function GetCarDataIndex(car_idx)
+	local index=1
+
+	local car_data=db.FlatOut2.Cars:GetProperty("Car",car_idx)
+
+	local _,__,index=string.find(car_data.DataPath,"_(%d+)/")
+
+
+	return index
+end
+
+
+function EnterCarSelection(okaction,backaction,carlist,purchase,all_available,only_description,show_tutorial,background,testtrack_menudata,show_class,title,hide_menubar_car,nocolor,nodescription,noswap)
+	menu_carselection.carlist=carlist or CarlistAllCars()
+	menu_carselection.backaction=backaction
+	menu_carselection.okaction=okaction
+	menu_carselection.shop_mode=purchase
+	menu_carselection.show_class=show_class
+	menu_carselection.show_tutorial=show_tutorial
+	menu_carselection.all_available=all_available
+	menu_carselection.only_description=only_description
+	menu_carselection.background=background
+	menu_carselection.testtrack_menudata=testtrack_menudata
+	menu_carselection.title=title
+	menu_carselection.hide_menubar_car=hide_menubar_car
+	menu_carselection.nocolor=nocolor
+	menu_carselection.nodescription=nodescription
+	menu_carselection.noswap=noswap
+	EnterMenu("menu_carselection")
+end
+
+--// ---------------------------------------------------------------------------------------------------------------------------------
+--// 
+--// ---------------------------------------------------------------------------------------------------------------------------------
+
+
+local classes = { TRANSLATOR(TITLE_DERBYCLASS),TRANSLATOR(TITLE_STREETCLASS),TRANSLATOR(TITLE_RACINGCLASS),TRANSLATOR(TITLE_BONUS),TRANSLATOR(TITLE_STUNT) }
+local drive = { TRANSLATOR(TITLE_RWD), TRANSLATOR(TITLE_FWD), TRANSLATOR(TITLE_4WD) }
+
+function SetCarSelectMenuButtons()
+	local buttonOk = BUTTON_OK
+	local labelOk = TRANSLATOR(UI_SELECT)
+	local buttonBack = nil
+	local labelBack = nil
+	local buttonOptions = nil
+	local labelOptions = nil
+	local buttonInfo = nil
+	local labelInfo = nil
+	
+	if not menu_carselection.show_tutorial then
+		buttonBack = BUTTON_BACK
+		labelBack = TRANSLATOR(UI_BACK)
+	end
+	--if menu_carselection.testtrack_menudata and not menu_carselection.isShowingDescription then
+	if menu_carselection.testtrack_menudata then
+		buttonInfo = BUTTON_INFO
+		labelInfo = TRANSLATOR(UI_TESTCAR)
+	end
+	if not menu_carselection.noswap and not menu_carselection.nodescription and menu_carselection.isShowingDescription and (ChloeCollection_GetCarMatchup(menu_carselection.SelectedCar) or ChloeCollection_GetCarMatchupInverse(menu_carselection.SelectedCar)) then
+		buttonOptions = BUTTON_OPTIONS
+		labelOptions = TRANSLATOR(ICON_MULTIPLAYER_CHANGECAR)
+	end
+	
+	GUI:SetHelpButtons(buttonOk, labelOk, buttonBack, labelBack, buttonOptions, labelOptions, buttonInfo, labelInfo)
+end
+
+menu_carselection.back = function()
+	if not menu_carselection.nodescription and not menu_carselection.isShowingDescription then
+		menu_carselection.toggleDescription(menu_carselection)
+		return
+	end
+
+	menu_carselection.backaction()
+end
+
+function menu_carselection.create(self)
+	self.parent:create(self)
+
+	self:addResource("car_icons.tga",car_icons,car_icons_size)
+	self:addResource("car_icons_locked.tga",car_icons_locked,car_icons_locked_size)
+	self:addResource("car_icons_2.tga",car_icons_2,car_icons_2_size)
+	self:addResource("car_icons_2_locked.tga",car_icons_2_locked,car_icons_2_locked_size)
+	self:addResource("car_icons_3.tga",car_icons_3,car_icons_3_size)
+	self:addResource("car_icons_3_locked.tga",car_icons_3_locked,car_icons_3_locked_size)
+	self:addResource("cup_next_race_elements.tga",cup_next_race_elements,cup_next_race_elements_size)
+	self:addResource("upgrade_and_car_bd.tga",upgrade_and_car_bd,upgrade_and_car_bd_size)
+	self:addResource("garage_elements1.tga",garage_elements1,garage_elements1_size)
+	self:addResource("garage_elements_2.tga",garage_elements_2,garage_elements_2_size)
+
+	self:loadResources()
+
+	if menu_carselection.shop_mode then
+		menu_carselection.options.title=TRANSLATOR(TITLE_SELECTCAR)
+	else
+		menu_carselection.options.title=menu_carselection.title or TRANSLATOR(TITLE_GARAGE)
+	end
+
+	self.items = {}
+
+end
+
+local firstDerby = nil
+local firstRace = nil
+local firstStreet = nil
+local firstStunt = nil
+local firstBonus = nil
+local lastDerby = nil
+local lastRace = nil
+local lastStreet = nil
+local lastStunt = nil
+local lastBonus = nil
+
+function menu_carselection.init(self)
+	if self.rally_shop_mode then
+		StandardBarsAndButtonsRally(self,true,true)  --//shows money
+
+		wm.SetGlobalAlpha(0.0)
+	else
+		self.parent:init(self)
+	end
+
+	self.isShowingDescription = true
+	self.canToggleDescription = true
+	if self.nodescription then
+		self.isShowingDescription = false
+	end
+
+	local function carIcon(name)
+		if menu_carselection:getResource(name) == nil then
+			return menu_carselection:getResource("temp350_icon"),menu_carselection:getResource("temp350_icon")
+		else
+			return menu_carselection:getResource(name),menu_carselection:getResource(name) --//menu_carselection:getResource("buttonbar_select_glow")
+		end
+	end
+
+	Frame{Position=LEFTPOS(400,65),Size=SIZE(ChloeWidescreen_GetRight()-ChloeWidescreen_LeftJustify(400),58)}:AttachResource(self:getResource("shop_title_bd_str"))
+
+	Frame{Name="car_class_banner",Position=POS(ChloeWidescreen_GetLeft(),65),Size=SIZE(400,58)}
+
+	StaticText{Name="car_class_text",Position=POS(320,100),Font=fontsmall(),Color=GetPaletteColor(1),Align=FONTF_CENTER}
+	
+	StaticText{Name="car_skin_author_text",Position=SAFERIGHTPOS(600,90),Font=fontsmall(),Color=GetPaletteColor(1),Align=FONTF_RIGHT}
+	--StaticText{Name="car_skin_author_text",Position=SAFERIGHTPOS(600,100),Font=fontsmall(),Color=GetPaletteColor(1),Align=FONTF_RIGHT}
+	--StaticText{Name="car_skin_count_text",Position=SAFERIGHTPOS(600,83),Font=fontsmall(),Color=GetPaletteColor(1),Align=FONTF_RIGHT}
+	
+	--StaticText{Name="car_unlock_text",Position=POS(320,220),Size=SIZE(250,300),Font=fontsmall(),Color=GetPaletteColor(1),Align=FONTF_CENTER}
+	
+	Frame{Name="carinfo_parent",Position=SAFELEFTPOS(60,0),Size=SIZE(640,480)}
+	
+	menu_carselection.goingforward=nil
+	menu_carselection.goingback=nil
+
+
+	local function getOnChildAction(id)
+		return function()
+			if menu_carselection.goingforward or menu_carselection.goingback then
+				return
+			end
+			
+			local menucar=menu_carselection.GarageCars[id]
+			local index=menucar.index
+			if menu_carselection.carVariant == true then
+				index = menucar.index2
+			end
+			
+			if menu_carselection.rally_shop_mode then
+				if ChloeRally_IsClassLocked(Garage:GetCarClass(index)) then
+					playmenusound_error()
+					return
+				end
+			else
+				if (menu_carselection.shop_mode or not menu_carselection.all_available) and Garage:IsCarLocked(index) then
+					playmenusound_error()
+					return
+				end
+			end
+			
+			if menu_carselection.rally_shop_mode then
+				local value=Garage:GetCarValue(index)
+				if not ChloeRally_EnoughMoney(value) then
+					playmenusound_error()
+					GUI:HideMenuButtons()
+					HideCarInfoWindows()
+					MessageBox(TRANSLATOR(MESSAGE_NOTENOUGHMONEY),MESSAGEBOX_OK,function() GUI:ShowMenuButtons(); ShowCarInfoWindows(); SetCarSelectMenuButtons(); end)
+					return
+				end
+			elseif menu_carselection.shop_mode then
+				local value=Garage:GetCarValue(index)
+				if not PlayerProfile:EnoughMoney(value) then
+					playmenusound_error()
+					GUI:HideMenuButtons()
+					HideCarInfoWindows()
+					MessageBox(TRANSLATOR(MESSAGE_NOTENOUGHMONEY),MESSAGEBOX_OK,function() GUI:ShowMenuButtons(); ShowCarInfoWindows(); SetCarSelectMenuButtons(); end)
+					return
+				end
+			end
+			
+			if not menu_carselection.okaction then
+				return
+			end
+			
+			if not menu_carselection.isShowingDescription then
+				if menu_carselection.shop_mode then
+					playmenusound_action()
+					
+					local value=Garage:GetCarValue(index)
+					local function confirmation_end(value)
+						if value==TRUE then
+							menu_carselection.goingforward=true
+							menu_carselection.okaction(index,menu_carselection.SelectedSkin)
+						else
+							ShowCarInfoWindows()
+							SetCarSelectMenuButtons()
+						end
+					end
+					GUI:HideMenuButtons()
+					HideCarInfoWindows()
+					GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_YES),BUTTON_BACK,TRANSLATOR(UI_NO))
+					ConfirmationDialog(TRANSLATOR(MESSAGE_BUYCARQUERY),confirmation_end)
+				else
+					playmenusound_action()
+					menu_carselection.goingforward=true
+					menu_carselection.okaction(index, menu_carselection.SelectedSkin)
+				end
+			else
+				self.toggleDescription(self)
+			end
+		end
+	end
+
+	StaticText{Name="car_logo",Position=POS(320,65),Align=FONTF_CENTER,Font=fonttitle(),Color=GetPaletteColor(33)}
+	
+	--StaticText{Name="car_description",Position=LEFTPOS(-200,139),Size=SIZE(200,400),Font=fontsmall(),Color=GetPaletteColor(34)}
+
+	local skindescparent
+	if not self.isShowingDescription then
+		skindescparent = Frame{Name="skindesc_parent",Position=POS(0,0),Size=SIZE(640,480)}
+	else
+		skindescparent = Frame{Name="skindesc_parent",Position=RIGHTPOS(320,0),Size=SIZE(640,480)}
+	end
+	
+	local skinDescXOffset = 70
+	local skinDescTitleStartOffset = 339+skinDescXOffset
+	local skinDescTitleOffset = 391+skinDescXOffset
+	Frame{Parent=skindescparent,Position=SAFERIGHTPOS(skinDescTitleStartOffset,216),Size=SIZE(52,138)}:AttachResource(self:getResource("cs_desc_bd_tip"))
+	Frame{Parent=skindescparent,Position=SAFERIGHTPOS(skinDescTitleOffset,216),Size=SIZE(ChloeWidescreen_GetRight(),138)}:AttachResource(self:getResource("cs_desc_bd_str"))
+
+	StaticText{Parent=skindescparent,Name="skin_description_title",Title=L("SKINS"),Position=SAFERIGHTPOS((skinDescTitleStartOffset+640)*0.5,216),Font=fontsmall(),Color=GetPaletteColor(33),Align=FONTF_CENTER}
+	
+	local skinStarSpacingX = -15
+	local skinStarSize = 0.8
+	local skinDescSpacingX = 5
+	local skinDescSpacingY = 15.6
+	StaticText{Parent=skindescparent,Name="skin_description1",Position=SAFERIGHTPOS(371+skinDescXOffset+skinDescSpacingX*0,250+skinDescSpacingY*0),Size=SIZE(230,300),TextLineAdjust=5,Font=fontextratiny(),Color=GetPaletteColor(34)}
+	StaticText{Parent=skindescparent,Name="skin_description2",Position=SAFERIGHTPOS(371+skinDescXOffset+skinDescSpacingX*1,250+skinDescSpacingY*1),Size=SIZE(230,300),TextLineAdjust=5,Font=fontextratiny(),Color=GetPaletteColor(34)}
+	StaticText{Parent=skindescparent,Name="skin_description3",Position=SAFERIGHTPOS(371+skinDescXOffset+skinDescSpacingX*2,250+skinDescSpacingY*2),Size=SIZE(230,300),TextLineAdjust=5,Font=fontextratiny(),Color=GetPaletteColor(33)}
+	StaticText{Parent=skindescparent,Name="skin_description4",Position=SAFERIGHTPOS(371+skinDescXOffset+skinDescSpacingX*3,250+skinDescSpacingY*3),Size=SIZE(230,300),TextLineAdjust=5,Font=fontextratiny(),Color=GetPaletteColor(34)}
+	StaticText{Parent=skindescparent,Name="skin_description5",Position=SAFERIGHTPOS(371+skinDescXOffset+skinDescSpacingX*4,250+skinDescSpacingY*4),Size=SIZE(230,300),TextLineAdjust=5,Font=fontextratiny(),Color=GetPaletteColor(34)}
+	StaticText{Parent=skindescparent,Name="skin_description6",Position=SAFERIGHTPOS(371+skinDescXOffset+skinDescSpacingX*5,250+skinDescSpacingY*5),Size=SIZE(230,300),TextLineAdjust=5,Font=fontextratiny(),Color=GetPaletteColor(34)}
+	
+	local star=self:getResource("ac_result_star_icon")
+	local starsize=GetResourceSize(star)
+	starsize[1] = starsize[1] * skinStarSize
+	starsize[2] = starsize[2] * skinStarSize
+	Frame{Parent=skindescparent,Name="skin_star1",Position=SAFERIGHTPOS(skinStarSpacingX+371+skinDescXOffset+skinDescSpacingX*0,250+skinDescSpacingY*0),Size=starsize}:AttachResource(star)
+	Frame{Parent=skindescparent,Name="skin_star2",Position=SAFERIGHTPOS(skinStarSpacingX+371+skinDescXOffset+skinDescSpacingX*1,250+skinDescSpacingY*1),Size=starsize}:AttachResource(star)
+	Frame{Parent=skindescparent,Name="skin_star3",Position=SAFERIGHTPOS(skinStarSpacingX+371+skinDescXOffset+skinDescSpacingX*2,250+skinDescSpacingY*2),Size=starsize}:AttachResource(star)
+	Frame{Parent=skindescparent,Name="skin_star4",Position=SAFERIGHTPOS(skinStarSpacingX+371+skinDescXOffset+skinDescSpacingX*3,250+skinDescSpacingY*3),Size=starsize}:AttachResource(star)
+	Frame{Parent=skindescparent,Name="skin_star5",Position=SAFERIGHTPOS(skinStarSpacingX+371+skinDescXOffset+skinDescSpacingX*4,250+skinDescSpacingY*4),Size=starsize}:AttachResource(star)
+	Frame{Parent=skindescparent,Name="skin_star6",Position=SAFERIGHTPOS(skinStarSpacingX+371+skinDescXOffset+skinDescSpacingX*5,250+skinDescSpacingY*5),Size=starsize}:AttachResource(star)
+	
+	self.uparrow = CreateArrow(self, "uparrow", "ingame_scroll_up")
+	self.downarrow = CreateArrow(self, "downarrow", "ingame_scroll_down")
+
+	self.uparrow:SetPosition(SAFERIGHTPOS(640-20, 216+30)[1],SAFERIGHTPOS(640-30, 216+30)[2])
+	self.downarrow:SetPosition(SAFERIGHTPOS(640-20, 354-15)[1],SAFERIGHTPOS(640-30, 354-15)[2])
+	--self.uparrow.parent = skindescparent
+	--self.downarrow.parent = skindescparent
+	self.uparrow:HideWindow()
+	self.downarrow:HideWindow()
+	
+	local cardescparent
+	if not self.isShowingDescription then
+		cardescparent = Frame{Name="cardesc_parent",Position=RIGHTPOS(320,0),Size=SIZE(640,480)}
+	else
+		cardescparent = Frame{Name="cardesc_parent",Position=POS(0,0),Size=SIZE(640,480)}
+	end
+	
+	local carDescXOffset = 60
+	local carDescTitleStartOffset = 339+carDescXOffset
+	local carDescTitleOffset = 391+carDescXOffset
+	Frame{Parent=cardescparent,Position=SAFERIGHTPOS(carDescTitleStartOffset,216),Size=SIZE(52,138)}:AttachResource(self:getResource("cs_desc_bd_tip"))
+	Frame{Parent=cardescparent,Position=SAFERIGHTPOS(carDescTitleOffset,216),Size=SIZE(ChloeWidescreen_GetRight(),138)}:AttachResource(self:getResource("cs_desc_bd_str"))
+
+	StaticText{Parent=cardescparent,Name="car_description_title",Title=TRANSLATOR(CAREER_DESCRIPTION),Position=SAFERIGHTPOS((carDescTitleStartOffset+640)*0.5,216),Font=fontsmall(),Color=GetPaletteColor(33),Align=FONTF_CENTER}
+	StaticText{Parent=cardescparent,Name="car_description",Position=SAFERIGHTPOS(371+carDescXOffset,250),Size=SIZE(190,300),TextLineAdjust=5,Font=fontextratiny(),Color=GetPaletteColor(34)}
+
+	if self.only_description then
+		HideMenuBarMoney()
+		HideMenuBarCar()
+	else
+		local pos=POS(0,139)
+		CreateCarInfoWindows(self,pos,false,false,menu_carselection.shop_mode or menu_carselection.show_class)		
+		if self.hide_menubar_car then
+			HideMenuBarCar()
+		end
+	end
+
+	if self.shop_mode then
+		StaticText{Title=TRANSLATOR(CARSELECTION_PRICE),Position=SAFERIGHTPOS(580,75),Font=fontsmall(),Color=GetPaletteColor(33),Align=FONTF_RIGHT}
+		StaticText{Name="car_price",Title=L"$ERR",Position=SAFERIGHTPOS(578,92),Font=fontlarge(),Color=GetPaletteColor(34),Align=FONTF_RIGHT}
+	end
+
+	local cars={}
+	local id,button
+	local first
+	
+	firstDerby = nil
+	firstRace = nil
+	firstStreet = nil
+	firstStunt = nil
+	firstBonus = nil
+	lastDerby = nil
+	lastRace = nil
+	lastStreet = nil
+	lastStunt = nil
+	lastBonus = nil
+
+	local i
+	local cars={}
+	for i=1,table.getn(self.carlist) do
+		local car=self.carlist[i]
+		if car then
+			car.index2 = ChloeCollection_GetCarMatchup(car.index)
+		
+			local iconname
+
+			local matchupCar = ChloeCollection_GetCarMatchupInverse(car.index)
+			if menu_carselection.rally_shop_mode and ChloeRally_IsClassLocked(Garage:GetCarClass(car.index)) then
+				if matchupCar then
+					iconname=string.format("car_%d_icon_locked",GetCarDataIndex(matchupCar))
+				else
+					iconname=string.format("car_%d_icon_locked",GetCarDataIndex(car.index))
+				end
+			elseif not menu_carselection.rally_shop_mode and not menu_carselection.all_available and Garage:IsCarLocked(car.index) then
+				if matchupCar then
+					iconname=string.format("car_%d_icon_locked",GetCarDataIndex(matchupCar))
+				else
+					iconname=string.format("car_%d_icon_locked",GetCarDataIndex(car.index))
+				end
+			else
+				if matchupCar then
+					iconname=string.format("car_%d_icon",GetCarDataIndex(matchupCar))
+				else
+					iconname=string.format("car_%d_icon",GetCarDataIndex(car.index))
+				end
+			end
+
+			table.insert(self.items,MENUITEM(L"",getOnChildAction(i),carIcon(iconname)))
+
+			table.insert(cars,i,{ index=car.index, index2=car.index2 })
+			
+			if not first then
+				first=i
+			end
+			if not firstDerby and Garage:GetCarClass(car.index) == 1 then
+				firstDerby=i
+			end
+			if not firstRace and Garage:GetCarClass(car.index) == 2 then
+				firstRace=i
+			end
+			if not firstStreet and Garage:GetCarClass(car.index) == 3 then
+				firstStreet=i
+			end
+			if not firstStunt and Garage:GetCarClass(car.index) == STUNTCAR_CLASS then
+				firstStunt=i
+			end
+			if not firstBonus and Garage:GetCarClass(car.index) == FUNNYCAR_CLASS then
+				firstBonus=i
+			end
+			if Garage:GetCarClass(car.index) == 1 then
+				lastDerby=i
+			end
+			if Garage:GetCarClass(car.index) == 2 then
+				lastRace=i
+			end
+			if Garage:GetCarClass(car.index) == 3 then
+				lastStreet=i
+			end
+			if Garage:GetCarClass(car.index) == STUNTCAR_CLASS then
+				lastStunt=i
+			end
+			if Garage:GetCarClass(car.index) == FUNNYCAR_CLASS then
+				lastBonus=i
+			end
+		end
+	end
+
+	GUI:SetMenuSelectionResource(self:getResource("selection_additive_glow"))
+	GUI:InitMenuButtons(self.items)
+
+	self.GarageCars=cars
+
+	self.carVariant = false
+	self.SelectedCar=menu_carselection.GarageCars[first].index
+	self.SelectedSkin=1
+	GUI:SetActiveItem(first)
+
+	SetCarSelectMenuButtons()
+
+	MenuScene:CameraRotate(TRUE)
+	MenuScene:AllowCameraRotate(TRUE)
+end
+
+function menu_carselection.OnCarChanged(self,id)
+	menu_carselection.carVariant = false
+	menu_carselection.SelectedCar=menu_carselection.GarageCars[id].index
+	menu_carselection.SelectedSkin=1 --//Garage:GetCarSkinIndex(menu_carselection.SelectedCar)+1
+
+	if not IsValidAndPurchasedCar(menu_carselection.SelectedCar) then
+		Garage:SetCarSkinIndex(menu_carselection.SelectedCar,1)
+	end
+
+	UpdateCarInfo(menu_carselection.SelectedCar,menu_carselection,false,menu_carselection.SelectedSkin)
+
+	SetCarSelectMenuButtons()
+end
+
+function menu_carselection.buttonChange(self,oldbutton,newbutton)
+	local id=newbutton
+
+	if menu_carselection.goingback or menu_carselection.goingforward then
+		return
+	end
+
+	menu_carselection.OnCarChanged(self,id)
+end
+
+function menu_carselection.toggleDescription(self)
+	if not self.canToggleDescription then
+		return
+	end
+	
+	if self.isShowingDescription then
+		self.isShowingDescription = false
+		if ChloeSkins_GetNumSkinsForCar(self.SelectedCar) > 6 then
+			self.timerhandle = Event:AddTimer(function() self.uparrow:ShowWindow() self.downarrow:ShowWindow() end,400,nil,TRUE)
+		end
+		AnimateWindowPos(W("skindesc_parent"), RIGHTPOS(320,0), POS(0,0), 0.2, 0.2)
+		AnimateWindowPos(W("cardesc_parent"), POS(0,0), RIGHTPOS(320,0), 0.2)
+		GUI:HideMenuButtons()
+
+		local inputHandler = InputHandler { Name="skinSelectInputHandler" }
+		inputHandler.onKeyPressed = function(Self, Character, VirtualKey, ScanCode)
+			if menu_carselection.goingback or menu_carselection.goingforward then
+				return
+			end
+			
+			if VirtualKey == KeyCodes["BUTTON_START"] then
+				menu_carselection.items[GUI:GetActiveItem()][2]()
+				AUDIO.PlayMenuSound(AUDIO.MENUSFX_SELECT)
+			elseif VirtualKey == KeyCodes["BUTTON_SELECT"] then
+				menu_carselection.back(menu_carselection)
+				AUDIO.PlayMenuSound(AUDIO.MENUSFX_BACK)
+			elseif VirtualKey == KeyCodes["BUTTON_UP"] then
+				menu_carselection.moveUp(menu_carselection)
+			elseif VirtualKey == KeyCodes["BUTTON_DOWN"] then
+				menu_carselection.moveDown(menu_carselection)
+			-- test car
+			elseif VirtualKey == KeyCodes["BUTTON_Y"] then
+				menu_carselection.buttonPressed(menu_carselection, KeyCodes.BUTTON_Y)
+			end
+		end
+		inputHandler:SetFocus()
+	else
+		self.isShowingDescription = true
+		self.uparrow:HideWindow()
+		self.downarrow:HideWindow()
+		AnimateWindowPos(W("skindesc_parent"), POS(0,0), RIGHTPOS(320,0), 0.2)
+		AnimateWindowPos(W("cardesc_parent"), RIGHTPOS(320,0), POS(0,0), 0.2, 0.2)
+		GUI:InitMenuButtons(self.items)
+		GUI:ShowMenuButtons()
+	end
+	
+	self.canToggleDescription = false
+	self.timerhandle2 = Event:AddTimer(function() menu_carselection.canToggleDescription = true end,400,nil,TRUE)
+	
+	SetCarSelectMenuButtons()
+end
+
+function menu_carselection.buttonPressed(self,virtualkey,button)
+	if virtualkey == KeyCodes.BUTTON_Y then
+		if menu_carselection.goingforward or menu_carselection.goingback then
+			return
+		end
+
+		if menu_carselection.testtrack_menudata then 
+			if not Garage:IsCarLocked(menu_carselection.SelectedCar) then
+				playmenusound_action()
+				menu_carselection.goingforward=true
+				EnterTestTrack(menu_carselection.SelectedCar,menu_carselection.testtrack_menudata,menu_carselection.SelectedSkin)
+			else 
+				playmenusound_error()
+			end
+		end
+	end
+
+	if virtualkey ~= KeyCodes.BUTTON_X then
+		return 
+	end
+
+	if menu_carselection.goingforward or menu_carselection.goingback then
+		return 
+	end
+	
+	if menu_carselection.nodescription then
+		return
+	end
+	
+	if menu_carselection.noswap then
+		return
+	end
+	
+	if not menu_carselection.isShowingDescription then
+		return
+	end
+	
+	local matchupCar = ChloeCollection_GetCarMatchup(menu_carselection.SelectedCar)
+	if matchupCar == nil then
+		matchupCar = ChloeCollection_GetCarMatchupInverse(menu_carselection.SelectedCar)
+	end
+	
+	if not matchupCar then
+		return
+	end
+
+	if menu_carselection.carVariant then
+		menu_carselection.carVariant = false
+		menu_carselection.SelectedCar = matchupCar
+	else
+		menu_carselection.carVariant = true
+		menu_carselection.SelectedCar = matchupCar
+	end
+	
+	menu_carselection.SelectedSkin=1
+	UpdateCarInfo(menu_carselection.SelectedCar,menu_carselection,false,menu_carselection.SelectedSkin)
+end
+
+function menu_carselection.moveUp(self)
+	if menu_carselection.goingforward or menu_carselection.goingback then
+		return
+	end
+
+	if menu_carselection.nocolor then return end
+	
+	if menu_carselection.only_description then return end
+	
+	if menu_carselection.isShowingDescription then
+		local curr = GUI:GetActiveItem()
+		local car = curr
+		if curr <= 1 then
+			if firstBonus then
+				car = firstBonus
+			elseif firstStunt then
+				car = firstStunt
+			elseif firstStreet then
+				car = firstStreet
+			elseif firstRace then
+				car = firstRace
+			elseif firstDerby then
+				car = firstDerby
+			end
+		elseif firstBonus and curr > firstBonus then
+			car = firstBonus
+		elseif firstStunt and curr > firstStunt then
+			car = firstStunt
+		elseif firstStreet and curr > firstStreet then
+			car = firstStreet
+		elseif firstRace and curr > firstRace then
+			car = firstRace
+		elseif firstDerby and curr > firstDerby then
+			car = firstDerby
+		end
+	
+		if car ~= curr then
+			GUI:SetActiveItem(car)
+			menu_carselection.OnCarChanged(self, car)
+		end
+	else
+		if menu_carselection.SelectedSkin then
+			if self.uparrow then
+				self.uparrow:Flash()
+			end
+			if menu_carselection.SelectedSkin > 1 then
+				menu_carselection.SelectedSkin = menu_carselection.SelectedSkin - 1
+			else
+				menu_carselection.SelectedSkin = ChloeSkins_GetNumSkinsForCurrentCar()
+			end
+			MenuScene:SetCarSkin(menu_carselection.SelectedSkin)
+			UpdateCarInfo(menu_carselection.SelectedCar,menu_carselection,true,menu_carselection.SelectedSkin)
+		end
+	end
+end
+
+function menu_carselection.moveDown(self)
+	if menu_carselection.goingforward or menu_carselection.goingback then
+		return 
+	end
+
+	if menu_carselection.nocolor then return end
+
+	if menu_carselection.only_description then return end
+	
+	if menu_carselection.isShowingDescription then
+		local curr = GUI:GetActiveItem()
+		local car = curr
+		if firstBonus and curr >= firstBonus then
+			if firstDerby then
+				car = firstDerby
+			elseif firstRace then
+				car = firstRace
+			elseif firstStreet then
+				car = firstStreet
+			elseif firstStunt then
+				car = firstStunt
+			else
+				car = lastBonus
+			end
+		elseif firstStunt and curr >= firstStunt then
+			if firstBonus then
+				car = firstBonus
+			elseif firstDerby then
+				car = firstDerby
+			elseif firstRace then
+				car = firstRace
+			elseif firstStreet then
+				car = firstStreet
+			else
+				car = lastStunt
+			end
+		elseif firstStreet and curr >= firstStreet then
+			if firstStunt then
+				car = firstStunt
+			elseif firstBonus then
+				car = firstBonus
+			elseif firstDerby then
+				car = firstDerby
+			elseif firstRace then
+				car = firstRace
+			else
+				car = lastStreet
+			end
+		elseif firstRace and curr >= firstRace then
+			if firstStreet then
+				car = firstStreet
+			elseif firstStunt then
+				car = firstStunt
+			elseif firstBonus then
+				car = firstBonus
+			elseif firstDerby then
+				car = firstDerby
+			else
+				car = lastRace
+			end
+		elseif firstDerby and curr >= firstDerby then
+			if firstRace then
+				car = firstRace
+			elseif firstStreet then
+				car = firstStreet
+			elseif firstStunt then
+				car = firstStunt
+			elseif firstBonus then
+				car = firstBonus
+			else
+				car = lastDerby
+			end
+		end
+		
+		if car ~= curr then
+			GUI:SetActiveItem(car)
+			menu_carselection.OnCarChanged(self, car)
+		end
+	else
+		if menu_carselection.SelectedSkin then
+			if self.downarrow then
+				self.downarrow:Flash()
+			end
+			if menu_carselection.SelectedSkin < ChloeSkins_GetNumSkinsForCurrentCar() then
+				menu_carselection.SelectedSkin = menu_carselection.SelectedSkin + 1
+			else
+				menu_carselection.SelectedSkin = 1
+			end
+			MenuScene:SetCarSkin(menu_carselection.SelectedSkin)
+			UpdateCarInfo(menu_carselection.SelectedCar,menu_carselection,true,menu_carselection.SelectedSkin)
+		end
+	end
+end
+
+
+function menu_carselection.update(self,time)
+	self.parent:update(self,time)
+end
+
+function menu_carselection.deinit(self)
+	self.parent:deinit(self)
+
+end
+
+function menu_carselection.startshow(self)
+	self.parent:startshow(self)
+
+	if self.show_tutorial and not PlayerProfile:IsCareerWelcome3Displayed() then
+		GUI:HideMenuButtons()
+		MessageBox(TRANSLATOR(CAREER_WELCOME_CARSHOP), MESSAGEBOX_OK,
+			function() 
+				GUI:ShowMenuButtons()
+				SetCarSelectMenuButtons()
+			end)
+		PlayerProfile:SetCareerWelcome3Displayed(true)
+	end
+end
+
+function menu_carselection.starthide(self)
+	self.parent:starthide(self)
+end

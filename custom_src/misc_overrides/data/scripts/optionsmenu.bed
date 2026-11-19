@@ -1,0 +1,1912 @@
+--///////////////////////////////////////////////////////////////////////////
+--// OptionsMenu.bed
+--///////////////////////////////////////////////////////////////////////////
+--// Copyright (c) 2005 Bugbear Entertainment ltd. 
+--// All Rights Reserved.
+--// 
+--// Created on 7.11.2005 17:37:35
+--// 
+--// @Author Mikko Sivulainen (mikko.sivulainen@bugbear.fi)
+--///////////////////////////////////////////////////////////////////////////
+
+
+dofile("data/scripts/chloemultiplayer_customization.bed")
+dofile("data/menu/xbox_controller.bed")
+
+
+local controller = {
+	pad=1,
+	top_left_shake=1,
+	top_right_shake=1,
+	bottom_left_shake=1,
+	bottom_right_shake=1,
+}
+
+local controller_layouts
+local pad_layout
+
+local TYPE_SLIDER = 1
+local TYPE_VALUE = 2
+local TYPE_COMMAND = 3
+local TYPE_KEY = 4
+local TYPE_LABEL = 5
+local remap_active
+
+local CATEGORY_REMAP = 7
+
+local change_controller_actionmap
+local start_remap
+local show_layout
+local hide_layout
+local show_wheel_layout
+local hide_wheel_layout
+local selected_visual_preset
+local set_custom_preset_parameter
+local get_custom_preset_parameter
+
+local quality_presets = {
+
+	--low
+	[1] = {
+		{ window="texturequality", value = 0, },
+		{ window="viewdistance", value = 0, },
+		{ window="reflectionquality", value = 0, },
+		{ window="particlequality", value = 0, },
+		{ window="shadowquality", value = 0, },
+		{ window="foliagequality", value = 0, },
+	},
+	
+	--medium
+	[2] = {
+		{ window="texturequality", value = 1, },
+		{ window="viewdistance", value = 50, },
+		{ window="reflectionquality", value = 1, },
+		{ window="particlequality", value = 1, },
+		{ window="shadowquality", value = 1, },
+		{ window="foliagequality", value = 1, },	
+	}, 
+	
+	--high
+	[3] = {
+		{ window="texturequality", value = 2, },
+		{ window="viewdistance", value = 100, },
+		{ window="reflectionquality", value = 2, },
+		{ window="particlequality", value = 2, },
+		{ window="shadowquality", value = 2, },
+		{ window="foliagequality", value = 2, },	
+	},
+}
+
+
+
+
+local options_controllers 
+
+local xbox_pad_layout = {
+	{ key = Input.CONTROLLER_BUTTON_LEFT_TRIGGER, pos=POS(206,133), align=FONTF_RIGHT, icon="icon_lt", iconpos=POS(210,129),iconsize=SIZE(24,22) },
+	{ key = Input.CONTROLLER_BUTTON_EXTRA1, pos=POS(206,153), align=FONTF_RIGHT,icon="icon_lb", iconpos=POS(210,153),iconsize=SIZE(29,16) },
+	{ key = Input.CONTROLLER_BUTTON_SELECT, pos=POS(206,173), align=FONTF_RIGHT,icon="icon_back", iconpos=POS(210,173),iconsize=SIZE(23,16) },
+
+	{ key = Input.CONTROLLER_BUTTON_UP, pos=POS(136+30,225), align=FONTF_RIGHT,icon="controller_lines", iconpos=POS(141,215),iconsize=SIZE(208,78) },
+	{ key = Input.CONTROLLER_BUTTON_DIGITAL_LEFT, pos=POS(136+30,244), align=FONTF_RIGHT },
+	{ key = Input.CONTROLLER_RIGHT_STICK, pos=POS(136+30,281), align=FONTF_RIGHT },
+	
+	{ key = Input.CONTROLLER_BUTTON_RIGHT_TRIGGER, pos=POS(439,133), align=FONTF_LEFT,icon="icon_rt", iconpos=POS(409,129),iconsize=SIZE(24,22) },
+	{ key = Input.CONTROLLER_BUTTON_EXTRA2, pos=POS(439,153), align=FONTF_LEFT,icon="icon_rb", iconpos=POS(404,153),iconsize=SIZE(29,16) },
+	{ key = Input.CONTROLLER_BUTTON_START, pos=POS(439,173), align=FONTF_LEFT,icon="icon_start", iconpos=POS(409,173),iconsize=SIZE(23,16) },
+
+	{ key = Input.CONTROLLER_BUTTON_A, pos=POS(449,197+20*0), align=FONTF_LEFT,icon="icon_abxy", iconpos=POS(428,194),iconsize=SIZE(17,78) },
+	{ key = Input.CONTROLLER_BUTTON_B, pos=POS(449,197+20*1), align=FONTF_LEFT },
+	{ key = Input.CONTROLLER_BUTTON_X, pos=POS(449,197+20*2), align=FONTF_LEFT },
+	{ key = Input.CONTROLLER_BUTTON_Y, pos=POS(449,197+20*3), align=FONTF_LEFT },
+
+
+}
+
+local xbox_wheel_layout = {
+	{ key = Input.CONTROLLER_BUTTON_EXTRA1, pos=POS(206,143), align=FONTF_RIGHT, icon="wheel_line_left", iconpos=POS(213,148),iconsize=SIZE(72,72) },
+	{ key = Input.CONTROLLER_BUTTON_UP, pos=POS(163,208), align=FONTF_RIGHT,icon="wheel_line_bottom", iconpos=POS(164,212),iconsize=SIZE(102,6) },
+	{ key = Input.CONTROLLER_BUTTON_DIGITAL_LEFT, pos=POS(188,239), align=FONTF_RIGHT,icon="wheel_line_bottom",iconpos=POS(189,244),iconsize=SIZE(102,6) },
+	{ key = Input.CONTROLLER_BUTTON_DIGITAL_RIGHT, pos=POS(214,255), align=FONTF_RIGHT,icon="wheel_line_dpad",iconpos=POS(215,245),iconsize=SIZE(86,21) },
+	
+	{ key = Input.CONTROLLER_BUTTON_EXTRA2, pos=POS(431,143), align=FONTF_LEFT,icon="wheel_line_right",iconpos=POS(358,148),iconsize=SIZE(72,72) },
+
+	{ key = Input.CONTROLLER_BUTTON_SELECT, pos=POS(293,125), align=FONTF_RIGHT,icon="icon_back", iconpos=POS(295,125),iconsize=SIZE(23,16) },
+	{ key = Input.CONTROLLER_BUTTON_START, pos=POS(345,125), align=FONTF_LEFT,icon="icon_start", iconpos=POS(322,125),iconsize=SIZE(23,16) },
+
+	{ key = Input.CONTROLLER_BUTTON_A, pos=POS(449,197+20*0), align=FONTF_LEFT,icon="icon_abxy", iconpos=POS(428,194),iconsize=SIZE(17,78) },
+	{ key = Input.CONTROLLER_BUTTON_B, pos=POS(449,197+20*1), align=FONTF_LEFT },
+	{ key = Input.CONTROLLER_BUTTON_X, pos=POS(449,197+20*2), align=FONTF_LEFT },
+	{ key = Input.CONTROLLER_BUTTON_Y, pos=POS(449,197+20*3), align=FONTF_LEFT },
+--//	{ key = Input.CONTROLLER_BUTTON_EXTRA1, pos=POS(413,209), align=FONTF_LEFT },
+--//	{ key = Input.CONTROLLER_BUTTON_EXTRA2, pos=POS(439,153), align=FONTF_LEFT,icon="icon_rb", iconpos=POS(404,153),iconsize=SIZE(29,16) },
+--//	{ key = Input.CONTROLLER_RIGHT_STICK, pos=POS(136,261), align=FONTF_RIGHT },
+}
+
+
+
+local ps2_pad_layout = {
+	{ key = Input.CONTROLLER_BUTTON_UP, pos=POS(225,189), align=FONTF_RIGHT },
+	{ key = Input.CONTROLLER_BUTTON_SELECT, pos=POS(304,100), align=FONTF_CENTER },
+	{ key = Input.CONTROLLER_BUTTON_START, pos=POS(313,263), align=FONTF_CENTER },
+
+	{ key = Input.CONTROLLER_BUTTON_Y, pos=POS(413,169), align=FONTF_LEFT },
+	{ key = Input.CONTROLLER_BUTTON_B, pos=POS(413,189), align=FONTF_LEFT },
+	{ key = Input.CONTROLLER_BUTTON_A, pos=POS(413,209), align=FONTF_LEFT },
+	{ key = Input.CONTROLLER_BUTTON_X, pos=POS(413,229), align=FONTF_LEFT },
+	{ key = Input.CONTROLLER_BUTTON_EXTRA1, pos=POS(225,129), align=FONTF_RIGHT },
+	{ key = Input.CONTROLLER_BUTTON_EXTRA2, pos=POS(413,129), align=FONTF_LEFT },
+	{ key = Input.CONTROLLER_BUTTON_EXTRA3, pos=POS(225,149), align=FONTF_RIGHT },
+	{ key = Input.CONTROLLER_RIGHT_STICK, pos=POS(413,249), align=FONTF_LEFT },
+}
+
+local xbox_layouts = {
+	[1] = {
+		[Input.CONTROLLER_BUTTON_UP] = { title=TRANSLATOR(CONFIG_STEERING) },
+		[Input.CONTROLLER_RIGHT_STICK] = { title=TRANSLATOR(CONFIG_LOOK) },
+
+		[Input.CONTROLLER_BUTTON_LEFT_TRIGGER] = { title=TRANSLATOR(CONFIG_BRAKE) },
+		[Input.CONTROLLER_BUTTON_RIGHT_TRIGGER] = { title=TRANSLATOR(CONFIG_THROTTLE) },
+
+		[Input.CONTROLLER_BUTTON_EXTRA2] = { title=TRANSLATOR(CONFIG_GEARUP) },
+		[Input.CONTROLLER_BUTTON_EXTRA1] = { title=TRANSLATOR(CONFIG_GEARDOWN) },
+
+		[Input.CONTROLLER_BUTTON_A] = { title=TRANSLATOR(CONFIG_RAGDOLL) },
+		[Input.CONTROLLER_BUTTON_B] = { title=TRANSLATOR(CONFIG_HANDBRAKE) },
+		[Input.CONTROLLER_BUTTON_X] = { title=TRANSLATOR(CONFIG_CAMERA) },
+		[Input.CONTROLLER_BUTTON_Y] = { title=TRANSLATOR(CONFIG_RESET) },
+
+		[Input.CONTROLLER_BUTTON_DIGITAL_LEFT] = { title=TRANSLATOR(CONFIG_PLAYERLIST) },
+		[Input.CONTROLLER_BUTTON_SELECT] = { title=TRANSLATOR(CONFIG_SKIPMUSIC) },
+		[Input.CONTROLLER_BUTTON_START] = { title=TRANSLATOR(CONFIG_PAUSE) },
+	},
+
+	[2] = {
+		[Input.CONTROLLER_BUTTON_UP] = { title=TRANSLATOR(CONFIG_STEERING) },
+		[Input.CONTROLLER_RIGHT_STICK] = { title=TRANSLATOR(CONFIG_LOOK) },
+
+		[Input.CONTROLLER_BUTTON_LEFT_TRIGGER] = { title=TRANSLATOR(CONFIG_HANDBRAKE) },
+		[Input.CONTROLLER_BUTTON_RIGHT_TRIGGER] = { title=TRANSLATOR(CONFIG_RAGDOLL) },
+
+		[Input.CONTROLLER_BUTTON_EXTRA2] = { title=TRANSLATOR(CONFIG_GEARUP) },
+		[Input.CONTROLLER_BUTTON_EXTRA1] = { title=TRANSLATOR(CONFIG_GEARDOWN) },
+
+		[Input.CONTROLLER_BUTTON_A] = { title=TRANSLATOR(CONFIG_THROTTLE) },
+		[Input.CONTROLLER_BUTTON_B] = { title=TRANSLATOR(CONFIG_CAMERA) },
+		[Input.CONTROLLER_BUTTON_X] = { title=TRANSLATOR(CONFIG_BRAKE) },
+		[Input.CONTROLLER_BUTTON_Y] = { title=TRANSLATOR(CONFIG_RESET) },
+
+		[Input.CONTROLLER_BUTTON_DIGITAL_LEFT] = { title=TRANSLATOR(CONFIG_PLAYERLIST) },
+		[Input.CONTROLLER_BUTTON_SELECT] = { title=TRANSLATOR(CONFIG_SKIPMUSIC) },
+		[Input.CONTROLLER_BUTTON_START] = { title=TRANSLATOR(CONFIG_PAUSE) },
+
+	},
+
+	[3] = {
+		[Input.CONTROLLER_BUTTON_UP] = { title=TRANSLATOR(CONFIG_STEERING) },
+		[Input.CONTROLLER_RIGHT_STICK] = { title=TRANSLATOR(CONFIG_LOOK) },
+
+		[Input.CONTROLLER_BUTTON_LEFT_TRIGGER] = { title=TRANSLATOR(CONFIG_HANDBRAKE) },
+		[Input.CONTROLLER_BUTTON_RIGHT_TRIGGER] = { title=TRANSLATOR(CONFIG_THROTTLE) },
+
+		[Input.CONTROLLER_BUTTON_EXTRA2] = { title=TRANSLATOR(CONFIG_GEARUP) },
+		[Input.CONTROLLER_BUTTON_EXTRA1] = { title=TRANSLATOR(CONFIG_GEARDOWN) },
+
+		[Input.CONTROLLER_BUTTON_A] = { title=TRANSLATOR(CONFIG_RAGDOLL) },
+		[Input.CONTROLLER_BUTTON_B] = { title=TRANSLATOR(CONFIG_BRAKE) },
+		[Input.CONTROLLER_BUTTON_X] = { title=TRANSLATOR(CONFIG_CAMERA) },
+		[Input.CONTROLLER_BUTTON_Y] = { title=TRANSLATOR(CONFIG_RESET) },
+
+		[Input.CONTROLLER_BUTTON_DIGITAL_LEFT] = { title=TRANSLATOR(CONFIG_PLAYERLIST) },
+		[Input.CONTROLLER_BUTTON_SELECT] = { title=TRANSLATOR(CONFIG_SKIPMUSIC) },
+		[Input.CONTROLLER_BUTTON_START] = { title=TRANSLATOR(CONFIG_PAUSE) },
+	},
+
+	[4] = {
+		[Input.CONTROLLER_BUTTON_UP] = { title=TRANSLATOR(CONFIG_STEERING) },
+		[Input.CONTROLLER_RIGHT_STICK] = { title=TRANSLATOR(CONFIG_LOOK) },
+
+		[Input.CONTROLLER_BUTTON_LEFT_TRIGGER] = { title=TRANSLATOR(CONFIG_BRAKE) },
+		[Input.CONTROLLER_BUTTON_RIGHT_TRIGGER] = { title=TRANSLATOR(CONFIG_RAGDOLL) },
+
+		[Input.CONTROLLER_BUTTON_EXTRA2] = { title=TRANSLATOR(CONFIG_GEARUP) },
+		[Input.CONTROLLER_BUTTON_EXTRA1] = { title=TRANSLATOR(CONFIG_GEARDOWN) },
+
+		[Input.CONTROLLER_BUTTON_A] = { title=TRANSLATOR(CONFIG_THROTTLE) },
+		[Input.CONTROLLER_BUTTON_B] = { title=TRANSLATOR(CONFIG_HANDBRAKE) },
+		[Input.CONTROLLER_BUTTON_X] = { title=TRANSLATOR(CONFIG_CAMERA) },
+		[Input.CONTROLLER_BUTTON_Y] = { title=TRANSLATOR(CONFIG_RESET) },
+
+		[Input.CONTROLLER_BUTTON_DIGITAL_LEFT] = { title=TRANSLATOR(CONFIG_PLAYERLIST) },
+		[Input.CONTROLLER_BUTTON_SELECT] = { title=TRANSLATOR(CONFIG_SKIPMUSIC) },
+		[Input.CONTROLLER_BUTTON_START] = { title=TRANSLATOR(CONFIG_PAUSE) },
+	},
+
+
+}
+
+
+local xbox_wheel_layouts = {
+	[1] = {
+		[Input.CONTROLLER_BUTTON_UP] = { title=TRANSLATOR(CONFIG_STEERING) },
+		[Input.CONTROLLER_RIGHT_STICK] = { title=TRANSLATOR(CONFIG_LOOK) },
+
+		[Input.CONTROLLER_PEDAL_LEFT] = { title=TRANSLATOR(CONFIG_BRAKE) },
+		[Input.CONTROLLER_PEDAL_RIGHT] = { title=TRANSLATOR(CONFIG_THROTTLE) },
+
+		[Input.CONTROLLER_BUTTON_EXTRA2] = { title=TRANSLATOR(CONFIG_GEARUP) },
+		[Input.CONTROLLER_BUTTON_EXTRA1] = { title=TRANSLATOR(CONFIG_GEARDOWN) },
+
+		[Input.CONTROLLER_BUTTON_A] = { title=TRANSLATOR(CONFIG_RAGDOLL) },
+		[Input.CONTROLLER_BUTTON_B] = { title=TRANSLATOR(CONFIG_HANDBRAKE) },
+		[Input.CONTROLLER_BUTTON_X] = { title=TRANSLATOR(CONFIG_LOOK) },
+		[Input.CONTROLLER_BUTTON_Y] = { title=TRANSLATOR(CONFIG_RESET) },
+
+		[Input.CONTROLLER_BUTTON_DIGITAL_LEFT] = { title=TRANSLATOR(CONFIG_PLAYERLIST) },
+		[Input.CONTROLLER_BUTTON_DIGITAL_RIGHT] = { title=TRANSLATOR(CONFIG_CAMERA) },
+		[Input.CONTROLLER_BUTTON_SELECT] = { title=TRANSLATOR(CONFIG_SKIPMUSIC) },
+		[Input.CONTROLLER_BUTTON_START] = { title=TRANSLATOR(CONFIG_PAUSE) },
+	},
+
+	[2] = {
+		[Input.CONTROLLER_BUTTON_UP] = { title=TRANSLATOR(CONFIG_STEERING) },
+		[Input.CONTROLLER_RIGHT_STICK] = { title=TRANSLATOR(CONFIG_LOOK) },
+
+		[Input.CONTROLLER_PEDAL_LEFT] = { title=TRANSLATOR(CONFIG_GEARDOWN) },
+		[Input.CONTROLLER_PEDAL_RIGHT] = { title=TRANSLATOR(CONFIG_GEARUP) },
+
+		[Input.CONTROLLER_BUTTON_EXTRA1] = { title=TRANSLATOR(CONFIG_BRAKE) },
+		[Input.CONTROLLER_BUTTON_EXTRA2] = { title=TRANSLATOR(CONFIG_THROTTLE) },
+
+		[Input.CONTROLLER_BUTTON_A] = { title=TRANSLATOR(CONFIG_RAGDOLL) },
+		[Input.CONTROLLER_BUTTON_B] = { title=TRANSLATOR(CONFIG_HANDBRAKE) },
+		[Input.CONTROLLER_BUTTON_X] = { title=TRANSLATOR(CONFIG_LOOK) },
+		[Input.CONTROLLER_BUTTON_Y] = { title=TRANSLATOR(CONFIG_RESET) },
+
+		[Input.CONTROLLER_BUTTON_DIGITAL_LEFT] = { title=TRANSLATOR(CONFIG_PLAYERLIST) },
+		[Input.CONTROLLER_BUTTON_DIGITAL_RIGHT] = { title=TRANSLATOR(CONFIG_CAMERA) },
+		[Input.CONTROLLER_BUTTON_SELECT] = { title=TRANSLATOR(CONFIG_SKIPMUSIC) },
+		[Input.CONTROLLER_BUTTON_START] = { title=TRANSLATOR(CONFIG_PAUSE) },
+
+	},
+}
+
+local ps2_layouts = {
+	[1] = {
+		[Input.CONTROLLER_BUTTON_A] = { title=TRANSLATOR(CONFIG_THROTTLE) },
+		[Input.CONTROLLER_BUTTON_B] = { title=TRANSLATOR(CONFIG_HANDBRAKE) },
+		[Input.CONTROLLER_BUTTON_X] = { title=TRANSLATOR(CONFIG_BRAKE) },
+		[Input.CONTROLLER_BUTTON_Y] = { title=TRANSLATOR(CONFIG_RESET) },
+		[Input.CONTROLLER_BUTTON_EXTRA1] = { title=TRANSLATOR(CONFIG_LOOK) },
+		[Input.CONTROLLER_BUTTON_EXTRA3] = { title=TRANSLATOR(CONFIG_PLAYERLIST) },
+		[Input.CONTROLLER_BUTTON_EXTRA2] = { title=TRANSLATOR(CONFIG_RAGDOLL) },
+
+		[Input.CONTROLLER_BUTTON_SELECT] =  { title=TRANSLATOR(CONFIG_CAMERA) },
+		[Input.CONTROLLER_BUTTON_UP] = { title=TRANSLATOR(CONFIG_STEERING) },
+		[Input.CONTROLLER_BUTTON_START] = { title=TRANSLATOR(CONFIG_PAUSE) },
+		[Input.CONTROLLER_RIGHT_STICK] = { title=TRANSLATOR(CONFIG_THROTTLE) },
+	},
+
+	[2] = {
+		[Input.CONTROLLER_BUTTON_A] = { title=TRANSLATOR(CONFIG_RAGDOLL) },
+		[Input.CONTROLLER_BUTTON_X] = { title=TRANSLATOR(CONFIG_LOOK) },
+		[Input.CONTROLLER_BUTTON_B] = { title=TRANSLATOR(CONFIG_HANDBRAKE) },
+		[Input.CONTROLLER_BUTTON_Y] = { title=TRANSLATOR(CONFIG_RESET) },
+		[Input.CONTROLLER_BUTTON_EXTRA1] = { title=TRANSLATOR(CONFIG_BRAKE) },
+		[Input.CONTROLLER_BUTTON_EXTRA3] = { title=TRANSLATOR(CONFIG_PLAYERLIST) },
+		[Input.CONTROLLER_BUTTON_EXTRA2] = { title=TRANSLATOR(CONFIG_THROTTLE) },
+
+		[Input.CONTROLLER_BUTTON_SELECT] =  { title=TRANSLATOR(CONFIG_CAMERA) },
+		[Input.CONTROLLER_BUTTON_UP] = { title=TRANSLATOR(CONFIG_STEERING) },
+		[Input.CONTROLLER_BUTTON_START] = { title=TRANSLATOR(CONFIG_PAUSE) },
+		[Input.CONTROLLER_RIGHT_STICK] = { title=TRANSLATOR(CONFIG_THROTTLE) },
+	},
+}
+
+local options_game_pc = {
+	title = TRANSLATOR(ICON_OPTIONS_GAMEOPTIONS),
+	{ title=L("GENERAL"), type=TYPE_LABEL },
+	{ title=L("DIFFICULTY"), type=TYPE_VALUE, category="Game", setting="OpponentStrength", data = { L("EASY"), L("MEDIUM"), L("SADISTIC") }, descriptions = { L("Slow and light opponents, high cash rewards"), L("Competitive opponents, normal cash rewards"), L("Fast and heavy opponents, lower cash rewards") } },
+	{ title=L("HANDLING MODE"), type=TYPE_VALUE, category="Game", setting="HandlingMode", data = { L("NORMAL"), L("FLATOUT 2"), L("PROFESSIONAL") }, descriptions = { L("Classic arcade handling, recommended for new players"), L("FlatOut 2 handling with more grip and downforce"), L("Less forgiving, simcadey handling with no oversteer") } }, -- not including alternate in the SP options anymore
+	{ title=L("LOADING SCREENS"), type=TYPE_VALUE, category="Game", setting="LoadingSkip", data = { L("WAIT FOR INPUT"), L("SKIP AUTOMATICALLY"), L("WAIT FOR INPUT ON CHARACTER LORE") } },
+	{},
+	{ title=L("FLATOUT MODE"), type=TYPE_LABEL },
+	{ title=L("HANDLING DAMAGE"), type=TYPE_VALUE, category="Game", setting="CareerHandlingDamage", data = { TRANSLATOR(OPTIONS_OFF), TRANSLATOR(OPTIONS_ON) } },
+	--{ title=L("RALLY TROPHY CARS"), type=TYPE_VALUE, category="Game", setting="CareerRallyTrophyCars", data = { TRANSLATOR(OPTIONS_OFF), TRANSLATOR(OPTIONS_ON) } },
+	{ title=L("SUPER AUTHOR TIMES"), type=TYPE_VALUE, category="Game", setting="ShowSuperAuthors", data = { TRANSLATOR(OPTIONS_OFF), L("TIME ONLY"), L("TIME + OPPONENT") } },
+	{},
+	{ title=L("OPPONENT COUNT"), type=TYPE_LABEL },
+	{ title=L("FLATOUT MODE"), type=TYPE_VALUE, category="Game", setting="OpponentCountCareer", data = { L("7"), L("11") } },
+	--{ title=L("CARNAGE MODE"), type=TYPE_VALUE, category="Game", setting="OpponentCountArcade", data = { L("11"), L("12") } },
+	--{ title=L("RALLY MODE"), type=TYPE_VALUE, category="Game", setting="OpponentCountRally", data = { L("7"), L("11"), L("12") } },
+	{ title=L("SINGLE EVENTS"), type=TYPE_VALUE, category="Game", setting="OpponentCountSingleEvent", data = { L("7"), L("11"), L("12"), L("31") } },
+}
+
+local options_player = {
+	title = L("PLAYER OPTIONS"),
+	{ title=L("HUD"), type=TYPE_LABEL },
+	{ title=L("UNITS"), type=TYPE_VALUE, category="Game", setting="ImperialUnits", data = { TRANSLATOR(OPTIONS_METERS_KPH), TRANSLATOR(OPTIONS_METERS_MPH) } },
+	{ title=TRANSLATOR(OPTIONS_RACEMAP), type=TYPE_VALUE, category="Game", setting="IngameMap", data = { TRANSLATOR(OPTIONS_OFF), TRANSLATOR(OPTIONS_ON) } },
+	{ title=L("PLAYER LIST"), type=TYPE_VALUE, category="Game", setting="PlayerListDefaultState", data = { L("OFF BY DEFAULT"), L("ON BY DEFAULT") } },
+	{ title=L("SPEEDOMETER"), type=TYPE_VALUE, category="Game", setting="HUDType", data = { L("FLATOUT UC"), L("FLATOUT 2") } },
+	{ title=L("SPLIT TIMES"), type=TYPE_VALUE, category="Game", setting="DisplaySplits", data = { L("OFF"), L("RALLY ONLY"), L("RALLY & TIME TRIAL ONLY"), L("ON") } },
+	{ title=L("SPLIT STYLE"), type=TYPE_VALUE, category="Game", setting="SplitType", data = { L("TIME ONLY"), L("TIME COMPARISON"), L("TIME & SPEED COMPARISON") } },
+	{ title=L("VEHICLE CAMERA"), type=TYPE_VALUE, category="Game", setting="HighCarCam", data = { L("LOW"), L("HIGH") } },
+	{},
+	{ title=L("PLAYER"), type=TYPE_LABEL },
+	{ title=L("PLAYER FLAG"), type=TYPE_VALUE, category="Game", setting="PlayerFlag", data = PlayerFlagNames },
+	{ title=L("PLAYER PORTRAIT"), type=TYPE_VALUE, category="Game", setting="MPPortrait", data = PlayerPortraitNames },
+	{ title=L("PLAYER COLOR"), type=TYPE_VALUE, category="Game", setting="ChatColor", data = PlayerChatColorNamesPreview },
+	{ title=L("CHARACTER MODEL"), type=TYPE_VALUE, category="Game", setting="PlayerModel", data = PlayerModelNames },
+}
+
+local options_network = {
+	title = L("ONLINE OPTIONS"),
+	{ title=L("CLIENT"), type=TYPE_LABEL },
+	{ title=L("PLAYER SMOOTHING"), type=TYPE_VALUE, category="Network", setting="Interpolation", data = { TRANSLATOR(OPTIONS_OFF), TRANSLATOR(OPTIONS_ON) }, description = L("Smooth out player movement to reduce jittering") },
+	{ title=L("JOIN NOTIFS IN CHAT"), type=TYPE_VALUE, category="Network", setting="JoinNotifs", data = { TRANSLATOR(OPTIONS_OFF), TRANSLATOR(OPTIONS_ON) } },
+	{},
+	{ title=L("SERVER"), type=TYPE_LABEL },
+	{ title=L("TICKRATE"), type=TYPE_VALUE, category="Network", setting="DefaultTickRate", data = { L"15", L"25", L"30", L"45", L"60" }, description = L("Amount of updates sent per second") },
+	{ title=L("ALLOW CHEATS"), type=TYPE_VALUE, category="Network", setting="AllowCheats", data = { TRANSLATOR(OPTIONS_OFF), TRANSLATOR(OPTIONS_ON) }, description = L("Allow players with cheats installed to join your game") },
+}
+
+local options_network_nozmenu = {
+	title = L("ONLINE OPTIONS"),
+	{ title=L("CLIENT"), type=TYPE_LABEL },
+	{ title=L("PLAYER SMOOTHING"), type=TYPE_VALUE, category="Network", setting="Interpolation", data = { TRANSLATOR(OPTIONS_OFF), TRANSLATOR(OPTIONS_ON) }, description = L("Smooth out player movement to reduce jittering") },
+	{ title=L("JOIN NOTIFS IN CHAT"), type=TYPE_VALUE, category="Network", setting="JoinNotifs", data = { TRANSLATOR(OPTIONS_OFF), TRANSLATOR(OPTIONS_ON) } },
+	{},
+	{ title=L("SERVER"), type=TYPE_LABEL },
+	{ title=L("TICKRATE"), type=TYPE_VALUE, category="Network", setting="DefaultTickRate", data = { L"15", L"25", L"30", L"45", L"60" }, description = L("Amount of updates sent per second") },
+}
+
+local options_visual_pc = {
+	title = TRANSLATOR(ICON_OPTIONS_VISUALOPTIONS),
+	[1] = { title=L("WINDOWED MODE"), type=TYPE_VALUE, category="Visual", setting="Windowed", data = { TRANSLATOR(OPTIONS_OFF), TRANSLATOR(OPTIONS_ON) } },
+	[2] = { title=L("WIDESCREEN MENUS"), type=TYPE_VALUE, category="Game", setting="WidescreenMenu", data = { TRANSLATOR(OPTIONS_OFF), TRANSLATOR(OPTIONS_ON) } },
+	[3] = { title=L("WIDESCREEN SAFE ZONE"), type=TYPE_VALUE, category="Game", setting="WidescreenSafeZone", data = { L("4:3"), L("16:9"), L("16:10"), L("21:9"), L("NONE") } },
+	[4] = { title=L("EXPLOSION EFFECTS"), type=TYPE_VALUE, category="Visual", setting="ExplosionEffects", data = { L("REDUCED"), TRANSLATOR(OPTIONS_ON), TRANSLATOR(OPTIONS_OFF) } },
+	[5] = { title=L("MOTION BLUR"), type=TYPE_VALUE, category="Visual", setting="MotionBlur", data = { TRANSLATOR(OPTIONS_OFF), TRANSLATOR(OPTIONS_ON) } },
+	[6] = {},
+	[7] = { title=TRANSLATOR(ICON_MULTIPLAYER_PRESET), type=TYPE_VALUE, category="Visual", setting="QualityPreset", data = { TRANSLATOR(PC_GRAPHICS_TEXTURE_LOW), TRANSLATOR(PC_GRAPHICS_TEXTURE_MEDIUM), TRANSLATOR(PC_GRAPHICS_TEXTURE_HIGH), TRANSLATOR(ICON_MULTIPLAYER_CUSTOM), } },
+	[8] = { name = "texturequality",title=TRANSLATOR(PC_GRAPHICS_TEXTURE), type=TYPE_VALUE, category="Visual", setting="TextureQuality", action = function(oldv,newv) set_custom_preset_parameter("TextureQuality",newv) end,data = { TRANSLATOR(PC_GRAPHICS_TEXTURE_LOW), TRANSLATOR(PC_GRAPHICS_TEXTURE_MEDIUM), TRANSLATOR(PC_GRAPHICS_TEXTURE_HIGH), } },
+	[9] = { name = "viewdistance",title=TRANSLATOR(PC_GRAPHICS_VIEW), type=TYPE_SLIDER, category="Visual",setting="Visibility", action = function(oldv,newv) set_custom_preset_parameter("Visibility",newv) end, data = { 100 } },
+	[10] = { name="reflectionquality",title=TRANSLATOR(OPTIONS_REFLECTION_QUALITY), type=TYPE_VALUE, category="Visual", setting="ReflectionQuality", action = function(oldv,newv) set_custom_preset_parameter("ReflectionQuality",newv) end, data= { TRANSLATOR(PC_GRAPHICS_TEXTURE_LOW), TRANSLATOR(PC_GRAPHICS_TEXTURE_MEDIUM), TRANSLATOR(PC_GRAPHICS_TEXTURE_HIGH) } },
+	[11] = { name="particlequality",title=TRANSLATOR(OPTIONS_PARTICLE_QUALITY), type=TYPE_VALUE, category="Visual", setting="ParticleQuality", action = function(oldv,newv) set_custom_preset_parameter("ParticleQuality",newv) end, data= { TRANSLATOR(PC_GRAPHICS_TEXTURE_LOW), TRANSLATOR(PC_GRAPHICS_TEXTURE_MEDIUM), TRANSLATOR(PC_GRAPHICS_TEXTURE_HIGH) } },
+	[12] = { name="shadowquality",title=TRANSLATOR(OPTIONS_SHADOW_QUALITY), type=TYPE_VALUE, category="Visual", setting="ShadowQuality", action = function(oldv,newv) set_custom_preset_parameter("ShadowQuality",newv) end, data= { TRANSLATOR(PC_GRAPHICS_TEXTURE_LOW), TRANSLATOR(PC_GRAPHICS_TEXTURE_MEDIUM), TRANSLATOR(PC_GRAPHICS_TEXTURE_HIGH) } },
+	[13] = { name="foliagequality",title=TRANSLATOR(OPTIONS_FOLIAGE_QUALITY), type=TYPE_VALUE, category="Visual", setting="FoliageQuality", action = function(oldv,newv) set_custom_preset_parameter("FoliageQuality",newv) end, data= { TRANSLATOR(PC_GRAPHICS_TEXTURE_LOW), TRANSLATOR(PC_GRAPHICS_TEXTURE_MEDIUM), TRANSLATOR(PC_GRAPHICS_TEXTURE_HIGH) } },
+}
+
+local options_sound = {
+	title = TRANSLATOR(ICON_OPTIONS_SOUNDOPTIONS),
+	{ title=L("GENERAL"), type=TYPE_LABEL },
+	{ title=TRANSLATOR(OPTIONS_SFXVOLUME), type=TYPE_SLIDER, category="Audio", setting="InterfaceSfxVolume", data = { 100 } },
+	{ title=TRANSLATOR(OPTIONS_MUSICVOLUME), type=TYPE_SLIDER, category="Audio", setting="InterfaceMusicVolume", data = { 100 } },
+	--{}, -- custom: Rally options removed
+	--{ title=L("RALLY MODE"), type=TYPE_LABEL },
+	--{ title=L("MUSIC VOLUME"), type=TYPE_SLIDER, category="Audio", setting="RallyMusicVolume", data = { 100 } },
+	--{ title=L("SPEECH VOLUME"), type=TYPE_SLIDER, category="Audio", setting="PacenoteVolume", data = { 100 } },
+	--{ isPacenoteSpeech=true, title=L("PACENOTE SPEECH"), type=TYPE_VALUE, category="Audio", setting="PacenoteType" },
+	--{ isPacenoteVisual=true, title=L("PACENOTE VISUALS"), type=TYPE_VALUE, category="Audio", setting="PacenoteVisualType" },
+	--{ title=L("MUTE MUSIC IN RALLY MODE"), type=TYPE_VALUE, category="Audio", setting="MuteMusicInRally", data = { TRANSLATOR(OPTIONS_OFF), TRANSLATOR(OPTIONS_ON) } },
+}
+
+local options_soundtrack = {
+	title = L("MUSIC OPTIONS"),
+	{ isMenuSoundtrack=true, title=L("MENU"), type=TYPE_VALUE, category="Game", setting="MenuSoundtrack" },
+	{ isSoundtrack=true, title=L("RACE"), type=TYPE_VALUE, category="Game", setting="Soundtrack" },
+	--{ isSoundtrack=true, title=L("FO1 RACE"), type=TYPE_VALUE, category="Game", setting="FO1Soundtrack" },
+	--{ isSoundtrack=true, title=L("TOUGH TRUCKS RACE"), type=TYPE_VALUE, category="Game", setting="TTSoundtrack" },
+	--{ isSoundtrack=true, title=L("RALLY TROPHY RACE"), type=TYPE_VALUE, category="Game", setting="RallySoundtrack" },
+	{ isSoundtrack=true, title=L("CARNAGE RACE"), type=TYPE_VALUE, category="Game", setting="ArcadeRaceSoundtrack" },
+	{ isSoundtrack=true, title=L("WRECKING DERBY"), type=TYPE_VALUE, category="Game", setting="DerbySoundtrack" },
+	{ isSoundtrack=true, title=L("DEATHMATCH DERBY"), type=TYPE_VALUE, category="Game", setting="FragDerbySoundtrack" },
+	{ isStuntSoundtrack=true, title=L("STUNT"), type=TYPE_VALUE, category="Game", setting="StuntSoundtrack" },
+	{ isSoundtrack=true, title=L("STUNT SHOW"), type=TYPE_VALUE, category="Game", setting="StuntModeSoundtrack" },
+	{ isSoundtrack=true, title=L("DRIFT"), type=TYPE_VALUE, category="Game", setting="DriftSoundtrack" },
+	{ title=L("PER-TRACK MUSIC"), type=TYPE_VALUE, category="Game", setting="PerTrackSoundtrack", data = { TRANSLATOR(OPTIONS_OFF), TRANSLATOR(OPTIONS_ON) } },
+}
+
+local options_controller_pad = {
+	title=TRANSLATOR(ICON_OPTIONS_CONTROLLEROPTIONS),
+	[1] = { title=TRANSLATOR(ICON_MULTIPLAYER_PRESET), type=TYPE_VALUE, category="Control", setting="ControllerLayout", action = function(oldvalue,newvalue) show_layout(newvalue+1); GUI:SetControllerLayout(newvalue) end,data = { L"1", L"2",L"3",L"4" } },
+	[2] = { title=TRANSLATOR(UI_VIBRATION), type=TYPE_VALUE, category="Control", setting="ForceFeedback", data = { TRANSLATOR(OPTIONS_OFF), TRANSLATOR(OPTIONS_ON) } },
+	[3] = { title=TRANSLATOR(CAR_TRANSMISSION), type=TYPE_VALUE, category="Control", setting="Transmission", data = { TRANSLATOR(CAR_TRANSMISSION_AUTO), TRANSLATOR(CAR_TRANSMISSION_MANUAL) } },
+}
+
+local options_controller_wheel = {
+	hiddenitems = 3,
+	title=TRANSLATOR(ICON_OPTIONS_CONTROLLEROPTIONS),
+	[1] = { title=TRANSLATOR(ICON_MULTIPLAYER_PRESET), type=TYPE_VALUE, category="Control", setting="ControllerLayout", action = function(oldvalue,newvalue) show_wheel_layout(newvalue+1); GUI:SetControllerLayout(newvalue) end,data = { L"1", L"2" } },
+	[2] = { title=TRANSLATOR(TRANSLATOR(UI_VIBRATION)), type=TYPE_VALUE, category="Control", setting="ForceFeedback", data = { TRANSLATOR(OPTIONS_OFF), TRANSLATOR(OPTIONS_ON) } },
+	[3] = { title=TRANSLATOR(CAR_TRANSMISSION), type=TYPE_VALUE, category="Control", setting="Transmission", data = { TRANSLATOR(CAR_TRANSMISSION_AUTO), TRANSLATOR(CAR_TRANSMISSION_MANUAL) } },
+	
+	[4] = { ypos=340,title=TRANSLATOR(PC_CONTROLLER_FORCELEVEL), type=TYPE_SLIDER, category="Control", setting="ForceMagnitude", data = { 100 } },
+	[5] = { title=TRANSLATOR(PC_CONTROLLER_SENSITIVITY), type=TYPE_SLIDER, category="Control", setting="ControllerSensitivity", data = { 100 } },
+	[6] = { title=TRANSLATOR(PC_CONTROLLER_DEADZONE), type=TYPE_SLIDER, category="Control", setting="ControllerDeadzone", data = { 100 } },
+	[7] = { title=TRANSLATOR(OPTIONS_SATURATION), type=TYPE_SLIDER, category="Control", setting="ControllerSaturation", data = { 100 } },
+}
+
+local options_controller = {
+	{ title=L("GENERAL"), type=TYPE_LABEL },
+	{ title=TRANSLATOR(UI_VIBRATION), type=TYPE_VALUE, category="Control", setting="ForceFeedback", data = { TRANSLATOR(OPTIONS_OFF), TRANSLATOR(OPTIONS_ON) } },
+	{ title=TRANSLATOR(PC_CONTROLLER_FORCELEVEL), type=TYPE_SLIDER, category="Control", setting="ForceMagnitude", data = { 100 } },
+	{ title=TRANSLATOR(PC_CONTROLLER_SENSITIVITY), type=TYPE_SLIDER, category="Control", setting="ControllerSensitivity", data = { 100 } },
+	{ title=L("MOUSE SENSITIVITY"), type=TYPE_SLIDER, category="Control", setting="MouseSensitivity", data = { 100 } },
+	{ title=TRANSLATOR(PC_CONTROLLER_DEADZONE), type=TYPE_SLIDER, category="Control", setting="ControllerDeadzone", data = { 100 } },
+	{ title=TRANSLATOR(OPTIONS_SATURATION), type=TYPE_SLIDER, category="Control", setting="ControllerSaturation", data = { 100 } },
+	{ title=TRANSLATOR(CAR_TRANSMISSION), type=TYPE_VALUE, category="Control", setting="Transmission", data = { TRANSLATOR(CAR_TRANSMISSION_AUTO), TRANSLATOR(CAR_TRANSMISSION_MANUAL) } },
+	{},
+	{ title=L("STUNT SHOW"), type=TYPE_LABEL },
+	{ title=L("AIR CONTROL SPIN/ROLL MODE"), type=TYPE_VALUE, category="Control", setting="AirControlType", data = { L("LEFT STICK SPIN / RIGHT STICK ROLL"), L("RIGHT STICK SPIN / LEFT STICK ROLL") } },
+	{ title=L("AIR CONTROL FLIP MODE"), type=TYPE_VALUE, category="Control", setting="AirControlFlipType", data = { L("LEFT STICK"), L("RIGHT STICK") } },
+}
+
+local key_config = {
+	[1] = { title=TRANSLATOR(OPTIONS_CONTROLLER), type=TYPE_VALUE, category="Control", setting="Controller", action=change_controller_actionmap, data = { } },
+--[[--/*	[2] = { title=TRANSLATOR(ICON_MULTIPLAYER_PRESET), type=TYPE_VALUE, category="Control", setting="ControllerLayout", 
+				action = function(oldvalue,newvalue) 
+					if Settings.Control.Controller == 1 then
+						show_layout(newvalue+1); 
+						GUI:SetControllerLayout(newvalue) 
+					end
+				end,
+				data = { L"1", L"2",L"3",L"4" } },	
+--]]--*/				
+	[2] = { title=TRANSLATOR(CONFIG_THROTTLE), type=TYPE_KEY, data = { Input.CONTROLLER_BUTTON_UP } },
+	[3] = { title=TRANSLATOR(CONFIG_BRAKE), type=TYPE_KEY, data = { Input.CONTROLLER_BUTTON_DOWN } },
+	[4] = { title=TRANSLATOR(CONFIG_STEERLEFT), type=TYPE_KEY, data = { Input.CONTROLLER_BUTTON_LEFT } },
+	[5] = { title=TRANSLATOR(CONFIG_STEERRIGHT), type=TYPE_KEY, data = { Input.CONTROLLER_BUTTON_RIGHT } },
+	[6] = { title=TRANSLATOR(CONFIG_GEARUP), type=TYPE_KEY, data = { Input.CONTROLLER_BUTTON_RIGHT_TRIGGER } },
+	[7] = { title=TRANSLATOR(CONFIG_GEARDOWN), type=TYPE_KEY, data = { Input.CONTROLLER_BUTTON_LEFT_TRIGGER } },
+	[8] = { title=TRANSLATOR(CONFIG_RAGDOLL), type=TYPE_KEY, data = { Input.CONTROLLER_BUTTON_B } }, --//icon="xbox_a",
+	[9] = { title=TRANSLATOR(CONFIG_HANDBRAKE), type=TYPE_KEY, data = { Input.CONTROLLER_BUTTON_A } }, --//icon="xbox_b",
+	[10] = { title=TRANSLATOR(CONFIG_CAMERA), type=TYPE_KEY, data = { Input.CONTROLLER_BUTTON_Y } }, --//icon="xbox_x",
+	[11] = { title=TRANSLATOR(CONFIG_RESET), type=TYPE_KEY, data = { Input.CONTROLLER_BUTTON_EXTRA2 } }, --//icon="xbox_y",
+	[12] = { title=TRANSLATOR(CONFIG_PLAYERLIST), type=TYPE_KEY, data = { Input.CONTROLLER_BUTTON_EXTRA4 } },
+	[13] = { title=TRANSLATOR(CONFIG_SKIPMUSIC), type=TYPE_KEY, data = { Input.CONTROLLER_BUTTON_EXTRA3 } },
+	[14] = { title=TRANSLATOR(CONFIG_LOOK), type=TYPE_KEY, data = { Input.CONTROLLER_BUTTON_EXTRA1 } },
+}
+
+
+local options = {}
+
+--// ---------------------------------------------------------------------------------------------------------------------------------
+--// 
+--// ---------------------------------------------------------------------------------------------------------------------------------
+
+local function create_value(item,parent)
+	
+	local value=0
+	local o
+
+	if item.category ~= "" and item.setting ~= "" then
+		value=Settings[item.category][item.setting]
+	end
+	if value == true then
+		value=1 
+	else
+		value=0
+	end
+
+
+
+	local arrowsize=GetResourceSize(menu_options:getResource("ingame_options_arrow_left_glow"))
+	local parentsize={ parent:GetSize() }
+
+	local optTitle = nil
+	if item.isStuntSoundtrack then
+		optTitle=ChloeOST_GetStuntSoundtrackName(value)
+	elseif item.isMenuSoundtrack then
+		optTitle=ChloeOST_GetMenuSoundtrackName(value)
+	elseif item.isSoundtrack then
+		optTitle=ChloeOST_GetSoundtrackName(value)
+	elseif item.isPacenoteSpeech then
+		optTitle=ChloePacenotes_GetSpeechName(value)
+	elseif item.isPacenoteVisual then
+		optTitle=ChloePacenotes_GetVisualName(value)
+	else
+		optTitle=item.data[value+1]
+	end
+	
+	o=StaticText{Title=optTitle or TRANSLATOR(MULTIPLAYER_MESSAGE_ERROR), Position=POS(parent.itempos[1]+20+arrowsize[1],2),Color=GetPaletteColor(34),Font=fontextratiny(),Parent=parent}
+
+	o.item=item
+	o.parent=parent
+	
+	o.getNumItems = function(self)
+		if self.item.isStuntSoundtrack then
+			return ChloeOST_GetNumStuntSoundtracks()
+		elseif self.item.isMenuSoundtrack then
+			return ChloeOST_GetNumMenuSoundtracks()
+		elseif self.item.isSoundtrack then
+			return ChloeOST_GetNumSoundtracks()
+		elseif self.item.isPacenoteSpeech then
+			return ChloePacenotes_GetNumSpeechTypes()
+		elseif self.item.isPacenoteVisual then
+			return ChloePacenotes_GetNumVisualTypes()
+		else
+			return table.getn(self.item.data)
+		end
+	end
+
+	o.activate = function(self)
+		self:SetColor(GetPaletteColor(33),false)
+
+		if self.getNumItems(self) > 1 then
+			local x,y = self.parent:GetPosition()
+			local arrowsize=GetResourceSize(menu_options:getResource("ingame_options_arrow_left_glow"))
+			local textw=wm.GetTextWidth(self:GetTitle(),fontextratiny())
+
+			menu_options.leftarrow:SetPosition(self.parent.itempos[1]+20,y+2)--+(parentsize[2]/2-arrowsize[2]/2))
+			menu_options.rightarrow:SetPosition(self.parent.itempos[1]+18+arrowsize[1]+4+textw+4,y+2)--+(parentsize[2]/2-arrowsize[2]/2))
+			menu_options.leftarrow:ShowWindow()
+			menu_options.rightarrow:ShowWindow()
+		end
+	end
+
+	o.deactivate = function(self)
+		self:SetColor(GetPaletteColor(1),false)
+		menu_options.leftarrow:StopFlash()
+		menu_options.rightarrow:StopFlash()
+
+	end
+
+	o.moveLeft = function(self)
+		if self.item.isStuntSoundtrack or self.item.isMenuSoundtrack or self.item.isSoundtrack then
+			ChloeCollection_AwardAchievement("CHANGE_MUSIC")
+		end
+		
+		local value=self:getValue()
+
+		if value > 0 then
+			self:setValue(value-1)
+		else
+			self:setValue(self.getNumItems(self)-1)
+		end
+
+		playmenusound_move()
+		self:setTitle()
+		menu_options.leftarrow:Flash(-1)
+	end
+
+	o.moveRight = function(self)
+		if self.item.isStuntSoundtrack or self.item.isMenuSoundtrack or self.item.isSoundtrack then
+			ChloeCollection_AwardAchievement("CHANGE_MUSIC")
+		end
+		
+		local value=self:getValue()
+
+		if value < self.getNumItems(self)-1 then
+			self:setValue(value+1)
+		else
+			self:setValue(0)
+		end
+
+		playmenusound_move()
+		self:setTitle()
+		menu_options.rightarrow:Flash(1)
+	end
+
+	o.setTitle = function(self)
+		local value=self:getValue() or 0
+
+		if self.item.isStuntSoundtrack then
+			self:SetTitle(ChloeOST_GetStuntSoundtrackName(value))
+		elseif self.item.isMenuSoundtrack then
+			self:SetTitle(ChloeOST_GetMenuSoundtrackName(value))
+		elseif self.item.isSoundtrack then
+			self:SetTitle(ChloeOST_GetSoundtrackName(value))
+		elseif self.item.isPacenoteSpeech then
+			self:SetTitle(ChloePacenotes_GetSpeechName(value))
+		elseif self.item.isPacenoteVisual then
+			self:SetTitle(ChloePacenotes_GetVisualName(value))
+		else
+			self:SetTitle(self.item.data[value+1] or TRANSLATOR(MULTIPLAYER_MESSAGE_ERROR))
+		end
+		
+		local textw=wm.GetTextWidth(self:GetTitle(),fontextratiny())
+
+		local _,y=self.parent:GetPosition()--menu_singleplayer_trackselection.rightarrow:GetPosition()
+		local arrowsize=GetResourceSize(menu_options:getResource("ingame_options_arrow_left_glow"))
+
+		menu_options.rightarrow:SetPosition(self.parent.itempos[1]+18+arrowsize[1]+4+textw+4,y+2)
+
+	end
+
+	o.setValue = function(self,value)
+
+		if self.item.category ~= "" and self.item.setting ~= "" then
+			Settings[self.item.category][self.item.setting]=value
+		end
+
+		if self.item.action then
+			self.item.action(self:getValue(),value)
+		end
+	end
+
+
+	o.getValue = function(self)
+		local value=0
+		if self.item.category ~= "" and self.item.setting ~= "" then
+			value=Settings[self.item.category][self.item.setting]
+		end
+		if type(value) == "boolean" then
+			if value == true then
+				value=1
+			else
+				value=0
+			end
+		end
+
+		return value
+	end
+
+	o:setTitle()
+	o:SetAlpha(0)
+
+
+	return o
+end
+
+
+local function create_slider(item,parent)
+
+	
+	local value=0
+	local o
+
+	local arrowsize=GetResourceSize(menu_options:getResource("ingame_options_arrow_left_glow"))
+	local parentsize={ parent:GetSize() }
+
+	if item.category ~= "" and item.setting ~= "" then
+		value=Settings[item.category][item.setting]
+	end
+
+	local bgcolor={ 0,0,0,0.5*MAX_VERTEXCOLOR_A }
+	o=ProgressBar{Position=POS(parent.itempos[1]+20+arrowsize[1]+2,5.5),Size=SIZE(102,8),DrawGradient=FALSE,
+							Color=GetPaletteColor(22),BackgroundColor=bgcolor,
+							Ticks=item.data[1],Value=0,Parent=parent}
+
+
+	o.textvalue=StaticText{Title=L"", Position=POS(parent.itempos[1]+20+arrowsize[1]+4+102+4+arrowsize[1]+4,2),Font=fontextratiny(),Color=GetPaletteColor(34),Parent=parent}
+
+	o.parent=parent
+
+	o.item=item
+
+	o.activate = function(self) 
+		local _,y=self.parent:GetPosition()
+
+		menu_options.leftarrow:SetPosition(self.parent.itempos[1]+20,y+2)--+(parentsize[2]/2-arrowsize[2]/2))
+		menu_options.rightarrow:SetPosition(self.parent.itempos[1]+20+arrowsize[1]+4+102+4,y+2)
+		menu_options.leftarrow:ShowWindow()
+		menu_options.rightarrow:ShowWindow()
+	end
+
+	o.deactivate = function(self) 
+		menu_options.leftarrow:StopFlash()
+		menu_options.rightarrow:StopFlash()
+	end
+
+	o.moveLeft = function(self)
+		local value=self:getValue()
+		local adj=self.item.data[1]/20
+
+		value = math.max(value-adj,0)
+
+		self:setValue(value)
+		playmenusound_move()
+	
+		self:setTitle()
+	end
+
+	o.moveRight = function(self)
+		local value=self:getValue()
+		local adj=self.item.data[1]/20
+
+		value = math.min(value + adj,self.item.data[1])
+		self:setValue(value)
+		playmenusound_move()
+
+		self:setTitle()
+	end
+
+	o.setTitle = function(self)
+		local value=self:getValue()		
+
+		self:SetValue(value)
+		self.textvalue:SetTitle(ConvertToWString(string.format("%d%%",value)))
+
+--		local _,y=menu_options.rightarrow:GetPosition()
+--		local arrowsize=GetResourceSize(menu_options:getResource("ingame_options_arrow_left_glow"))
+
+--		menu_options.rightarrow:SetPosition(self.parent.itempos[1]+20+arrowsize[1]+4+102+4,y)
+	end
+
+	o.setValue = function(self,value)
+		if self.item.category ~= "" and self.item.setting ~= "" then
+			if self.item.setting == "InterfaceMusicVolume" then
+				if value == 0 then
+					Event:PostEvent(event(EVENT_MUSIC_STOP))
+				elseif Settings[self.item.category][self.item.setting] == 0 and value > 0 then
+					Event:PostEvent(event(EVENT_MUSIC_PLAY_TITLE))
+				end
+			end
+			Settings[self.item.category][self.item.setting]=value
+			
+			if self.item.action then
+				self.item.action(self:getValue(),value)
+			end
+		end
+	end
+
+
+	o.getValue = function(self)
+		local value=0
+		if self.item.category ~= "" and self.item.setting ~= "" then
+			value=Settings[self.item.category][self.item.setting]
+		end
+
+		return value
+	end
+
+	o:setTitle()
+	o:SetAlpha(0)
+	o.textvalue:SetAlpha(0)
+
+	return o
+end
+
+
+local function create_command(item,parent)
+
+	titlew=wm.GetTextWidth(parent.title:GetTitle(),fontextratiny())
+
+	local arrowsize=GetResourceSize(menu_options:getResource("white_arrow_right"))
+	local parentsize={ parent:GetSize() }
+
+	arrowsize[1] = arrowsize[1] / 2
+	arrowsize[2] = arrowsize[2] / 2 
+
+	local o=Frame{Position=POS((parent.itempos[1]-18)-(titlew+arrowsize[1]),parentsize[2]/2-arrowsize[2]/2),Size=arrowsize,Parent=parent}
+	--//o:AttachResource(menu_options:getResource("white_arrow_right"))
+
+
+	o.item=item
+
+	o.activate = function(self)
+		self:SetColor(GetPaletteColor(33),false)
+		menu_options.leftarrow:HideWindow()
+		menu_options.rightarrow:HideWindow()
+	end
+
+	o.deactivate = emptyfunction()
+	o.moveLeft = emptyfunction()
+	o.moveRight = emptyfunction()
+	o.setTitle = emptyfunction()
+	o.getValue = function(self) return 0 end
+	o.setValue = emptyfunction()
+
+	o.onPressed = function(self)
+		if type(self.item.data) == "function" then
+			self.item.data()
+		end
+	end
+
+	o:SetAlpha(0)
+
+	return o
+end
+
+local function create_key(item,parent)
+
+
+	local o=StaticText{Position=POS(parent.itempos[1]+20,0),Font=fontextratiny(),Parent=parent,Color=GetPaletteColor(1)}
+
+	o.item=item
+	
+
+	if item.icon then
+		local res = menu_options:getResource(item.icon)
+		local size = GetResourceSize(res)
+		size[1] = size[1] / 1.5
+		size[2] = size[2] / 1.5
+		local parentsize = { parent:GetSize() }
+		o.icon = Frame{Position=POS(parent.itempos[1]-10,(parentsize[2]-size[2])/2),Size=size,Parent=parent};
+		o.icon:AttachResource(res)
+	end	
+
+	o.activate = function(self)
+		self:SetColor(GetPaletteColor(33),false)
+	end
+
+	o.deactivate = function(self)
+		self:SetColor(GetPaletteColor(1),false)
+		--self:SetColor(GetPaletteColor(34),false)
+	end
+
+	o.setTitle = function(self,status) 
+		if Input.GetControllerType(Settings.Control.Controller) ~= Input.CONTROLLER_TYPE_XBOXGAMEPAD then
+			if status == Input.CONTROLLER_REMAP_PENDING then
+				self:SetTitle(L"???")
+			else
+				self:SetTitle(Input.GetButtonName(Settings.Control.Controller,self.item.data[1]))
+			end
+		end
+	end
+
+
+	o.moveLeft = emptyfunction()
+	o.moveRight = emptyfunction()
+
+	o.getValue = function(self) 
+	
+		return 
+	end
+	o.setValue = function(self,value)
+
+
+	end
+
+	o.onPressed = function(self)
+		start_remap(self,Settings.Control.Controller,self.item.data[1])
+	end
+
+	o:setTitle()
+	o:SetAlpha(0)
+
+	return o
+end
+
+--// ---------------------------------------------------------------------------------------------------------------------------------
+--// 
+--// ---------------------------------------------------------------------------------------------------------------------------------
+
+local function create_option(item,parent)
+	local o
+
+	if item.type == TYPE_LABEL then
+		parent.title=StaticText{Title=item.title,Position=POS(parent.itempos[1],2),Font=fontextratiny(),Align=FONTF_CENTER,Color=GetPaletteColor(33),Parent=parent}
+	else
+		parent.title=StaticText{Title=item.title,Position=POS(parent.itempos[1]-18,2),Font=fontextratiny(),Align=FONTF_RIGHT,Color=GetPaletteColor(33),Parent=parent}
+	end
+
+
+	parent.moveLeft = function(self)
+		self.value:moveLeft()
+	end
+
+	parent.moveRight = function(self)
+		self.value:moveRight()
+	end
+
+
+	if item.type == TYPE_VALUE then
+		o=create_value(item,parent)
+	elseif item.type == TYPE_SLIDER then
+		o=create_slider(item,parent)
+	elseif item.type == TYPE_COMMAND or item.type == TYPE_LABEL then
+		o=create_command(item,parent)
+	elseif item.type == TYPE_KEY then
+		o=create_key(item,parent)
+	else
+		error("invalid option type")
+	end
+
+	parent.value=o
+	parent.title:SetAlpha(0)
+
+end
+
+
+
+
+local function create_options(options,pos)
+	
+	local pos=pos or POS(0,84)
+	local parent
+
+	local itempos=POS(320,4)
+	local gfxpos=POS(104,0)
+
+	if options.title then
+		options.titlewindow=StaticText{Title=options.title,Position=POS(320,30),Font=fonttitle(),Align=FONTF_CENTER,Color=GetPaletteColor(33)}
+	end
+
+	for k,v in ipairs(options) do
+		if v.title then
+
+		
+			if v.ypos then
+				pos[2]=v.ypos
+			end
+			
+			parent=Frame{Name=v.name,Position=pos,Size=SIZE(640,18)}
+
+			parent.gfx={}
+			parent.gfx[1]=Frame{Position=POS(ChloeWidescreen_GetLeft(),0),Size=SIZE(ChloeWidescreen_GetRight(),18),Parent=parent}:AttachResource(menu_options:getResource("black50_bd"))
+			parent.gfx[1]:SetAlpha(0)
+			parent.gfx[2]=Frame{Position=POS(ChloeWidescreen_GetLeft(),0),Size=SIZE(ChloeWidescreen_GetRight(),18),Parent=parent}:AttachResource(menu_options:getResource("white_transparent"))
+			parent.gfx[2]:SetAlpha(0)
+
+			parent.itempos=CopyTable(itempos)
+
+			parent.activate = function(self)
+				self.gfx[2]:SetAlpha(0.3)
+
+				self.value:activate()
+			end
+
+			parent.deactivate = function(self)
+				self.gfx[2]:SetAlpha(0)
+
+				self.value:deactivate()
+			end
+
+			parent.onPressed = function(self)
+				if self.value.onPressed then
+					self.value:onPressed()
+				end
+			end
+
+			create_option(v,parent)
+
+			v.frame=parent
+
+			parent:deactivate()
+
+		end
+
+		pos[2] = pos[2] + 20
+	end
+end
+
+local function recreate_options_for_widescreen(options,pos)
+	for k,v in ipairs(options) do
+		if v.title then
+			v.frame.gfx[1].position[1] = ChloeWidescreen_GetLeft()
+			v.frame.gfx[2].position[1] = ChloeWidescreen_GetLeft()
+			v.frame.gfx[1].size[1] = ChloeWidescreen_GetRight()
+			v.frame.gfx[2].size[1] = ChloeWidescreen_GetRight()
+		end
+	end
+end
+
+local function hide_options(options,shownum)
+	
+	if options.titlewindow then
+		options.titlewindow.handle=AnimateWindowAlpha(options.titlewindow,options.titlewindow:GetAlpha(),0.0,0.2,0.0,options.titlewindow.handle)
+	end
+
+	for k,v in ipairs(options) do
+
+		local frame=v.frame
+
+		if not shownum or k > shownum then
+			if frame then
+				frame.handle=AnimateWindowAlpha(frame,frame:GetAlpha(),0.0,0.2,0.0,frame.handle)
+
+				frame.title.handle=AnimateWindowAlpha(frame.title,frame.title:GetAlpha(),0.0,0.2,0.0,frame.title.handle)
+				frame.value.handle=AnimateWindowAlpha(frame.value,frame.value:GetAlpha(),0.0,0.2,0.0,frame.value.handle)
+
+				if frame.value.textvalue then
+					frame.value.textvalue.handle=AnimateWindowAlpha(frame.value.textvalue,frame.value.textvalue:GetAlpha(),0.0,0.2,0.0,frame.value.textvalue.handle)
+				end
+
+				if frame.value.icon then
+					frame.value.icon.handle=AnimateWindowAlpha(frame.value.icon,frame.value.icon:GetAlpha(),0.0,0.2,0.0,frame.value.icon.handle)
+				end
+
+
+				if frame.value.leftarrow then
+					frame.value.leftarrow.handle=AnimateWindowAlpha(frame.value.leftarrow,frame.value.leftarrow:GetAlpha(),0.0,0.2,0.0,frame.value.leftarrow.handle)
+					frame.value.rightarrow.handle=AnimateWindowAlpha(frame.value.rightarrow,frame.value.rightarrow:GetAlpha(),0.0,0.2,0.0,frame.value.rightarrow.handle)
+				end
+
+				if frame.gfx[1] then
+					frame.gfx[1].handle=AnimateWindowAlpha(frame.gfx[1],frame.gfx[1]:GetAlpha(),0.0,0.2,0.0,frame.gfx[1].handle)
+					--//frame.gfx[2].handle=AnimateWindowAlpha(frame.gfx[2],frame.gfx[2]:GetAlpha(),0.0,0.2,0.0,frame.gfx[2].handle)
+					--//frame.gfx[3].handle=AnimateWindowAlpha(frame.gfx[3],frame.gfx[3]:GetAlpha(),0.0,0.2,0.0,frame.gfx[3].handle)
+				end
+			end
+		end
+	end
+end
+
+
+local function show_options(options,showall,showonly)
+
+	if options.titlewindow then
+		options.titlewindow.handle=AnimateWindowAlpha(options.titlewindow,options.titlewindow:GetAlpha(),1.0,0.2,0.0,options.titlewindow.handle)
+	end
+
+	for k,v in ipairs(options) do
+
+		
+		local frame=v.frame
+
+		if frame then
+			local alpha=1
+			local delay=0.0
+
+			if frame.disabled then
+				alpha = 0.7
+			end
+
+			if options.hiddenitems then
+				showonly = options.hiddenitems
+			end
+			
+			if not showall and showonly and k > showonly then
+				alpha=0
+			end
+			
+			if showall then
+				if showonly and k > showonly then
+					delay = 0
+					alpha = 0
+				else
+					delay=0.2
+				end
+			end
+
+			frame.value:setTitle()
+	
+			
+			if frame.value.item.action and menu_options.current_button == 2 then
+				frame.value.item.action(frame.value:getValue(),frame.value:getValue())
+			end
+
+			--//frame.handle=AnimateWindowAlpha(frame,frame:GetAlpha(),alpha*0.2,0.2,0.0,frame.handle)
+
+			frame.title.handle=AnimateWindowAlpha(frame.title,frame.title:GetAlpha(),alpha,0.2,delay,frame.title.handle)
+			frame.value.handle=AnimateWindowAlpha(frame.value,frame.value:GetAlpha(),alpha,0.2,delay,frame.value.handle)
+
+			if frame.value.textvalue then
+				frame.value.textvalue.handle=AnimateWindowAlpha(frame.value.textvalue,frame.value.textvalue:GetAlpha(),alpha,0.2,delay,frame.value.textvalue.handle)
+			end
+
+			if frame.value.icon then
+				frame.value.icon.handle=AnimateWindowAlpha(frame.value.icon,frame.value.icon:GetAlpha(),alpha,0.2,delay,frame.value.icon.handle)
+			end
+
+
+			if frame.value.leftarrow then
+				frame.value.leftarrow.handle=AnimateWindowAlpha(frame.value.leftarrow,frame.value.leftarrow:GetAlpha(),alpha,0.2,delay,frame.value.leftarrow.handle)
+				frame.value.rightarrow.handle=AnimateWindowAlpha(frame.value.rightarrow,frame.value.rightarrow:GetAlpha(),alpha,0.2,delay,frame.value.rightarrow.handle)
+			end
+
+			if frame.gfx[1] then
+				frame.gfx[1].handle=AnimateWindowAlpha(frame.gfx[1],frame.gfx[1]:GetAlpha(),alpha,0.2,delay,frame.gfx[1].handle)
+				--//frame.gfx[2].handle=AnimateWindowAlpha(frame.gfx[2],frame.gfx[2]:GetAlpha(),alpha,0.2,0.0,frame.gfx[2].handle)
+				--//frame.gfx[3].handle=AnimateWindowAlpha(frame.gfx[3],frame.gfx[3]:GetAlpha(),alpha,0.2,0.0,frame.gfx[3].handle)
+			end
+			
+
+		end
+	end
+end
+
+local function create_layouts()
+	for _,layout in pairs(controller_layouts) do
+
+		for k,v in pairs(pad_layout) do
+			if layout[v.key] then
+				local pos=CopyTable(v.pos)
+				pos[2] = pos[2] + 22
+
+				local w=StaticText{Title=layout[v.key].title or L"",Position=pos,Font=fontextratiny(), Align=v.align}
+				w:SetAlpha(0)
+				local icon
+				if v.icon then
+					local iconpos = CopyTable(v.iconpos)
+					iconpos[2] = iconpos[2] + 22
+					icon=Frame{Position=iconpos,Size=v.iconsize}:AttachResource(menu_options:getResource(v.icon))
+				end
+				layout[v.key].window=w
+				layout[v.key].icon=icon
+			end
+		end
+	end
+end
+
+local function create_wheel_layouts()
+	for _,layout in pairs(xbox_wheel_layouts) do
+
+		for k,v in pairs(xbox_wheel_layout) do
+			if layout[v.key] then
+				local pos=CopyTable(v.pos)
+				pos[2] = pos[2] + 22
+
+				local w=StaticText{Title=layout[v.key].title or L"",Position=pos,Font=fontextratiny(), Align=v.align}
+				w:SetAlpha(0)
+				local icon
+				if v.icon then
+					local iconpos = CopyTable(v.iconpos)
+					iconpos[2] = iconpos[2] + 22
+					icon=Frame{Position=iconpos,Size=v.iconsize}:AttachResource(menu_options:getResource(v.icon))
+				end
+				layout[v.key].window=w
+				layout[v.key].icon=icon
+			end
+		end
+	end
+end
+
+
+show_layout = function(num)
+	--//if num == 3 then return end
+
+	for k,v in pairs(controller_layouts) do
+		local alpha=0
+		if k == num then
+			alpha=1
+		end
+		
+		for kk,vv in pairs(v) do
+			if vv.window then
+				vv.window.handle=AnimateWindowAlpha(vv.window,vv.window:GetAlpha(),alpha,0.2,0.0,vv.window.handle)
+				if vv.icon then
+					vv.icon.handle=AnimateWindowAlpha(vv.icon,vv.icon:GetAlpha(),alpha,0.2,0.0,vv.icon.handle)
+				end
+			end
+		end
+	end
+end
+
+hide_layout = function()
+	for k,v in pairs(controller_layouts) do
+		local alpha=0
+		
+		for kk,vv in pairs(v) do
+			if vv.window then
+				vv.window.handle=AnimateWindowAlpha(vv.window,vv.window:GetAlpha(),alpha,0.2,0.0,vv.window.handle)
+				if vv.icon then
+					vv.icon.handle=AnimateWindowAlpha(vv.icon,vv.icon:GetAlpha(),alpha,0.2,0.0,vv.icon.handle)
+				end
+			end
+		end
+	end
+end
+
+
+
+show_wheel_layout = function(num)
+	--//if num == 3 then return end
+
+	for k,v in pairs(xbox_wheel_layouts) do
+		local alpha=0
+		if k == num then
+			alpha=1
+		end
+		
+		for kk,vv in pairs(v) do
+			if vv.window then
+				vv.window.handle=AnimateWindowAlpha(vv.window,vv.window:GetAlpha(),alpha,0.2,0.0,vv.window.handle)
+				if vv.icon then
+					vv.icon.handle=AnimateWindowAlpha(vv.icon,vv.icon:GetAlpha(),alpha,0.2,0.0,vv.icon.handle)
+				end
+			end
+		end
+	end
+end
+
+hide_wheel_layout = function()
+	for k,v in pairs(xbox_wheel_layouts) do
+		local alpha=0
+		
+		for kk,vv in pairs(v) do
+			if vv.window then
+				vv.window.handle=AnimateWindowAlpha(vv.window,vv.window:GetAlpha(),alpha,0.2,0.0,vv.window.handle)
+				if vv.icon then
+					vv.icon.handle=AnimateWindowAlpha(vv.icon,vv.icon:GetAlpha(),alpha,0.2,0.0,vv.icon.handle)
+				end
+			end
+		end
+	end
+end
+
+
+
+--// ---------------------------------------------------------------------------------------------------------------------------------
+--// 
+--// ---------------------------------------------------------------------------------------------------------------------------------
+
+local function get_undo(options)
+	local t={}
+
+	for k,v in ipairs(options) do
+		if v.frame then
+			t[k]=v.frame.value:getValue()
+		end
+	end
+
+	return t
+end
+
+
+local function do_undo(options,values)
+	for k,v in ipairs(options) do
+		if v.frame then
+			v.frame.value:setValue(values[k])
+			v.frame.value:setTitle()
+		end
+	end
+
+end
+
+local function settings_changed(options,values)
+	if not options or not values then 
+		return false
+	end
+
+	for k,v in ipairs(options) do
+		if v.frame then
+			if v.frame.value:getValue() ~= values[k] then
+				return true
+			end
+		end
+	end
+
+	return false
+end
+
+reset_defaults = function()
+	GUI:DefaultSettings()
+	Event:PostEvent(event(EVENT_MUSIC_PLAY_TITLE))
+	menu_options.changed=true
+
+	for k,v in pairs(W("inputhandler").options) do
+		if type(v) == "table" and v.frame then
+			v.frame.value:setTitle()
+		end
+	end
+
+end
+
+local function toggle_forcefeedback()
+	if Settings.Control.ForceFeedback then
+		Settings.Control.ForceFeedback=FALSE
+		if W("vibration_status") then
+			W("vibration_status"):SetTitle(TRANSLATOR(OPTIONS_OFF))
+		end
+	else
+		if W("vibration_status") then
+			W("vibration_status"):SetTitle(TRANSLATOR(OPTIONS_ON))
+			GUI:SetVibration()
+		end
+		Settings.Control.ForceFeedback=TRUE
+	end
+	menu_options.changed=true
+end
+
+
+change_controller_actionmap = function(old_controller,new_controller)
+	
+	if old_controller and Input.GetControllerType(old_controller) ~= Input.CONTROLLER_TYPE_XBOXGAMEPAD then
+		Input.SaveActionMap(old_controller)
+	end
+	
+	if Input.GetControllerType(new_controller) == Input.CONTROLLER_TYPE_XBOXGAMEPAD then
+		if W("controller") then
+			W("controller").handle=AnimateWindowAlpha(W("controller"),W("controller"):GetAlpha(),1.0,0.2,0.0,W("controller").handle)
+			show_layout(Settings.Control.ControllerLayout+1)			
+		end
+	else
+		if W("controller") then
+			hide_layout()		
+			W("controller").handle=AnimateWindowAlpha(W("controller"),W("controller"):GetAlpha(),0.0,0.2,0.0,W("controller").handle)
+		end
+		Input.LoadActionMap(new_controller)		
+	end
+	
+	--//turn force feedback off
+	if new_controller == 0 and Settings.Control.ForceFeedback then
+		toggle_forcefeedback()
+	end
+
+	Settings.Control.ControllerGuid=Input.GetControllerGuid(new_controller)
+
+
+	i=1
+	if W("inputhandler") then
+		for k,v in ipairs(W("inputhandler").options) do
+			local frame=v.frame
+			if i > 1 and frame then
+				if Input.GetControllerType(new_controller) == Input.CONTROLLER_TYPE_XBOXGAMEPAD then	
+					frame.handle=AnimateWindowAlpha(frame,frame:GetAlpha(),0.0,0.2,0.0,frame.handle)
+					frame.title.handle=AnimateWindowAlpha(frame.title,frame.title:GetAlpha(),0.0,0.2,0.0,frame.title.handle)
+					frame.value.handle=AnimateWindowAlpha(frame.value,frame.value:GetAlpha(),0.0,0.2,0.0,frame.value.handle)
+					if frame.gfx[1] then
+						frame.gfx[1].handle=AnimateWindowAlpha(frame.gfx[1],frame.gfx[1]:GetAlpha(),0.0,0.2,0.0,frame.gfx[1].handle)
+					end
+					frame.disabled=true
+				else
+					local alpha = 1
+					if frame.gfx[1] then
+						frame.gfx[1].handle=AnimateWindowAlpha(frame.gfx[1],frame.gfx[1]:GetAlpha(),alpha,0.2,0.0,frame.gfx[1].handle)
+					end
+					frame.title.handle=AnimateWindowAlpha(frame.title,frame.title:GetAlpha(),alpha,0.2,delay,frame.title.handle)
+					frame.value.handle=AnimateWindowAlpha(frame.value,frame.value:GetAlpha(),alpha,0.2,delay,frame.value.handle)
+					frame.value:setTitle()
+					frame.disabled=false
+				end
+			end
+			i = i + 1
+		end
+	end
+end
+
+
+local function get_pc_controllers()
+
+	local item=key_config[1] --options_controller[6]
+
+	item.data={}
+	for i=0,Input.GetNumControllers()-1 do
+		table.insert(item.data,Input.GetControllerName(i))
+	end
+
+	item.action=change_controller_actionmap
+
+end
+
+
+
+local remapWindow
+
+
+local function end_remap(controller)
+	if remapWindow then
+		Input.RemapEnd(controller)
+
+		for k,v in pairs(W("inputhandler").options) do
+			if v.frame then
+				v.frame.value:setTitle()
+			end
+		end
+		remap_active = false
+		Input.SaveActionMap(controller)
+		remapWindow=nil
+		wm.SetExclusive(nil)
+	end
+end
+
+
+start_remap = function(window,controller,button)
+
+	remap_active = true
+
+	if not remapWindow then
+		remapWindow=window
+
+		wm.SetExclusive(window)
+
+		Input.RemapBegin(controller,button)
+		remapWindow:setTitle(Input.CONTROLLER_REMAP_PENDING)
+		wm.RepostEvent()
+	else
+		if Input.Remap(controller) ~= Input.CONTROLLER_REMAP_PENDING then
+			end_remap(controller)
+		else
+			wm.RepostEvent()
+		end
+
+	end
+end
+
+
+local function enter_controller()
+	GUI:HideMenuButtons()
+	menu_options.in_controller=true
+	GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_SELECT),BUTTON_BACK,TRANSLATOR(UI_BACK))
+
+	Event:AddTimer(function()
+						menu_options.items=menu_options.controlleritems
+						GUI:InitMenuButtons(menu_options.items)
+						GUI:SetActiveItem(Settings.Control.ControllerLayout+1)
+						GUI:ShowMenuButtons()
+					end, 0.4,nil,TRUE)
+end
+
+local function exit_controller()
+	GUI:HideMenuButtons()
+	menu_options.in_controller=nil
+	GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_SELECT),BUTTON_BACK,TRANSLATOR(UI_BACK))
+
+	Event:AddTimer(function()
+						menu_options.items=menu_options.defaultitems
+						GUI:InitMenuButtons(menu_options.items)
+						GUI:SetActiveItem(3)
+						GUI:ShowMenuButtons()
+					end, 0.4,nil,TRUE)
+end
+
+
+set_custom_preset_parameter = function(param,newv)
+	if Settings.Visual.QualityPreset == 3 then
+		Settings["Visual"]["CustomPreset"..param] = newv
+	end
+end
+
+get_custom_preset_parameter = function(param)
+	return Settings["Visual"]["CustomPreset"..param]
+end
+
+local function set_visual_preset(oldv,newv)
+
+	if newv == 3 then
+		local preset = quality_presets[1]
+		for k,v in ipairs(preset) do
+			local w = W(v.window)
+			
+			if w then 
+				w.disabled=false
+				w.title:SetAlpha(1.0)
+				w.value:SetAlpha(1.0)			
+				if w.value.textvalue then
+					w.value.textvalue:SetAlpha(1.0)
+				end
+				
+				w.value:setValue(get_custom_preset_parameter(w.value.item.setting))
+				w.value:setTitle()
+			end
+		end
+	else
+		local preset = quality_presets[newv+1]
+		local options = options_visual_pc
+		
+		for k,v in ipairs(preset) do
+			local w = W(v.window)
+			
+			if w then
+				w.disabled=true
+				w.value:setValue(v.value)
+				w.value:setTitle()
+				w.title:SetAlpha(0.7)
+				w.value:SetAlpha(0.7)
+				if w.value.textvalue then
+					w.value.textvalue:SetAlpha(0.7)
+				end		
+			else
+				OUTPUTDEBUGSTRING(string.format("preset:window %s not found",v.window))
+			end
+		end
+	end
+	
+
+end
+
+
+menu_options = CreateMenuFromTemplate("template_basic")
+
+
+
+
+menu_options.options.title=TRANSLATOR(TITLE_OPTIONS)
+menu_options.options.forgetselection=true 
+menu_options.backmenuname="menu_mainmenu" 
+menu_options.back=function() 
+							if menu_options.in_controller then
+								exit_controller()
+							else
+								GUI:SetVisualQualityParameters()							
+								if menu_options.changed then   --if PC or menu_options.changed then
+									if PS2 then
+										if menu_options.old_channelmode ~= Settings.Audio.ChannelMode then
+											AUDIO.ResetSpeakerMode()
+										end
+									end
+									ProfileSave(Save.GetLastSaveSlotUsed(),entermenu(menu_options.backmenuname),entermenu("menu_options"))
+								else 
+									EnterMenu(menu_options.backmenuname) 
+								end
+							end
+							menu_options.backmenuname="menu_mainmenu" -- reset it back to make sure main menu options still works
+					end
+
+
+local function set_focus(category)
+	
+	local w=W("inputhandler")
+	w:SetFocus()
+	w.item=nil
+	w.undo=get_undo(options[category])
+
+	w.category=category
+	w.options=options[category]
+	
+	if category == CATEGORY_REMAP and Input.GetControllerType(Settings.Control.Controller) == Input.CONTROLLER_TYPE_XBOXGAMEPAD then
+		show_options(options[category],false,1)
+	else
+		show_options(options[category],true)
+	end
+	
+	w:activate(1)
+
+
+	if category == CATEGORY_REMAP then
+		local bd=W("bd_middle")
+		bd.handle=AnimateWindowSize(bd,{ bd:GetSize() },SIZE(ChloeWidescreen_GetRight(),341),0.2,0.0,bd.handle)
+
+		local bd=W("bd_lower")
+		bd.handle=AnimateWindowPos(bd,{ bd:GetPosition() },POS(0,420),0.2,0.0,bd.handle)
+	end
+
+	GUI:HideMenuButtons()
+	GUI:SetHelpButtons(BUTTON_BACK,TRANSLATOR(UI_BACK))
+
+end
+
+
+function menu_options.create(self)
+	self.parent:create(self)
+
+	local iconname="icon_xbox_vibration_on"
+
+	if Input.GetControllerType(GUI:GetMenuController()-1) == Input.CONTROLLER_TYPE_WHEEL then
+		self.is_wheel=true
+	else
+		self.is_wheel=nil
+	end
+
+	self:addResource("xbox_controller.tga",xbox_controller,xbox_controller_size)
+	options_visual_pc[7].action = set_visual_preset
+
+	self:loadResources()
+
+	
+
+	self.controlleritems = {
+		MENUITEM(TRANSLATOR(ICON_OPTIONS_LAYOUT_1),function() Settings.Control.ControllerLayout=0; menu_options.changed=true; exit_controller() end,ICON(self,"icon_preset_1")),
+		MENUITEM(TRANSLATOR(ICON_OPTIONS_LAYOUT_2),function() Settings.Control.ControllerLayout=1; menu_options.changed=true; exit_controller() end,ICON(self,"icon_preset_2")),
+		MENUITEM(TRANSLATOR(UI_VIBRATION),toggle_forcefeedback,ICON(self,iconname))
+	}
+
+	self.defaultitems={}
+
+	self.defaultitems[1]=MENUITEM(TRANSLATOR(ICON_OPTIONS_GAMEOPTIONS),function() set_focus(1) end,ICON(self,"icon_game_options"))
+	self.defaultitems[2]=MENUITEM(TRANSLATOR(ICON_OPTIONS_VISUALOPTIONS),function() set_focus(2) end,ICON(self,"icon_game_options"))
+	self.defaultitems[3]=MENUITEM(L("PLAYER OPTIONS"),function() set_focus(3) end,ICON(self,"icon_change_profiles"))
+	self.defaultitems[4]=MENUITEM(TRANSLATOR(ICON_OPTIONS_SOUNDOPTIONS),function() set_focus(4) end,ICON(self,"icon_sound_options"))
+	self.defaultitems[5]=MENUITEM(L("MUSIC OPTIONS"),function() set_focus(5) end,ICON(self,"icon_sound_options"))
+	self.defaultitems[6]=MENUITEM(TRANSLATOR(ICON_OPTIONS_CONTROLLEROPTIONS),function() set_focus(6) end,ICON(self,"icon_controller_options"))
+	self.defaultitems[CATEGORY_REMAP]=MENUITEM(TRANSLATOR(ICON_OPTIONS_CONFIGURECONTROLS),function() set_focus(CATEGORY_REMAP) end,ICON(self,"icon_controller_options"))
+	self.defaultitems[8]=MENUITEM(L("ONLINE OPTIONS"),function() set_focus(8) end,ICON(self,"icon_online"))
+	if not ChloeNet_IsConnected() then
+		self.defaultitems[9]=MENUITEM(L("ENTER NAME"),function() EnterMenu("menu_options_playername") end,ICON(self,"icon_edit_events"))
+	end
+
+	options[1]=options_game_pc
+	options[2]=options_visual_pc
+	options[3]=options_player
+	options[4]=options_sound
+	options[5]=options_soundtrack
+	options[6]=options_controller
+	options[CATEGORY_REMAP]=key_config
+	if ChloeNet_IsUsingZMenu() then
+		options[8]=options_network_nozmenu
+	else
+		options[8]=options_network
+	end
+
+	get_pc_controllers()
+	change_controller_actionmap(nil,Settings.Control.Controller)
+	
+	self.items = self.defaultitems
+
+	menu_options.changed=nil
+
+end
+
+local old_remap
+
+function menu_options.init(self)
+	self.parent:init(self)
+
+
+
+	Frame{Position=POS(ChloeWidescreen_GetLeft(),26),Size=SIZE(ChloeWidescreen_GetRight(),44)}:AttachResource(self:getResource("title_bd"))
+
+	Frame{Name="bd_upper",Position=POS(ChloeWidescreen_GetLeft(),74),Size=SIZE(ChloeWidescreen_GetRight(),5)}:AttachResource(self:getResource("black75_bd"))
+	Frame{Name="bd_middle",Position=POS(ChloeWidescreen_GetLeft(),79),Size=SIZE(ChloeWidescreen_GetRight(),300)}:AttachResource(self:getResource("black50_bd"))
+	Frame{Name="bd_lower",Position=POS(ChloeWidescreen_GetLeft(),300+79),Size=SIZE(ChloeWidescreen_GetRight(),5)}:AttachResource(self:getResource("black75_bd"))
+
+	FadingStaticText { Name="infotext", Title=L"", Font=fontextratiny(), Position=POS(320,430), Size=SIZE(500,38), Color=GetPaletteColor(34), Align=FONTF_CENTER }
+
+	local tbl
+	local prefix
+
+	controller_layouts=xbox_layouts
+	pad_layout=xbox_pad_layout
+	tbl=xbox_controller
+	prefix="xbox_"
+
+	controller.pad=self:getResource("controller")
+
+	self.leftarrow = CreateArrow(self, "leftarrow", "ingame_options_arrow_left")
+	self.rightarrow = CreateArrow(self, "rightarrow", "ingame_options_arrow_right")
+	self.leftarrow:HideWindow()
+	self.rightarrow:HideWindow()
+
+	for k,v in pairs(options) do
+		create_options(v)
+	end
+	
+	if self.is_wheel then
+		create_options(options_controller_pad)
+		hide_options(options_controller_pad)
+	else
+		create_options(options_controller_wheel)
+		hide_options(options_controller_wheel)
+	end
+
+	local input=InputHandler{Name="inputhandler"}
+
+	if PC then
+		local w=Frame{Name="controller",Position=POS(226,162+43),Size=SIZE(189,131)}
+		w:AttachResource(controller.pad)
+		w:SetAlpha(0)
+
+		--//StaticText{Name="vibration_title",Title=TRANSLATOR(UI_VIBRATION),Position=POS(302,315),Align=FONTF_RIGHT,Font=fontextratiny(),Color=GetPaletteColor(33)}:SetAlpha(0)
+		--//StaticText{Name="vibration_status",Position=POS(340,315),Font=fontextratiny(),Color=GetPaletteColor(34)}:SetAlpha(0)
+
+		create_layouts()
+	end
+
+	input.onKeyPressed = function(self,character,virtualkey,scancode)
+	
+		if virtualkey == KeyCodes.BUTTON_SELECT then
+			self:deactivate(self.item)
+			
+			if not old_remap then
+				menu_options.changed=menu_options.changed or settings_changed(self.options,self.undo)
+				if self.category == CATEGORY_REMAP and Input.GetControllerType(Settings.Control.Controller) == Input.CONTROLLER_TYPE_XBOXGAMEPAD then
+					show_options(options[self.category],false,1)
+				else
+					show_options(options[self.category])
+				end
+			
+				
+				playmenusound_back()
+				GUI:SetActiveItem(self.category)
+				
+				GUI:ShowMenuButtons()
+				GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_SELECT),BUTTON_BACK,TRANSLATOR(UI_BACK))
+				self.undo=nil
+
+				menu_options.leftarrow:HideWindow()
+				menu_options.rightarrow:HideWindow()
+				
+				wm.GetWindow("infotext"):SetTitle(L"")
+			else
+				self:activate(self.item)
+			end
+		elseif virtualkey == KeyCodes.BUTTON_START then
+			if self.options[self.item].frame.value.item.type ~= TYPE_KEY then
+				playmenusound_action()
+			end
+
+			self.options[self.item].frame:onPressed()
+
+		elseif virtualkey == KeyCodes.BUTTON_LEFT then
+			playmenusound_move()
+			self.options[self.item].frame:moveLeft()
+		
+			local infotext = wm.GetWindow("infotext")
+			if self.options[self.item].descriptions then
+				infotext:SetTitle(self.options[self.item].descriptions[self.options[self.item].frame.value:getValue()+1])
+				infotext:WordWrap()
+			end
+		elseif virtualkey == KeyCodes.BUTTON_RIGHT then
+			playmenusound_move()
+			self.options[self.item].frame:moveRight()
+			
+			local infotext = wm.GetWindow("infotext")
+			if self.options[self.item].descriptions then
+				infotext:SetTitle(self.options[self.item].descriptions[self.options[self.item].frame.value:getValue()+1])
+				infotext:WordWrap()
+			end
+		elseif virtualkey == KeyCodes.BUTTON_DOWN then
+			local maxitems=table.getn(self.options)
+
+			local value = self.item+1
+			if value > maxitems then
+				value=1
+			end
+
+			while not self.options[value] or not self.options[value].frame or self.options[value].frame.disabled or not self.options[value].title do
+				value=value + 1
+				if value > maxitems then
+					value=0
+				end
+			end
+			
+			self:activate(value)
+			
+			playmenusound_move()
+
+		elseif virtualkey == KeyCodes.BUTTON_UP then
+
+			local value=self.item-1
+			if value < 1 then
+				value=table.getn(self.options)
+			end
+
+			while not self.options[value].frame or self.options[value].frame.disabled or not self.options[value].title do
+				value=value-1
+
+				if value < 1 then
+					value=table.getn(self.options)
+				end
+			end
+			
+			self:activate(value)
+
+			playmenusound_move()
+		end
+	end
+
+	input.activate = function(self,item)
+
+		local old_type
+
+		if self.item then
+			self:deactivate(self.item)
+			old_type=self.options[self.item].type
+		else
+			--//old_type=self.options[item].type
+		end
+
+
+		self.item=item
+
+		if old_type ~= self.options[item].type then
+			if self.options[item].type == TYPE_COMMAND or self.options[item].type == TYPE_KEY then
+				GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_SELECT),BUTTON_BACK,TRANSLATOR(UI_BACK))
+			else
+				GUI:SetHelpButtons(BUTTON_BACK,TRANSLATOR(UI_BACK))
+			end
+		end
+		
+		local infotext = wm.GetWindow("infotext")
+		if self.options[item].descriptions then
+			infotext:SetTitle(self.options[self.item].descriptions[self.options[self.item].frame.value:getValue()+1])
+			infotext:WordWrap()
+		elseif self.options[item].description then
+			infotext:SetTitle(self.options[item].description)
+			infotext:WordWrap()
+		else
+			infotext:SetTitle(L"")
+		end
+
+		self.options[item].frame:activate()
+
+	end
+
+	input.deactivate = function(self,item)
+		if not item then return end
+
+		self.options[item].frame:deactivate()
+	end
+
+
+
+
+	GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_SELECT),BUTTON_BACK,TRANSLATOR(UI_BACK))
+	--//GUI:SetBackground("data/menu/canvas_bg.tga")
+	GUI:SetBackgroundVideo("data/video/bg_main")
+end
+
+
+function menu_options.deinit(self)
+	self.parent:deinit(self)
+	
+
+end
+
+function menu_options.update(self, time)
+	local oldwheel=self.is_wheel
+	
+	if old_remap ~= remap_active then
+		old_remap = remap_active
+	end
+	
+
+	if self.leftarrow:IsVisible() then
+		self.leftarrow:AnimateAlpha(time)
+	end
+	if self.rightarrow:IsVisible() then
+		self.rightarrow:AnimateAlpha(time)
+	end
+
+	--if ChloeWidescreen_WasWidescreenToggled() then
+	--	for k,v in pairs(options) do
+	--		recreate_options_for_widescreen(v)
+	--	end
+	--end
+end
+
+function menu_options.buttonChange(self,oldbutton,newbutton)
+	
+	self.current_button=newbutton
+
+	local is_xbox_controller = false
+	if Input.GetControllerType(Settings.Control.Controller) == Input.CONTROLLER_TYPE_XBOXGAMEPAD then
+		is_xbox_controller=true
+	end
+
+	if menu_options.in_controller then
+		show_layout(newbutton)
+	else
+		if newbutton == CATEGORY_REMAP  then
+			if is_xbox_controller then
+				W("controller").handle=AnimateWindowAlpha(W("controller"),W("controller"):GetAlpha(),1.0,0.2,0.0,W("controller").handle)
+				show_layout(Settings.Control.ControllerLayout+1)
+			else
+				hide_layout()
+				W("controller").handle=AnimateWindowAlpha(W("controller"),W("controller"):GetAlpha(),0.0,0.2,0.0,W("controller").handle)
+			end
+		else
+			W("controller").handle=AnimateWindowAlpha(W("controller"),W("controller"):GetAlpha(),0.0,0.2,0.0,W("controller").handle)
+			hide_layout()
+		end
+
+		for k,v in ipairs(options) do
+			if k == newbutton then
+				if newbutton == CATEGORY_REMAP and is_xbox_controller then
+					show_options(v,false,1)
+				else
+					show_options(v)
+				end
+			else
+				hide_options(v)
+			end
+		end
+	end
+end
+
+menu_options_playername = CreateMenuFromTemplate("template_basic")
+
+menu_options_playername.options.title=L("PLAYER NAME")
+
+menu_options_playername.back=entermenu("menu_options")
+
+function menu_options_playername.create(self)
+	self.parent:create(self)
+
+	self:loadResources()
+end
+
+function menu_options_playername.init(self)
+	self.parent:init(self)
+
+	self.checked=false
+	
+	ChloeInput_OpenInputWindow(L("PLAYER NAME"), 16)
+	GUI:HideMenuButtons()
+
+	GUI:SetBackgroundVideo("data/video/bg_main")
+end
+
+function menu_options_playername.deinit(self)
+	self.parent:deinit(self)
+	
+	ChloeInput_CloseInputWindow()
+end
+
+function menu_options_playername.update(self)
+	if ChloeInput_IsInputWindowCanceled() then
+		self.checked=true
+		EnterMenu("menu_options")
+	else
+		local r=ChloeInput_GetInputText()
+		if not self.checked and r then
+			PlayerProfile:SetName(r)
+			self.checked=true
+			self.timerhandle=Event:AddTimer(function() EnterMenu("menu_options") end,500,nil,TRUE)
+		end
+	end
+end
