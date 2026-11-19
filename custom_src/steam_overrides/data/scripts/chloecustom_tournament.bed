@@ -1,0 +1,1590 @@
+--///////////////////////////////////////////////////////////////////////////
+--// chloecustom_tournament.bed  (ChloeCustom Tourney, Steam package only)
+--//
+--// Tournament for Chloe's multiplayer: the host builds a list of events (editor = copy of the vanilla
+--// MultiplayerBuildTournament.bed, below), the events are played one after another (or in random order), every
+--// driver (players and AI) gets points per event (vanilla table 10-8-6-5-4-3-2-1). AI drivers get 4 points for
+--// stunt events (stunts have no AI). Only the host counts; the standings are shared with all players through the
+--// Steam lobby data (ChloeSteam_SetLobbyValue / ChloeSteam_GetLobbyValue of ChloeSteamNet.asi).
+--// Hooks in chloemultiplayer_lobby.bed (all guarded with "if ChloeCustomTourney_... then"):
+--//   create: ChloeCustomTourney_CaptureResults() before GameFlow.ClearRace()
+--//   StartRace: ChloeCustomTourney_OnStartRace()
+--//   BuildLobbyMenuButtons: ChloeCustomTourney_AddLobbyButtons(menu)
+--//   update: ChloeCustomTourney_LobbyUpdate(menu, time)
+--//   player list: ChloeCustomTourney_RowText(playerId, ping)
+--//   leaving the lobby: ChloeCustomTourney_Reset()
+--///////////////////////////////////////////////////////////////////////////
+
+local TOURNEY_POINTS = { 10, 8, 6, 5, 4, 3, 2, 1 }
+local TOURNEY_AI_STUNT_POINTS = 4
+local TOURNEY_LOBBY_KEY = "tourney"
+local TOURNEY_FORMAT = "CCT1"
+
+ChloeCustomTourney = {
+	id = 0,
+	active = false,
+	finished = false,
+	events = { },		-- host only: list of events (format of the track selection / SetEvents)
+	queue = { },		-- host only: order of the event indices
+	played = 0,			-- number of counted events
+	stuntsPlayed = 0,	-- host only: number of counted stunt events
+	total = 0,
+	standings = { },	-- { key = hex name, points, ai, last }
+	raceStarted = false,
+	pendingApply = false,
+	dirty = false,
+	lastValue = nil,
+	lastPoll = nil,
+	finalShownId = nil,
+	random = false,
+}
+
+local function TourneyAvailable()
+	return ChloeSteam_IsAvailable ~= nil and ChloeSteam_SetLobbyValue ~= nil and ChloeSteam_IsAvailable()
+end
+
+-- names are wide strings (UTF-16LE bytes, terminated by two zero bytes); the key is their hex text without terminator.
+-- At most 15 characters: the race results come from GameFlow.PlayerInfo (name = wchar[16]), lobby names may be longer.
+-- A string without any zero byte is taken as a narrow string (one byte per character).
+local TOURNEY_NAME_CHARS = 15
+local function NameKey(w)
+	if type(w) ~= "string" then
+		return ""
+	end
+	local t = { }
+	local n = string.len(w)
+	if string.find(w, "\0", 1, true) == nil then
+		for i = 1, n do
+			if i > TOURNEY_NAME_CHARS then
+				break
+			end
+			table.insert(t, string.format("%02x00", string.byte(w, i)))
+		end
+		return table.concat(t)
+	end
+	local i = 1
+	while i < n and table.getn(t) < TOURNEY_NAME_CHARS do
+		local a = string.byte(w, i)
+		local b = string.byte(w, i + 1)
+		if a == 0 and b == 0 then
+			break
+		end
+		table.insert(t, string.format("%02x%02x", a, b))
+		i = i + 2
+	end
+	return table.concat(t)
+end
+
+-- readable ASCII form of a key for the log
+local function KeyToAscii(k)
+	local t = { }
+	local n = string.len(k)
+	local i = 1
+	while i + 3 <= n do
+		local lo = tonumber(string.sub(k, i, i + 1), 16) or 63
+		local hi = tonumber(string.sub(k, i + 2, i + 3), 16) or 0
+		if hi == 0 and lo >= 32 and lo < 127 and lo ~= 124 then
+			table.insert(t, string.char(lo))
+		else
+			table.insert(t, "?")
+		end
+		i = i + 4
+	end
+	return table.concat(t)
+end
+
+local function TourneyLog(s)
+	if ChloeSteam_Log ~= nil then
+		ChloeSteam_Log("tourney: " .. s)
+	end
+end
+
+local function KeyToName(k)
+	local t = { }
+	local n = string.len(k)
+	local i = 1
+	while i < n do
+		table.insert(t, string.char(tonumber(string.sub(k, i, i + 1), 16) or 63))
+		i = i + 2
+	end
+	return table.concat(t) .. "\0\0"
+end
+
+local function Split(s, sep)
+	local t = { }
+	local start = 1
+	while true do
+		local a = string.find(s, sep, start, true)
+		if a == nil then
+			table.insert(t, string.sub(s, start))
+			return t
+		end
+		table.insert(t, string.sub(s, start, a - 1))
+		start = a + 1
+	end
+end
+
+local function FindEntry(key)
+	for _, e in ipairs(ChloeCustomTourney.standings) do
+		if e.key == key then
+			return e
+		end
+	end
+	return nil
+end
+
+local function AddEntry(key, ai)
+	-- AI drivers first seen after stunt events still get the stunt points of those events
+	local points = 0
+	if ai then
+		points = TOURNEY_AI_STUNT_POINTS * ChloeCustomTourney.stuntsPlayed
+	end
+	local e = { key = key, points = points, ai = ai, last = nil }
+	table.insert(ChloeCustomTourney.standings, e)
+	return e
+end
+
+local function LobbyPlayerKeys()
+	local keys = { }
+	for i = 1, ChloeNet_GetNumPlayers() do
+		if ChloeNet_IsPlayerValid(i) then
+			local k = NameKey(ChloeNet_GetPlayerName(i))
+			if k ~= "" then
+				keys[k] = true
+			end
+		end
+	end
+	return keys
+end
+
+local function IsStuntEvent(ev)
+	if ev == nil then
+		return false
+	end
+	return ev.rules == GAMETYPE_STUNT or (Levels[ev.trackid] ~= nil and Levels[ev.trackid].Rules == GR_STUNT)
+end
+
+-- sorted copy of the standings with ranks (equal points = equal rank)
+function ChloeCustomTourney_GetSortedStandings()
+	local list = { }
+	for _, e in ipairs(ChloeCustomTourney.standings) do
+		table.insert(list, e)
+	end
+	table.sort(list, function(a, b)
+		if a.points ~= b.points then
+			return a.points > b.points
+		end
+		if a.ai ~= b.ai then
+			return not a.ai
+		end
+		return a.key < b.key
+	end)
+	for i, e in ipairs(list) do
+		if i > 1 and list[i - 1].points == e.points then
+			e.rank = list[i - 1].rank
+		else
+			e.rank = i
+		end
+	end
+	return list
+end
+
+function ChloeCustomTourney_Reset()
+	local T = ChloeCustomTourney
+	T.active = false
+	T.finished = false
+	T.events = { }
+	T.queue = { }
+	T.played = 0
+	T.stuntsPlayed = 0
+	T.total = 0
+	T.standings = { }
+	T.raceStarted = false
+	T.pendingApply = false
+	T.dirty = false
+	T.lastValue = nil
+	T.lastPoll = nil
+end
+
+-- --- sharing the state (host writes, everybody else reads) ------------------------------------------------------
+
+local function Serialize()
+	local T = ChloeCustomTourney
+	local parts = { TOURNEY_FORMAT, T.id, T.active and 1 or 0, T.finished and 1 or 0, T.played, T.total }
+	for _, e in ipairs(T.standings) do
+		local last = e.last
+		if last == nil then
+			last = -1
+		end
+		table.insert(parts, e.key .. "," .. e.points .. "," .. (e.ai and 1 or 0) .. "," .. last)
+	end
+	return table.concat(parts, "|")
+end
+
+local function Parse(s)
+	local f = Split(s, "|")
+	if f[1] ~= TOURNEY_FORMAT or table.getn(f) < 6 then
+		return
+	end
+	local T = ChloeCustomTourney
+	T.id = tonumber(f[2]) or 0
+	T.active = f[3] == "1"
+	T.finished = f[4] == "1"
+	T.played = tonumber(f[5]) or 0
+	T.total = tonumber(f[6]) or 0
+	T.standings = { }
+	for i = 7, table.getn(f) do
+		local v = Split(f[i], ",")
+		if table.getn(v) >= 4 and v[1] ~= "" then
+			local last = tonumber(v[4])
+			if last ~= nil and last < 0 then
+				last = nil
+			end
+			table.insert(T.standings, { key = v[1], points = tonumber(v[2]) or 0, ai = v[3] == "1", last = last })
+		end
+	end
+end
+
+local function Publish()
+	ChloeCustomTourney.dirty = false
+	ChloeSteam_SetLobbyValue(TOURNEY_LOBBY_KEY, Serialize())
+end
+
+-- --- host: events and points ------------------------------------------------------------------------------------
+
+local function NormalizedEvent(e)
+	local ev = { }
+	for k, v in pairs(e) do
+		ev[k] = v
+	end
+	local level = Levels[ev.trackid] or { }
+	if ev.rules == nil then
+		ev.rules = GAMETYPE_RACE
+	end
+	if ev.weather == nil then
+		ev.weather = 0
+	end
+	if ev.lapsOrTimeLimit == nil then
+		ev.lapsOrTimeLimit = level.Laps or 3
+	end
+	if ev.tracktype == nil then
+		ev.tracktype = level.TrackType
+	end
+	ev.num = nil
+	return ev
+end
+
+-- inLobby: called from the lobby's update. Chloe's SetEvents ends with EnterMenu("menu_chloemultiplayer_lobby"),
+-- re-entering the running lobby from its own update is avoided (other menus, e.g. the car selection for stunts, open
+-- normally).
+local function ApplyCurrentEvent(inLobby)
+	local T = ChloeCustomTourney
+	local ev = T.events[T.queue[T.played + 1]]
+	if ev == nil or ChloeCustomTourney_SetEvents == nil then
+		if not inLobby then
+			EnterMenu("menu_chloemultiplayer_lobby")
+		end
+		return
+	end
+	ev = NormalizedEvent(ev)
+	TourneyLog("event " .. (T.played + 1) .. "/" .. T.total .. ": track " .. tostring(ev.trackid) .. ", rules " .. tostring(ev.rules))
+	if inLobby then
+		local realEnterMenu = EnterMenu
+		local skipped = false
+		EnterMenu = function(name)
+			if name == "menu_chloemultiplayer_lobby" then
+				skipped = true
+			else
+				realEnterMenu(name)
+			end
+		end
+		local ok, err = pcall(ChloeCustomTourney_SetEvents, { ev })
+		EnterMenu = realEnterMenu
+		if not ok then
+			TourneyLog("SetEvents failed: " .. tostring(err))
+		end
+		if skipped and BuildLobbyMenuButtons ~= nil then
+			BuildLobbyMenuButtons()
+		end
+	else
+		ChloeCustomTourney_SetEvents({ ev })	-- enters the lobby (or the car selection)
+	end
+end
+
+function ChloeCustomTourney_Start(events, random)
+	local T = ChloeCustomTourney
+	local previousId = T.id or 0
+	ChloeCustomTourney_Reset()
+	T.id = previousId + 1 + ChloeCollection_GetRandom(1000) * 1000	-- differs from the previous tournament
+	T.random = random
+	for i, e in ipairs(events) do
+		T.events[i] = NormalizedEvent(e)
+		T.queue[i] = i
+	end
+	T.total = table.getn(T.events)
+	if random then
+		for i = T.total, 2, -1 do
+			local j = ChloeCollection_GetRandom(i) + 1
+			T.queue[i], T.queue[j] = T.queue[j], T.queue[i]
+		end
+	end
+	local names = { }
+	for k, _ in pairs(LobbyPlayerKeys()) do
+		AddEntry(k, false)
+		table.insert(names, KeyToAscii(k))
+	end
+	TourneyLog("started, " .. table.getn(T.events) .. " events, random " .. tostring(random) .. ", players: " .. table.concat(names, ", "))
+	if T.total == 0 then
+		ChloeCustomTourney_Reset()
+		EnterMenu("menu_chloemultiplayer_lobby")
+		return
+	end
+	T.active = true
+	T.dirty = true
+	ApplyCurrentEvent()
+end
+
+function ChloeCustomTourney_OnStartRace()
+	if ChloeNet_IsServer() and ChloeCustomTourney.active then
+		ChloeCustomTourney.raceStarted = true
+	end
+end
+
+-- called when the lobby is created after a race, before GameFlow.ClearRace() (results are still available)
+function ChloeCustomTourney_CaptureResults()
+	local T = ChloeCustomTourney
+	if not T.active or not T.raceStarted or not ChloeNet_IsServer() then
+		return
+	end
+	local n = GameFlow.GetNumResults() or 0
+	if n <= 0 then
+		TourneyLog("lobby entered without race results")
+		return
+	end
+	T.raceStarted = false
+
+	local ev = T.events[T.queue[T.played + 1]]
+	local stunt = IsStuntEvent(ev)
+	local humans = LobbyPlayerKeys()
+	for _, e in ipairs(T.standings) do
+		e.last = nil
+	end
+
+	local rank = 0
+	local counted = { }
+	local logparts = { }
+	for i = 1, n do
+		local id = GameFlow.GetPlayerIdByPosition(i)
+		local key = ""
+		if id ~= nil then
+			key = NameKey(GameFlow.GetPlayerName(id))
+		end
+		table.insert(logparts, i .. ". " .. KeyToAscii(key) .. (humans[key] and " (player)" or ""))
+		if key ~= "" and not counted[key] then
+			local e = FindEntry(key)
+			local human = humans[key] or (e ~= nil and not e.ai)
+			-- stunts: only the players are ranked (simulated drivers do not belong to the tournament)
+			if not stunt or human then
+				counted[key] = true
+				if e == nil then
+					e = AddEntry(key, not human)
+				end
+				rank = rank + 1
+				local p = TOURNEY_POINTS[rank] or 0
+				e.points = e.points + p
+				e.last = p
+			end
+		end
+	end
+	if stunt then
+		for _, e in ipairs(T.standings) do
+			if e.ai then
+				e.points = e.points + TOURNEY_AI_STUNT_POINTS
+				e.last = TOURNEY_AI_STUNT_POINTS
+			end
+		end
+		T.stuntsPlayed = T.stuntsPlayed + 1
+	end
+	TourneyLog("event " .. (T.played + 1) .. " counted, stunt " .. tostring(stunt) .. ", results: " .. table.concat(logparts, ", "))
+
+	T.played = T.played + 1
+	if T.played >= T.total then
+		T.active = false
+		T.finished = true
+	else
+		T.pendingApply = true
+	end
+	T.dirty = true
+end
+
+local function StopTournament()
+	GUI:HideMenuButtons()
+	MessageBox(L"STOP THE TOURNAMENT?", MESSAGEBOX_YESNO, function(value)
+		if value == TRUE then
+			ChloeCustomTourney_Reset()
+			Publish()
+		end
+		EnterMenu("menu_chloemultiplayer_lobby")
+	end)
+end
+
+local function OpenBuilder()
+	ChloeNet_SetPlayerChangingTrack(1)
+	ChloeCustomTourney_EnterBuilder(GAMETYPE_TOURNAMENT,
+		function(events, random)
+			ChloeCustomTourney_Start(events, random)
+		end,
+		function()
+			EnterMenu("menu_chloemultiplayer_lobby")
+		end,
+		false,
+		table.getn(ChloeCustomTourney.events) > 0)
+end
+
+-- --- lobby hooks ------------------------------------------------------------------------------------------------
+
+function ChloeCustomTourney_IsActive()
+	return TourneyAvailable() and ChloeCustomTourney.active
+end
+
+function ChloeCustomTourney_AddLobbyButtons(menu)
+	if not TourneyAvailable() then
+		return
+	end
+	local T = ChloeCustomTourney
+	local items = menu.items
+	local new = { }
+	if ChloeNet_IsServer() then
+		if T.active then
+			for i = table.getn(items), 1, -1 do
+				if items[i][1] == MULTIPLAYER_ICON_CHANGETRACK then
+					table.remove(items, i)
+				end
+			end
+			table.insert(new, { L("STOP TOURNAMENT"), StopTournament, ICON(menu, "icon_profile_x") })
+		else
+			table.insert(new, { L("TOURNAMENT"), OpenBuilder, ICON(menu, "icon_change_track") })
+		end
+	end
+	if T.active or T.finished then
+		table.insert(new, { L("STANDINGS"), function() ChloeCustomTourney_ShowStandings() end, ICON(menu, "icon_session_details") })
+	end
+	-- before the last button (START RACE / READY / UNREADY)
+	local pos = table.getn(items)
+	if pos < 1 then
+		pos = 1
+	end
+	for i, item in ipairs(new) do
+		table.insert(items, pos + i - 1, item)
+	end
+end
+
+function ChloeCustomTourney_RowText(playerId, ping)
+	local T = ChloeCustomTourney
+	if not TourneyAvailable() or not (T.active or T.finished) then
+		return ConvertToWString(ping)
+	end
+	local e = FindEntry(NameKey(ChloeNet_GetPlayerName(playerId)))
+	local points = 0
+	if e ~= nil then
+		points = e.points
+	end
+	return L(points .. "  (" .. tostring(ping) .. ")")
+end
+
+function ChloeCustomTourney_LobbyUpdate(menu, time)
+	if not TourneyAvailable() then
+		return
+	end
+	local T = ChloeCustomTourney
+	if ChloeNet_IsServer() then
+		if T.dirty then
+			Publish()
+		end
+		if T.pendingApply and not ChloeNet_IsLobbyInGame() then
+			T.pendingApply = false
+			ApplyCurrentEvent(true)
+		end
+	elseif T.lastPoll == nil or time < T.lastPoll or time - T.lastPoll > 0.5 then
+		T.lastPoll = time
+		local v = ChloeSteam_GetLobbyValue(TOURNEY_LOBBY_KEY)
+		if v ~= T.lastValue then
+			local wasActive = T.active or T.finished
+			T.lastValue = v
+			if v == nil then
+				ChloeCustomTourney_Reset()
+			else
+				Parse(v)
+			end
+			if wasActive ~= (T.active or T.finished) and BuildLobbyMenuButtons ~= nil then
+				BuildLobbyMenuButtons()
+			end
+		end
+	end
+
+	local header = W("chloecustom_pingheader")
+	if T.active or T.finished then
+		W("sessiondetails_bd"):ShowWindow()
+		W("eventnum_title"):SetTitle(L"TOURNAMENT:")
+		if T.finished then
+			W("eventnum"):SetTitle(L("FINISHED (" .. T.total .. " EVENTS)"))
+		else
+			W("eventnum"):SetTitle(L("EVENT " .. (T.played + 1) .. " OF " .. T.total))
+		end
+		W("eventnum_title"):ShowWindow()
+		W("eventnum"):ShowWindow()
+		if header then
+			header:SetTitle(L"PTS (PING)")
+		end
+	elseif header then
+		header:SetTitle(L"PING")
+	end
+
+	if T.finished and T.finalShownId ~= T.id then
+		T.finalShownId = T.id
+		ChloeCustomTourney_ShowStandings()
+	end
+end
+
+-- --- standings menu -----------------------------------------------------------------------------------------------
+
+menu_chloecustom_tourney_standings = CreateMenuFromTemplate("template_multiplayer")
+menu_chloecustom_tourney_standings.options.title = L""
+menu_chloecustom_tourney_standings.back = function() EnterMenu("menu_chloemultiplayer_lobby") end
+
+function ChloeCustomTourney_ShowStandings()
+	EnterMenu("menu_chloecustom_tourney_standings")
+end
+
+function menu_chloecustom_tourney_standings.create(self)
+	self.parent:create(self)
+	self:addResource("cup_next_race_elements.tga", cup_next_race_elements, cup_next_race_elements_size)
+	self:loadResources()
+end
+
+function menu_chloecustom_tourney_standings.init(self)
+	self.parent:init(self)
+	local T = ChloeCustomTourney
+
+	Frame { Position=LEFTPOS(0,39), Size=SIZE(ChloeWidescreen_GetRight(),42) }:AttachResource(self:getResource("cup_title_bd"))
+	StaticText { Title=L"TOURNAMENT STANDINGS", Font=fonttitle(), Color=GetPaletteColor(33), Position=POS(320,40), Size=SIZE(320,33), Align=FONTF_CENTER }
+
+	local info
+	if T.finished then
+		info = "FINAL RESULT AFTER " .. T.total .. " EVENTS"
+	elseif T.active then
+		info = "AFTER " .. T.played .. " OF " .. T.total .. " EVENTS"
+	else
+		info = "NO TOURNAMENT"
+	end
+	StaticText { Title=L(info), Font=fontsmall(), Color=GetPaletteColor(34), Position=POS(320,86), Size=SIZE(400,16), Align=FONTF_CENTER }
+
+	local list = ChloeCustomTourney_GetSortedStandings()
+	if T.finished and list[1] ~= nil then
+		local winner = WStringConcat(L"WINNER: ", EscapeString(KeyToName(list[1].key)))
+		StaticText { Title=winner, Font=fontlarge(), Color=GetPaletteColor(33), Position=POS(320,104), Size=SIZE(400,20), Align=FONTF_CENTER }
+	end
+
+	-- two columns with 16 rows each
+	local top = 132
+	local rowh = 16
+	for i, e in ipairs(list) do
+		if i > 32 then
+			break
+		end
+		local col = math.floor((i - 1) / 16)
+		local row = math.mod(i - 1, 16)
+		local x = 40 + col * 300
+		local y = top + row * rowh
+		local color = GetPaletteColor(34)
+		if e.rank == 1 then
+			color = GetPaletteColor(33)
+		end
+		local name = EscapeString(KeyToName(e.key))
+		if e.ai then
+			name = WStringConcat(name, L" (AI)")
+		end
+		local last = L""
+		if e.last ~= nil then
+			last = L("+" .. e.last)
+		end
+		StaticText { Title=L(e.rank .. "."), Font=fontsmall(), Color=color, Position=POS(x,y), Size=SIZE(24,rowh) }
+		StaticText { Title=name, Font=fontsmall(), Color=color, Position=POS(x + 26,y), Size=SIZE(190,rowh) }
+		StaticText { Title=L(e.points), Font=fontsmall(), Color=color, Position=POS(x + 240,y), Size=SIZE(30,rowh), Align=FONTF_RIGHT }
+		StaticText { Title=last, Font=fontsmall(), Color=GetPaletteColor(34), Position=POS(x + 275,y), Size=SIZE(24,rowh), Align=FONTF_RIGHT }
+	end
+
+	self.items = { { ICON_MULTIPLAYER_CONTINUE, function() EnterMenu("menu_chloemultiplayer_lobby") end, ICON(self, "icon_continue"), ICON(self, "icon_continue_s") } }
+	GUI:InitMenuButtons(self.items)
+	GUI:SetActiveItem(1)
+	GUI:ShowMenuButtons()
+	GUI:SetHelpButtons(BUTTON_OK, UI_SELECT, BUTTON_BACK, UI_BACK)
+end
+
+function menu_chloecustom_tourney_standings.update(self, time)
+	self.parent:update(self, time)
+	if not ChloeNet_IsConnected() then
+		ChloeCustomTourney_Reset()
+		EnterMenu("menu_chloemultiplayer")
+	end
+end
+
+function menu_chloecustom_tourney_standings.deinit(self)
+	self.parent:deinit(self)
+end
+
+-- --- event editor (copy of the vanilla MultiplayerBuildTournament.bed, ReplicatedSession.GAMETYPE_* replaced by
+-- --- Chloe's GAMETYPE_* globals, own presets, editing starts from the previous tournament) -------------------------
+
+--///////////////////////////////////////////////////////////////////////////
+--// MultiplayerBuildTournament.bed (vanilla, adapted for the ChloeCustom tournament)
+--///////////////////////////////////////////////////////////////////////////
+--// Copyright (c) 2005 Bugbear Entertainment ltd. 
+--// All Rights Reserved.
+--// 
+--// Created on 5.1.2006 16:14
+--// Modified on 20.3.2007 15:37
+--// 
+--// @Author Pasi Matilainen (pasi.matilainen@bugbear.fi)
+--///////////////////////////////////////////////////////////////////////////
+
+dofile("data/menu/backdrops2.bed")
+dofile("data/menu/garage_elements_2.bed")
+dofile("data/menu/track_images.bed")
+dofile("data/menu/game_mode_selector.bed")
+dofile("data/menu/cup_next_race_elements.bed")
+
+
+local MULTIPLAYER_TOURNAMENT_ICON_PRESET = ICON_MULTIPLAYER_PRESET
+local MULTIPLAYER_TOURNAMENT_ICON_CUSTOM = ICON_LIVE_BUILD_EDITTRACK
+local MULTIPLAYER_TOURNAMENT_TITLE = TITLE_MULTIPLAYER_BUILDTOURNAMENT
+local MULTIPLAYER_TOURNAMENT_CUSTOMEVENTS = MULTIPLAYER_CUSTOMEVENTS_DESCRIPTION
+local MULTIPLAYER_TOURNAMENT_PRESETS = MULTIPLAYER_PRESETS_DESCRIPTION
+
+local state={}
+
+local BuildMenuButtons
+local RefreshEventGrid
+local ShowPresetEvents
+
+local TourneyEvents = { }
+local TourneyIconDescs = { }
+local ShowPresets
+local EventGrid = { }
+local ValidPresets = { }
+local PresetSelection
+
+local CurrentEvent
+local CurRow
+local CurCol
+
+local ValidTracks
+local SelectedTrack = 1
+
+menu_chloecustom_buildtournament = CreateMenuFromTemplate("template_multiplayer")
+menu_chloecustom_buildtournament.options.title = L""
+menu_chloecustom_buildtournament.back = function() menu_chloecustom_buildtournament.backaction() end
+
+-- ChloeCustom Tourney: 8 presets (8 icons), built when used (LevelIndex and GAMETYPE_* must exist)
+local function GetPresets()
+	return {
+		{ name=PRESETS_NAME_OUTDOOR, desc=PRESETS_OUTDOOR, type=GAMETYPE_RACE, events={
+			{ trackid=LevelIndex.Forest1A },
+			{ trackid=LevelIndex.Desert1B },
+			{ trackid=LevelIndex.Fields1A },
+			{ trackid=LevelIndex.Forest1C },
+			{ trackid=LevelIndex.Desert1A },
+			{ trackid=LevelIndex.Fields1C },
+			{ trackid=LevelIndex.Forest1B },
+			{ trackid=LevelIndex.Desert1C },
+			{ trackid=LevelIndex.Fields1B },
+		} },
+		{ name=PRESETS_NAME_FOREST, desc=PRESETS_FOREST, type=GAMETYPE_RACE, events={
+			{ trackid=LevelIndex.Forest1A },
+			{ trackid=LevelIndex.Forest2B },
+			{ trackid=LevelIndex.Forest1C },
+			{ trackid=LevelIndex.Forest2A },
+			{ trackid=LevelIndex.Forest1B },
+			{ trackid=LevelIndex.Forest2C },
+		} },
+		{ name=PRESETS_NAME_URBAN, desc=PRESETS_URBAN, type=GAMETYPE_RACE, events={
+			{ trackid=LevelIndex.City2A },
+			{ trackid=LevelIndex.Canal1B },
+			{ trackid=LevelIndex.City2C },
+			{ trackid=LevelIndex.Canal1A },
+			{ trackid=LevelIndex.City1B },
+			{ trackid=LevelIndex.Canal1C },
+			{ trackid=LevelIndex.City1A },
+			{ trackid=LevelIndex.City2B },
+			{ trackid=LevelIndex.City1C },
+		} },
+		{ name=PRESETS_NAME_RACING, desc=PRESETS_RACING, type=GAMETYPE_RACE, events={
+			{ trackid=LevelIndex.Racing1A },
+			{ trackid=LevelIndex.Racing2C },
+			{ trackid=LevelIndex.Racing1B },
+			{ trackid=LevelIndex.Racing2A },
+			{ trackid=LevelIndex.Racing2B },
+			{ trackid=LevelIndex.Racing1C },
+		} },
+		{ name=PRESETS_NAME_MIXED1, desc=PRESETS_MIXED1, type=GAMETYPE_TOURNAMENT, events={
+			{ trackid=LevelIndex.Derby1A, lapsOrTimeLimit=6, rules=GAMETYPE_DERBY_WRECKING },
+			{ trackid=LevelIndex.Racing2B, rules=GAMETYPE_RACE },
+			{ trackid=LevelIndex.STONESKIPPING, rules=GAMETYPE_STUNT },
+			{ trackid=LevelIndex.Fields1A, rules=GAMETYPE_RACE },
+			{ trackid=LevelIndex.RINGOFFIRE, rules=GAMETYPE_STUNT },
+			{ trackid=LevelIndex.Derby6A, lapsOrTimeLimit=6, rules=GAMETYPE_DERBY_WRECKING },
+			{ trackid=LevelIndex.City2B, rules=GAMETYPE_RACE },
+			{ trackid=LevelIndex.Nascar1A, rules=GAMETYPE_RACE },
+			{ trackid=LevelIndex.SKIJUMP, rules=GAMETYPE_STUNT },
+			{ trackid=LevelIndex.Forest1B, rules=GAMETYPE_RACE },
+			{ trackid=LevelIndex.Arena6, lapsOrTimeLimit=6, rules=GAMETYPE_DERBY_WRECKING },
+			{ trackid=LevelIndex.CURLING, rules=GAMETYPE_STUNT },
+		} },
+		{ name=PRESETS_NAME_MIXED2, desc=PRESETS_MIXED2, type=GAMETYPE_TOURNAMENT, events={
+			{ trackid=LevelIndex.SOCCER, rules=GAMETYPE_STUNT },
+			{ trackid=LevelIndex.Desert1C, rules=GAMETYPE_RACE },
+			{ trackid=LevelIndex.Derby4A, lapsOrTimeLimit=6, rules=GAMETYPE_DERBY_WRECKING },
+			{ trackid=LevelIndex.BASKETBALL, rules=GAMETYPE_STUNT },
+			{ trackid=LevelIndex.Canal1A, rules=GAMETYPE_RACE },
+			{ trackid=LevelIndex.Arena5, lapsOrTimeLimit=6, rules=GAMETYPE_DERBY_WRECKING },
+			{ trackid=LevelIndex.HIGHJUMP, rules=GAMETYPE_STUNT },
+			{ trackid=LevelIndex.Forest2A, rules=GAMETYPE_RACE },
+			{ trackid=LevelIndex.Nascar1B, rules=GAMETYPE_RACE },
+			{ trackid=LevelIndex.Derby3A, lapsOrTimeLimit=6, rules=GAMETYPE_DERBY_WRECKING },
+			{ trackid=LevelIndex.BOWLING, rules=GAMETYPE_STUNT },
+			{ trackid=LevelIndex.City1B, rules=GAMETYPE_RACE },
+		} },
+		{ name=PRESETS_NAME_DERBY, desc=PRESETS_DERBY, type=GAMETYPE_DERBY_WRECKING, events={
+			{ trackid=LevelIndex.Derby1A, lapsOrTimeLimit=6 },
+			{ trackid=LevelIndex.Derby2A, lapsOrTimeLimit=6 },
+			{ trackid=LevelIndex.Derby3A, lapsOrTimeLimit=6 },
+			{ trackid=LevelIndex.Derby4A, lapsOrTimeLimit=6 },
+			{ trackid=LevelIndex.Derby5A, lapsOrTimeLimit=6 },
+			{ trackid=LevelIndex.Derby6A, lapsOrTimeLimit=6 },
+		} },
+		{ name=PRESETS_NAME_STUNT, desc=PRESETS_STUNT, type=GAMETYPE_STUNT, events={
+			{ trackid=LevelIndex.SOCCER },
+			{ trackid=LevelIndex.DARTS },
+			{ trackid=LevelIndex.RINGOFFIRE },
+			{ trackid=LevelIndex.FIELDGOAL },
+			{ trackid=LevelIndex.BASKETBALL },
+			{ trackid=LevelIndex.STONESKIPPING },
+			{ trackid=LevelIndex.HIGHJUMP },
+			{ trackid=LevelIndex.SKIJUMP },
+			{ trackid=LevelIndex.BOWLING },
+			{ trackid=LevelIndex.ROYALFLUSH },
+			{ trackid=LevelIndex.CURLING },
+			{ trackid=LevelIndex.BASEBALL }, 
+		} },
+	}
+end
+
+local function UpdateInfo(newButton)
+	local desc = TourneyIconDescs[newButton]
+	if desc ~= nil then
+		W("info1"):SetTitle(desc)
+	else
+		W("info1"):SetTitle(L"")
+	end
+end
+
+local function SetValidPresets()
+	local ttype = menu_chloecustom_buildtournament.type
+	ValidPresets = { }
+	for k,p in pairs(GetPresets()) do
+		local add = false
+		if ttype == GAMETYPE_TOURNAMENT_DERBY and (p.type == GAMETYPE_DERBY_FRAG or p.type == GAMETYPE_DERBY_LMS or p.type == GAMETYPE_DERBY_WRECKING or p.type == GAMETYPE_HUNTER_PREY) then
+			add = true
+		elseif ttype == GAMETYPE_TOURNAMENT_RACE and (p.type == GAMETYPE_PONGRACE or p.type == GAMETYPE_RACE) then
+			add = true
+		elseif ttype == GAMETYPE_TOURNAMENT then
+			add = true
+		elseif ttype == p.type then
+			add = true
+		end
+
+		if add then
+			local preset = { }
+			preset.name = p.name
+			preset.desc = p.desc
+			preset.type = p.type
+			preset.events = { }
+			
+			-- Copy events and set missing event parameters where needed
+			for pk,e in pairs(p.events) do
+				local event = { }
+				for ek,ev in pairs(e) do
+					event[ek] = ev
+				end
+				if event.rules == nil then
+					event.rules = p.type
+				end
+				if event.lapsOrTimeLimit == nil and Levels[event.trackid].Laps ~= nil then
+					event.lapsOrTimeLimit = Levels[event.trackid].Laps
+				end
+				local race = false
+				local derby = false
+				if event.rules == GAMETYPE_RACE or event.rules == GAMETYPE_PONGRACE then
+					race = true
+				elseif event.rules == GAMETYPE_DERBY_WRECKING or event.rules == GAMETYPE_DERBY_FRAG then
+					derby = true
+				end
+				if event.tracktype == nil and (race or derby) then
+					local level = Levels[event.trackid]
+					event.tracktype = level.TrackType
+				end
+				table.insert(preset.events, event)
+			end
+			table.insert(ValidPresets, preset)
+			
+			-- Limit the number of presets to 8, because we only have 8 icons
+			if table.getn(ValidPresets) == 8 then
+				return
+			end
+		end
+	end
+end
+
+local function InitEvents()
+	for i = 1, 12 do
+		TourneyEvents[i] = nil
+	end
+end
+
+function ChloeCustomTourney_EnterBuilder(tournamenttype, okaction, backaction, editEvent, editTournament)
+	menu_chloecustom_buildtournament.okaction = okaction
+	local f = function()
+		--backaction()
+		if menu_chloecustom_buildtournament.editTournament and PresetSelection then
+			PresetSelection = false
+			RefreshEventGrid(menu_chloecustom_buildtournament, TourneyEvents)
+			BuildMenuButtons()
+			--UpdateInfo(1)
+		else
+			backaction()
+		end
+	end
+	menu_chloecustom_buildtournament.backaction = f
+	menu_chloecustom_buildtournament.type = tournamenttype
+	menu_chloecustom_buildtournament.numplayers = ChloeNet_GetMaxPlayers()
+	menu_chloecustom_buildtournament.partymode = false
+	menu_chloecustom_buildtournament.editEvent = false
+	menu_chloecustom_buildtournament.editTournament = editTournament
+	
+	SetValidPresets()
+
+	InitEvents()
+	
+	-- ChloeCustom Tourney: start from the previous tournament
+	if editTournament then
+		for i, e in ipairs(ChloeCustomTourney.events) do
+			if i <= 12 then
+				local copy = { }
+				for k, v in pairs(e) do
+					copy[k] = v
+				end
+				TourneyEvents[i] = copy
+			end
+		end
+	end
+	EnterMenu("menu_chloecustom_buildtournament")
+end
+
+function ChloeCustomTourney_EnterBuilderAfterEdit(currentevent)
+	CurrentEvent = currentevent
+	menu_chloecustom_buildtournament.editEvent = true
+	EnterMenu("menu_chloecustom_buildtournament")
+	if menu_chloecustom_buildtournament.partymode and menu_chloecustom_buildtournament.partycar ~= nil then
+		UpdateCarInfo(menu_chloecustom_buildtournament.partycar, menu_chloecustom_buildtournament, false, 1)
+	end
+end
+
+
+local function ShowEventWindows(posanim)
+	local startdelay = 0
+	local delay = startdelay
+	local num_windows=table.getn(state.eventwindows)
+
+	for i=1,num_windows do
+		local w=state.eventwindows[i]
+		
+		if posanim then
+			w.image:SetAlpha(1)
+			w.info:SetAlpha(1)
+			local animstartpos = POS(640 - 290 + w.position[1], w.position[2])
+			w.animhandle = AnimateWindowPos(w,animstartpos,w.position,0.3,delay,w.animhandle)
+			
+			if i == CurrentEvent then
+				local hilite = W("highlight")
+				if hilite then
+					local pos = { hilite:GetPosition() }
+					local animstartpos = POS(640 - 290 + pos[1], pos[2])
+					hilite:SetPosition(animstartpos[1], animstartpos[2])
+					hilite.animhandle = AnimateWindowPos(hilite, animstartpos, pos, 0.3, delay, hilite.animhandle)
+				end
+			end
+		else
+			w.image.animhandle = AnimateWindowAlpha(w.image,0.0,1.0,0.2,delay,w.image.animhandle)
+			w.info.animhandle = AnimateWindowAlpha(w.info,0.0,1.0,0.2,delay,w.info.animhandle)
+		end
+		
+		delay=delay+0.05
+	end
+end
+
+local function HideEventWindows()
+end
+
+local TrackTypeOffsets = {
+	[TRACKTYPE_FOREST] = LevelIndex.Forest1A - 1,
+	[TRACKTYPE_FIELDS] = LevelIndex.Fields1A - 1,
+	[TRACKTYPE_DESERT] = LevelIndex.Desert1A - 1,
+	[TRACKTYPE_CANAL] = LevelIndex.Canal1A - 1,
+	[TRACKTYPE_CITY] = LevelIndex.City1A - 1,
+	[TRACKTYPE_RACING] = LevelIndex.Racing1A - 1,
+}
+
+local function GetTrackIndex(tracknum)
+	local trackindex
+	if tracknum >= LevelIndex.CURLING and tracknum <= LevelIndex.ROYALFLUSH then
+		trackindex = tracknum - LevelIndex.CURLING + 1
+	elseif tracknum >= LevelIndex.SKIJUMP and tracknum <= LevelIndex.SOCCER then
+		trackindex = tracknum - LevelIndex.SKIJUMP + 1 + 6
+	elseif tracknum >= LevelIndex.Arena1 and tracknum <= LevelIndex.Arena6 then
+		trackindex = tracknum - LevelIndex.Arena1 + 1
+	elseif tracknum >= LevelIndex.Derby1A and tracknum <= LevelIndex.Derby6A then
+		trackindex = tracknum - LevelIndex.Derby1A + 1
+	elseif tracknum >= LevelIndex.Nascar1A and tracknum <= LevelIndex.Nascar1C then
+		trackindex = tracknum - LevelIndex.Nascar1A + 1
+	else
+		trackindex = tracknum - TrackTypeOffsets[Levels[tracknum].TrackType]
+	end
+	return trackindex
+end
+
+RefreshEventGrid = function(self, events, hidewindows)
+	for i = 1, 12 do
+		local event
+		if events ~= nil then
+			event = events[i]
+		else
+			event = nil
+		end
+		local iconwin = W("event_icon_"..i)
+		if event == nil then
+			local res = self:getResource("track_images1_empty_box")
+			local ressize = wm.GetResourceSize(res)
+			iconwin:AttachResource(res)
+			iconwin:SetSize(ressize[1], ressize[2])
+			iconwin:SetPosition(0, 0)
+			W("event_info_"..i):SetTitle(L"")
+		else
+			local res = self:getResource(Levels[event.trackid].TrackIcon)
+			local ressize = wm.GetResourceSize(res)
+			iconwin:AttachResource(res)
+			iconwin:SetSize(ressize[1], ressize[2])
+			local boxsize = wm.GetResourceSize(self:getResource("track_images1_empty_box"))
+			iconwin:SetPosition((boxsize[1] - ressize[1]) / 2 + 2, (boxsize[2] - ressize[2]) / 2 - 1)
+			if event.rules == GAMETYPE_STUNT or event.rules == GAMETYPE_DERBY_LMS then
+				W("event_info_"..i):SetTitle(L"")
+			else
+				W("event_info_"..i):SetTitle(L(event.lapsOrTimeLimit))
+			end
+		end
+		if hidewindows then
+			W("event_icon_"..i):SetAlpha(0)
+			W("event_info_"..i):SetAlpha(0)
+		end
+	end
+end
+
+local EventVarNames =
+{
+	[GAMETYPE_RACE] = MULTIPLAYER_LAPS,
+	[GAMETYPE_PONGRACE] = MULTIPLAYER_TURNS,
+	[GAMETYPE_DERBY_FRAG] = MULTIPLAYER_ROUNDTIME,
+	[GAMETYPE_HUNTER_PREY] = MULTIPLAYER_ROUNDTIME,
+}
+
+local function UpdateEventInfo(showAddEvent)
+	local event = TourneyEvents[CurrentEvent]
+	if event == nil then
+		if showAddEvent then
+			W("eventnum"):SetTitle(TRANSLATOR(UI_ADDEVENT))
+		else
+			W("eventnum"):SetTitle(L"")
+		end
+		W("eventtype"):SetTitle(L"")
+		W("trackname"):SetTitle(L"")
+		W("eventdetails"):SetTitle(L"")
+		return
+	end
+	
+	local eventnum = WStringConcat(MULTIPLAYER_EVENT, L(" "..CurrentEvent..":"))
+	W("eventnum"):SetTitle(eventnum)
+	W("eventtype"):SetTitle(GameModeNames[event.rules] or L"")
+	
+	--[[local title = WStringConcat(L"#33", eventnum)
+	title = WStringConcat(title, L"#34")
+	title = WStringConcat(title, GameModeNames[event.rules])
+	W("info1"):SetTitle(title)--]]
+
+	title=L""
+	if event.rules == GAMETYPE_RACE then
+		if event.tracktype==TRACKTYPE_REVERSED then
+			title=WStringConcat(GetPhrase(TRANSLATOR(RACETRACKTYPE_REVERSED)), L" ")
+		end
+	end
+	title = WStringConcat(title, L(Levels[event.trackid].Name))
+	W("trackname"):SetTitle(title)
+
+	local lapstxt = nil
+	if event.rules == GAMETYPE_RACE or event.rules == GAMETYPE_PONGRACE then
+		lapstxt = MULTIPLAYER_LAPS
+	elseif event.rules == GAMETYPE_DERBY_WRECKING or event.rules == GAMETYPE_DERBY_FRAG then
+		lapstxt = MULTIPLAYER_MINUTES
+	end
+	
+	title = L""
+	if lapstxt ~= nil then
+		title = WStringConcat(L(event.lapsOrTimeLimit.." "), lapstxt)
+	end
+	W("eventdetails"):SetTitle(title)
+end
+
+local function UpdateHilitePos()
+	local self = menu_chloecustom_buildtournament
+	local x,y = W("event_icon_frame_"..CurrentEvent):GetPosition()
+	local boxsize = wm.GetResourceSize(self:getResource("track_images1_empty_box"))
+	local hlsize = wm.GetResourceSize(self:getResource("track_imagesl_selection_glow"))
+	W("highlight"):SetPosition(x + (boxsize[1] - hlsize[1]) / 2, y + (boxsize[2] - hlsize[2]) / 2)
+end
+
+local function StartEditEvents(eventnum)
+	GUI:HideMenuButtons()
+	if eventnum ~= nil then
+		CurrentEvent = eventnum
+		CurRow = math.floor((CurrentEvent-1) / 3)
+		CurCol = math.mod(CurrentEvent-1, 3)
+	else
+		CurRow = 0
+		CurCol = 0
+		CurrentEvent = 1
+	end
+	UpdateHilitePos()
+	W("highlight"):ShowWindow()
+	UpdateEventInfo(true)
+	W("edit_handler"):SetFocus()
+	
+	W("textparent"):HideWindow()
+	W("infobd"):ShowWindow()
+	
+	if TourneyEvents[CurrentEvent] == nil then
+		GUI:SetHelpButtons(BUTTON_OK, TRANSLATOR(UI_ADDEVENT), BUTTON_BACK, TRANSLATOR(UI_BACK))
+	else
+		GUI:SetHelpButtons(BUTTON_OK, TRANSLATOR(UI_EDITEVENT), BUTTON_BACK, TRANSLATOR(UI_BACK), BUTTON_EXTRA, TRANSLATOR(UI_DELETE), BUTTON_XBOX_X, TRANSLATOR(UI_MOVEEVENT))
+	end
+	--GUI:SetHelpButtons(BUTTON_OK, UI_SELECT, BUTTON_BACK, UI_BACK, BUTTON_EXTRA, UI_DELETE, BUTTON_X, UI_MOVE)
+end
+
+local function CreateTournament()
+	GUI:HideMenuButtons()
+	-- Compact event table
+	local evnum = 1
+	for i = 1, 12 do
+		if TourneyEvents[i] ~= nil then
+			if evnum ~= i then
+				TourneyEvents[evnum] = TourneyEvents[i]
+				TourneyEvents[i] = nil
+			end
+			evnum = evnum + 1
+		end
+	end
+	-- ChloeCustom Tourney: ask for the order of the events
+	local events = { }
+	for i = 1, 12 do
+		if TourneyEvents[i] ~= nil then
+			table.insert(events, TourneyEvents[i])
+		end
+	end
+	MessageBox(L"PLAY THE EVENTS IN RANDOM ORDER?", MESSAGEBOX_YESNO, function(value)
+		menu_chloecustom_buildtournament.okaction(events, value == TRUE)
+	end)
+end
+
+local function SelectPreset(presetNum)
+	W("textparent"):HideWindow()
+	PresetSelection = false
+	if presetNum ~= nil then
+		TourneyEvents = ValidPresets[presetNum].events
+	else
+		TourneyEvents = { }
+	end
+	BuildMenuButtons()
+	if presetNum == nil then
+		-- Set "Edit queue" button as active when custom preset is selected
+		GUI:SetActiveItem(2)
+	end
+	--W("title"):SetTitle(TRANSLATOR(MULTIPLAYER_TOURNAMENT_TITLE))
+end
+
+ShowPresets = function()
+	PresetSelection = true
+	menu_chloecustom_buildtournament.items = { }
+
+	for i = 1, table.getn(ValidPresets) do
+		table.insert(menu_chloecustom_buildtournament.items,
+			{ WStringConcat(MULTIPLAYER_TOURNAMENT_ICON_PRESET, L(" "..i)), function() SelectPreset(i) end, ICON(menu_chloecustom_buildtournament,"icon_profile_"..i) } )
+	end
+
+	table.insert(menu_chloecustom_buildtournament.items,
+		{ ICON_MULTIPLAYER_CUSTOM, function() SelectPreset(nil) end, ICON(menu_chloecustom_buildtournament,"icon_profile_x") } )
+
+	GUI:InitMenuButtons(menu_chloecustom_buildtournament.items)
+	GUI:SetActiveItem(1)
+	GUI:ShowMenuButtons()
+
+	RefreshEventGrid(menu_chloecustom_buildtournament, ValidPresets[1].events, true)
+	ShowEventWindows()
+	W("textparent"):ShowWindow()
+	W("info1"):SetTitle(ValidPresets[1].desc)
+	W("info1"):WordWrap()
+end
+
+BuildMenuButtons = function()
+	menu_chloecustom_buildtournament.items = { }
+	TourneyIconDescs = { }
+	
+	for i = 1, 12 do
+		if TourneyEvents[i] ~= nil then
+			if menu_chloecustom_buildtournament.partymode == true then
+				iconLabel = INGAME_START_STUNT
+				icon = "icon_go_race"
+				iconDesc = nil
+			else
+				iconLabel = ICON_MULTIPLAYER_CONTINUE
+				icon = "icon_continue"
+				iconDesc = nil
+			end
+			table.insert(menu_chloecustom_buildtournament.items,
+					{ iconLabel, function() CreateTournament() end, ICON(menu_chloecustom_buildtournament, icon), ICON(menu_chloecustom_buildtournament, icon.."_s") } )
+--			table.insert(TourneyIconDescs, iconDesc)
+			break
+		end
+	end
+
+	if table.getn(ValidPresets) > 0 then
+		table.insert(menu_chloecustom_buildtournament.items,
+				{ ICON_PARTY_PRESETS, function() --[[W("title"):SetTitle(TRANSLATOR(TITLE_LIVE_PRESETS));--]] ShowPresets(); end, ICON(menu_chloecustom_buildtournament,"icon_presets") } )
+--		table.insert(TourneyIconDescs, MULTIPLAYER_TOURNAMENT_PRESETS)
+	end
+	
+	table.insert(menu_chloecustom_buildtournament.items,
+			{ MULTIPLAYER_TOURNAMENT_ICON_CUSTOM, function() StartEditEvents() end, ICON(menu_chloecustom_buildtournament,"icon_profile_x") } )
+--	table.insert(TourneyIconDescs, MULTIPLAYER_TOURNAMENT_CUSTOM)
+	
+	GUI:InitMenuButtons(menu_chloecustom_buildtournament.items)
+	GUI:SetActiveItem(1)
+	GUI:ShowMenuButtons()
+end
+
+function menu_chloecustom_buildtournament.create(self)
+	self.parent:create(self)
+
+	self:addResource("backdrops2.tga", backdrops2, backdrops2_size)
+	self:addResource("garage_elements_2.tga", garage_elements_2, garage_elements_2_size)
+	self:addResource("track_images.tga", track_images, track_images_size)
+	self:addResource("game_mode_selector_ws.tga", game_mode_selector, game_mode_selector_size)
+	self:addResource("cup_next_race_elements.tga", cup_next_race_elements, cup_next_race_elements_size)
+
+	self:loadResources()
+	
+	self.items = { }
+end
+
+ShowPresetEvents = function(self, presetNum)
+	local preset = ValidPresets[presetNum]
+	for i = 1, 12 do
+		local event
+		if preset ~= nil then
+			event = preset.events[i]
+		else
+			event = nil
+		end
+		local iconwin = W("event_icon_"..i)
+		if event == nil then
+			local res = self:getResource("track_images1_empty_box")
+			local ressize = wm.GetResourceSize(res)
+			iconwin:AttachResource(res)
+			iconwin:SetSize(ressize[1], ressize[2])
+			iconwin:SetPosition(0, 0)
+			W("event_icon_"..i):AttachResource(self:getResource("track_images1_empty_box"))
+			W("event_info_"..i):SetTitle(L"")
+		else
+			local res = self:getResource(Levels[event.trackid].TrackIcon)
+			local ressize = wm.GetResourceSize(res)
+			iconwin:AttachResource(res)
+			iconwin:SetSize(ressize[1], ressize[2])
+			iconwin:SetPosition(-1, -4.5)
+			W("event_icon_"..i):AttachResource(self:getResource(Levels[event.trackid].TrackIcon))
+			if event.rules == GAMETYPE_STUNT or event.rules == GAMETYPE_DERBY_LMS then
+				W("event_info_"..i):SetTitle(L"")
+			else
+				W("event_info_"..i):SetTitle(L(event.lapsOrTimeLimit))
+			end
+		end
+	end
+	
+	if preset ~= nil then
+		W("info1"):SetTitle(preset.desc)
+	else
+		W("info1"):SetTitle(TRANSLATOR(MULTIPLAYER_TOURNAMENT_CUSTOMEVENTS))
+	end
+	W("info1"):WordWrap()
+end
+
+local function CreateEditRaceItems(self)
+	local origPos
+	
+	-- "Edit events" inputhandler
+	local handler = InputHandler { Name="edit_handler" }
+	handler.onKeyPressed = function(Self, Character, VirtualKey, ScanCode)
+		local prevSel = CurrentEvent
+		if VirtualKey == KeyCodes["BUTTON_START"] then
+			if menu_chloecustom_buildtournament.partymode then
+				local okfunc = function(raceinfo)
+					if raceinfo then
+						TourneyEvents[CurrentEvent] = { trackid=raceinfo.Level, rules = GAMETYPE_STUNT }
+					end
+					ChloeCustomTourney_EnterBuilderAfterEdit(CurrentEvent)
+				end
+				local backfunc = function()
+					ChloeCustomTourney_EnterBuilderAfterEdit(CurrentEvent)
+				end
+				EnterSingleRaceSelection(
+					backfunc,	
+					TRACKTYPE_STUNT,
+					okfunc,
+					nil
+				)
+			else
+				if TourneyEvents[CurrentEvent] == nil then
+					-- Add event
+					EnterMultiplayerRaceSelection(
+						menu_chloecustom_buildtournament.type,
+						function(event)
+							if event then
+								TourneyEvents[CurrentEvent] = event
+							end
+							ChloeCustomTourney_EnterBuilderAfterEdit(CurrentEvent)
+						end,
+						function()
+							ChloeCustomTourney_EnterBuilderAfterEdit(CurrentEvent)
+						end,		
+						menu_chloecustom_buildtournament.numplayers
+					)
+				else
+					-- Edit event
+					TourneyEvents[CurrentEvent].num = CurrentEvent
+					EnterMultiplayerRaceEdit(
+						menu_chloecustom_buildtournament.type,
+						TourneyEvents[CurrentEvent],
+						function(event)
+							local eventnum = event.num
+							event.num = nil
+							TourneyEvents[eventnum] = event
+							ChloeCustomTourney_EnterBuilderAfterEdit(eventnum)
+						end,
+						function(event)
+							local eventnum = event.num
+							event.num = nil
+							ChloeCustomTourney_EnterBuilderAfterEdit(eventnum)
+						end,
+						menu_chloecustom_buildtournament.numplayers
+					)
+				end
+			end
+			playmenusound_action()
+		elseif VirtualKey == KeyCodes["BUTTON_SELECT"] then
+			BuildMenuButtons()
+			GUI:ShowMenuButtons()
+			--GUI:SetActiveItem(table.getn(self.items))
+			W("highlight"):HideWindow()
+
+			--W("textparent"):ShowWindow()
+			W("infobd"):HideWindow()
+			
+			UpdateInfo(table.getn(self.items))
+			W("info2"):SetTitle(L"")
+			GUI:SetHelpButtons(BUTTON_OK, UI_SELECT, BUTTON_BACK, UI_BACK)
+			playmenusound_back()
+		elseif VirtualKey == KeyCodes["BUTTON_Y"] then
+			if TourneyEvents[CurrentEvent] ~= nil then
+				TourneyEvents[CurrentEvent] = nil
+				RefreshEventGrid(self, TourneyEvents)
+				UpdateEventInfo(true)
+				GUI:SetHelpButtons(BUTTON_OK, TRANSLATOR(UI_ADDEVENT), BUTTON_BACK, TRANSLATOR(UI_BACK))
+				playmenusound_action()
+			end
+		elseif VirtualKey == KeyCodes["BUTTON_X"] then
+			if TourneyEvents[CurrentEvent] ~= nil then
+				origPos = CurrentEvent
+				local x,y = W("event_icon_frame_"..CurrentEvent):GetPosition()
+				W("selected"):SetPosition(x - 4.5, y - 6.5)
+				W("selected"):ShowWindow()
+				W("move_handler"):SetFocus()
+				GUI:SetHelpButtons(BUTTON_OK, TRANSLATOR(UI_MOVEEVENT), BUTTON_BACK, UI_BACK)
+				playmenusound_action()
+			end
+		else
+			local w = W("highlight")
+			if w.animhandle == nil or not IsAnimationActive(w.animhandle) then
+				if VirtualKey == KeyCodes["BUTTON_DOWN"] then
+					CurRow = math.mod(CurRow + 1, 4)
+					CurrentEvent = CurRow*3+CurCol+1
+					UpdateEventInfo(true)
+					playmenusound_move()
+				elseif VirtualKey == KeyCodes["BUTTON_UP"] then
+					CurRow = math.mod(CurRow - 1 + 4, 4)
+					CurrentEvent = CurRow*3+CurCol+1
+					UpdateEventInfo(true)
+					playmenusound_move()
+				elseif VirtualKey == KeyCodes["BUTTON_LEFT"] then
+					local numevents = 12
+					CurrentEvent = math.mod(CurrentEvent - 2 + numevents, numevents) + 1
+					CurCol = math.mod(CurrentEvent - 1, 3)
+					CurRow = math.floor((CurrentEvent - 1) / 3)
+					UpdateEventInfo(true)
+					playmenusound_move()
+				elseif VirtualKey == KeyCodes["BUTTON_RIGHT"] then
+					CurrentEvent = math.mod(CurrentEvent, 12) + 1
+					CurCol = math.mod(CurrentEvent - 1, 3)
+					CurRow = math.floor((CurrentEvent - 1) / 3)
+					UpdateEventInfo(true)
+					playmenusound_move()
+				end
+			end
+		end
+		
+		if prevSel ~= CurrentEvent then
+			if TourneyEvents[CurrentEvent] == nil and TourneyEvents[prevSel] ~= nil then
+				GUI:SetHelpButtons(BUTTON_OK, TRANSLATOR(UI_ADDEVENT), BUTTON_BACK, TRANSLATOR(UI_BACK))
+			elseif TourneyEvents[CurrentEvent] ~= nil and TourneyEvents[prevSel] == nil then
+				GUI:SetHelpButtons(BUTTON_OK, TRANSLATOR(UI_EDITEVENT), BUTTON_BACK, TRANSLATOR(UI_BACK), BUTTON_EXTRA, TRANSLATOR(UI_DELETE), BUTTON_XBOX_X, TRANSLATOR(UI_MOVEEVENT))
+			end
+		end
+		
+		UpdateHilitePos()
+	end
+
+	local move_handler = InputHandler { Name="move_handler" }
+	move_handler.onKeyPressed = function(Self, Character, VirtualKey, ScanCode)
+		if VirtualKey == KeyCodes["BUTTON_START"] or VirtualKey == KeyCodes["BUTTON_X"] then
+			local origEvent = TourneyEvents[origPos]
+			TourneyEvents[origPos] = TourneyEvents[CurrentEvent]
+			TourneyEvents[CurrentEvent] = origEvent
+			UpdateEventInfo()
+			RefreshEventGrid(self, TourneyEvents)
+			W("selected"):HideWindow()
+			W("edit_handler"):SetFocus()
+			GUI:SetHelpButtons(BUTTON_OK, TRANSLATOR(UI_EDITEVENT), BUTTON_BACK, TRANSLATOR(UI_BACK), BUTTON_EXTRA, TRANSLATOR(UI_DELETE), BUTTON_XBOX_X, TRANSLATOR(UI_MOVEEVENT))
+			playmenusound_action()
+		elseif VirtualKey == KeyCodes["BUTTON_SELECT"] then
+			W("selected"):HideWindow()
+			W("edit_handler"):SetFocus()
+			if TourneyEvents[CurrentEvent] == nil then
+				UpdateEventInfo(true)
+				GUI:SetHelpButtons(BUTTON_OK, TRANSLATOR(UI_ADDEVENT), BUTTON_BACK, TRANSLATOR(UI_BACK))
+			else
+				GUI:SetHelpButtons(BUTTON_OK, TRANSLATOR(UI_EDITEVENT), BUTTON_BACK, TRANSLATOR(UI_BACK), BUTTON_EXTRA, TRANSLATOR(UI_DELETE), BUTTON_XBOX_X, TRANSLATOR(UI_MOVEEVENT))
+			end
+			playmenusound_back()
+		elseif VirtualKey == KeyCodes["BUTTON_DOWN"] then
+			CurRow = math.mod(CurRow + 1, 4)
+			CurrentEvent = CurRow*3+CurCol+1
+			UpdateEventInfo()
+			playmenusound_move()
+		elseif VirtualKey == KeyCodes["BUTTON_UP"] then
+			CurRow = math.mod(CurRow - 1 + 4, 4)
+			CurrentEvent = CurRow*3+CurCol+1
+			UpdateEventInfo()
+			playmenusound_move()
+		elseif VirtualKey == KeyCodes["BUTTON_LEFT"] then
+			local numevents = 12
+			CurrentEvent = math.mod(CurrentEvent - 2 + numevents, numevents) + 1
+			CurCol = math.mod(CurrentEvent - 1, 3)
+			CurRow = math.floor((CurrentEvent - 1) / 3)
+			UpdateEventInfo()
+			playmenusound_move()
+		elseif VirtualKey == KeyCodes["BUTTON_RIGHT"] then
+			CurrentEvent = math.mod(CurrentEvent, 12) + 1
+			CurCol = math.mod(CurrentEvent - 1, 3)
+			CurRow = math.floor((CurrentEvent - 1) / 3)
+			UpdateEventInfo()
+			playmenusound_move()
+		end
+		
+		UpdateHilitePos()
+	end	
+end
+
+function menu_chloecustom_buildtournament.init(self)
+	self.parent:init(self)
+	
+	-- Title + backdrop
+	Frame { Position=LEFTPOS(0,53), Size=SIZE(ChloeWidescreen_GetRight(),42) }:AttachResource(self:getResource("game_mode_main_bd"))
+	local win = StaticText { Name="title", Position=POS(320,54), Size=SIZE(200,33), Font=fonttitle(), Color=GetPaletteColor(33), Align=FONTF_CENTER }
+	win:SetTitle(MULTIPLAYER_TOURNAMENT_TITLE)
+
+	-- Event grid backdrop
+	local bd1 = Frame { Position=RIGHTPOS(290,99), Size=SIZE(84,204) }:AttachResource(self:getResource("party_mode_bd"))
+	local bd2 = Frame { Position=RIGHTPOS(374,99), Size=SIZE(266,204) }:AttachResource(self:getResource("party_mode_bd_2"))
+
+	bd1.handle = AnimateWindowPos(bd1, RIGHTPOS(640,99), { bd1:GetPosition() }, 0.3, 0.3, bd1.handle)
+	bd2.handle = AnimateWindowPos(bd2, RIGHTPOS(640-290+374,99), { bd2:GetPosition() }, 0.3, 0.3, bd2.handle)
+
+	-- Info window
+	local textparent = Frame { Name="textparent", Position=POS(0,0), Size=SIZE(640,480) }
+	Frame { Position=LEFTPOS(0, 309), Size=SIZE(ChloeWidescreen_GetRight(),42), Parent=textparent }:AttachResource(self:getResource("cup_title_bd"))
+	FadingStaticText { Name="info1", Position=POS(320,313), Size=SIZE(500,24), Font=fontsmall(), Color=GetPaletteColor(34), Align=FONTF_CENTER, Parent=textparent }
+	FadingStaticText { Name="info2", Position=POS(320,329), Size=SIZE(500,12), Font=fontsmall(), Color=GetPaletteColor(34), Align=FONTF_CENTER, Parent=textparent }
+	
+	-- Event info
+	local tip
+	local str
+	if menu_chloecustom_buildtournament.partymode then
+		tip = self:getResource("fo_total_reward_bd_tip")
+		str = self:getResource("fo_total_reward_bd_str")
+	else
+		tip = self:getResource("ac_result_r_4_tip")
+		str = self:getResource("ac_result_r_4_str")
+	end
+	
+	local tipsize = GetResourceSize(tip)
+	local strsize = SIZE(640 - 346 - tipsize[1], tipsize[2])
+
+	local infobd = Frame { Name="infobd", Position=POS(0,0), Size=SIZE(640,480) }
+	Frame { Position=RIGHTPOS(346,304), Size=tipsize, Parent=infobd }:AttachResource(tip)
+	Frame { Position=RIGHTPOS(346 + tipsize[1],304), Size=strsize, Parent=infobd }:AttachResource(str)
+	StaticText { Name="eventnum", Position=RIGHTPOS(485,304), Font=fontmedium(), Color=GetPaletteColor(33), Align=FONTF_CENTER, Parent=infobd }
+	StaticText { Name="eventtype", Position=RIGHTPOS(485,329), Font=fontlarge(), Color=GetPaletteColor(33), Align=FONTF_CENTER, Parent=infobd }
+	StaticText { Name="trackname", Position=RIGHTPOS(485,348), Font=fontsmall(), Color=GetPaletteColor(34), Align=FONTF_CENTER, Parent=infobd }
+	local details = StaticText { Name="eventdetails", Position=RIGHTPOS(485,371), Font=fontsmall(), Color=GetPaletteColor(34), Align=FONTF_CENTER, Parent=infobd }
+	
+	if menu_chloecustom_buildtournament.partymode then
+		details:HideWindow()
+	end
+	
+	infobd:HideWindow()
+	
+	-- Races
+	state.eventwindows = { }
+	
+	local imgsize = wm.GetResourceSize(self:getResource("track_images_forest1"))
+	for i = 1, 12 do
+		local rowNum = math.floor((i - 1) / 3)
+		local pos = RIGHTPOS(306 + rowNum * 13, 111 + rowNum * 48)
+		local x = pos[1] + 78 * math.mod(i - 1, 3)
+		local w = Frame { Name="event_icon_frame_"..i, Position=POS(x,pos[2]), Size=imgsize }
+		w.position = POS(x, pos[2])--pos
+
+		local imageframe = Frame { Name="event_icon_"..i, Position=POS(0,0), Parent=w }
+		
+		w.info = StaticText { Name="event_info_"..i, Position=POS(68,16), Size=SIZE(20,20), Font=fontmedium(), Color=GetPaletteColor(1), Align=FONTF_RIGHT, Parent=w }
+
+		if TourneyEvents[i] then
+			w.image = imageframe:AttachResource(self:getResource(Levels[TourneyEvents[i].trackid].TrackIcon))
+			imageframe:SetSize(imgsize[1], imgsize[2])
+			local boxsize = wm.GetResourceSize(self:getResource("track_images1_empty_box"))
+			imageframe:SetPosition((boxsize[1] - imgsize[1]) / 2 + 2, (boxsize[2] - imgsize[2]) / 2 - 1)
+			w.image:SetAlpha(0)
+			if TourneyEvents[i].rules ~= GAMETYPE_STUNT and TourneyEvents[i].rules ~= GAMETYPE_DERBY_LMS then
+				w.info:SetTitle(L(TourneyEvents[i].lapsOrTimeLimit))
+			end
+		else
+			local size = wm.GetResourceSize(self:getResource("track_images1_empty_box"))
+			imageframe:SetSize(size[1], size[2])
+			imageframe:SetPosition(0, 0)
+			w.image = imageframe:AttachResource(self:getResource("track_images1_empty_box"))
+			w.image:SetAlpha(0)
+		end
+
+		table.insert(state.eventwindows,w)
+	end
+
+	imgsize = wm.GetResourceSize(self:getResource("track_imagesl_selection_glow"))
+	local hilite = Frame { Name="highlight", Position=POS(0,0), Size=imgsize, Layer=5 }:AttachResource(self:getResource("track_imagesl_selection_glow"))
+	hilite:HideWindow()
+
+	local selected = Frame { Name="selected", Position=POS(0,0), Size=imgsize, Layer=5 }:AttachResource(self:getResource("track_imagesl_selection_glow"))
+	--selected:SetAlpha(0.6)
+	selected:HideWindow()
+
+	CreateEditRaceItems(self)
+
+	PresetSelection = false
+	
+	if menu_chloecustom_buildtournament.editEvent then
+		menu_chloecustom_buildtournament.editEvent = false
+		StartEditEvents(CurrentEvent)
+		ShowEventWindows(true)
+	else
+		if menu_chloecustom_buildtournament.editTournament then
+			BuildMenuButtons()
+			ShowEventWindows(true)
+		elseif table.getn(ValidPresets) > 0 then
+			--W("title"):SetTitle(TRANSLATOR(TITLE_LIVE_PRESETS))
+			ShowPresets()
+		else
+			--W("title"):SetTitle(TRANSLATOR(MULTIPLAYER_TOURNAMENT_TITLE))
+			BuildMenuButtons()
+			ShowEventWindows(true)
+		end
+	end
+end
+
+function menu_chloecustom_buildtournament.buttonChange(self, oldButton, newButton)
+	if PresetSelection then
+		if newButton < table.getn(menu_chloecustom_buildtournament.items) then
+			RefreshEventGrid(self, ValidPresets[newButton].events, true)
+		else
+			RefreshEventGrid(self, nil, true)
+		end
+		if ValidPresets[newButton] ~= nil then
+			W("info1"):SetTitle(ValidPresets[newButton].desc)
+		else
+			W("info1"):SetTitle(TRANSLATOR(MULTIPLAYER_TOURNAMENT_CUSTOMEVENTS))
+		end
+		W("info1"):WordWrap()
+		local posanim = false
+		if oldButton == 0 then
+			posanim = true
+		end
+		ShowEventWindows(posanim)
+	else
+		UpdateInfo(newButton)
+	end
+end
+
+function menu_chloecustom_buildtournament.update(self,time)
+	self.parent:update(self,time)
+	
+	local alpha = 1 - 0.20 + math.sin(time * 6) * 0.20
+	W("highlight"):SetAlpha(alpha)
+end
+
+function menu_chloecustom_buildtournament.deinit(self)
+	self.parent:deinit(self)
+end
+
+function menu_chloecustom_buildtournament.startshow(self)
+	self.parent:startshow(self)
+
+	--ShowEventWindows()
+end
+
+function menu_chloecustom_buildtournament.starthide(self)
+	self.parent:starthide(self)
+
+	HideEventWindows()
+end

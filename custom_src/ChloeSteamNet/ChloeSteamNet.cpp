@@ -848,6 +848,55 @@ static int L_LeaveLobby(void*) {   // cancel: leave a joined lobby that is not u
 	return 0;
 }
 
+// Lobby values for the tournament mode (chloecustom_tournament.bed): the host writes a plain ASCII string into the
+// Steam lobby data (key "cc_<key>", max. 8 KB), every member of the lobby reads it (also players joining later).
+// Values are narrow Lua strings (bytes), not the game's wide strings; the script hex-encodes names itself.
+static auto lua_pushnil_cc = (int(*)(void*))0x633520;
+
+static int L_SetLobbyValue(void* L) {   // host only; returns true if written
+	size_t klen = 0, vlen = 0;
+	auto key = (const char*)lua_tolstring(L, 1, &klen);
+	auto val = (const char*)lua_tolstring(L, 2, &vlen);
+	bool ok = false;
+	EnterCriticalSection(&gLock);
+	if (key && val && klen > 0 && klen < 200 && vlen < 8000 && gHostLobby && SteamReady()) {
+		std::string k = "cc_" + std::string(key, klen);
+		std::string v(val, vlen);
+		ok = S.SetLobbyData(gMM, gHostLobby, k.c_str(), v.c_str());
+	}
+	LeaveCriticalSection(&gLock);
+	lua_pushboolean(L, ok);
+	return 1;
+}
+
+static int L_GetLobbyValue(void* L) {   // nil if not in a lobby or the value is not set
+	size_t klen = 0;
+	auto key = (const char*)lua_tolstring(L, 1, &klen);
+	std::string v;
+	bool found = false;
+	EnterCriticalSection(&gLock);
+	uint64_t lobby = gHostLobby ? gHostLobby : gJoinedLobby;
+	if (key && klen > 0 && klen < 200 && lobby && SteamReady()) {
+		std::string k = "cc_" + std::string(key, klen);
+		const char* s = S.GetLobbyData(gMM, lobby, k.c_str());
+		if (s && *s) { v = s; found = true; }
+	}
+	LeaveCriticalSection(&gLock);
+	if (found) lua_pushlstring(L, (const wchar_t*)v.c_str(), v.length());
+	else lua_pushnil_cc(L);
+	return 1;
+}
+
+static int L_Log(void* L) {   // narrow Lua string into ChloeSteamNet.log (tournament diagnostics)
+	size_t len = 0;
+	auto s = (const char*)lua_tolstring(L, 1, &len);
+	if (s && len > 0) {
+		std::string line(s, len < 1000 ? len : 1000);
+		Log("lua: %s", line.c_str());
+	}
+	return 0;
+}
+
 static void RegisterLua(void* L) {
 	TryPatchChloeMP();
 	struct { const char* name; void* fn; } funcs[] = {
@@ -861,6 +910,9 @@ static void RegisterLua(void* L) {
 		{ "ChloeSteam_GetJoinAddress", (void*)L_GetJoinAddress },
 		{ "ChloeSteam_ResetJoin", (void*)L_ResetJoin },
 		{ "ChloeSteam_LeaveLobby", (void*)L_LeaveLobby },
+		{ "ChloeSteam_SetLobbyValue", (void*)L_SetLobbyValue },
+		{ "ChloeSteam_GetLobbyValue", (void*)L_GetLobbyValue },
+		{ "ChloeSteam_Log", (void*)L_Log },
 	};
 	for (auto& f : funcs) {
 		lua_pushcfunction(L, f.fn, 0);

@@ -842,6 +842,7 @@ local function SetEvents(events)
 	
 	EnterMenu("menu_chloemultiplayer_lobby")
 end
+ChloeCustomTourney_SetEvents = SetEvents -- ChloeCustom Tourney
 
 local function ChangeTrack()
 	ChloeNet_SetPlayerChangingTrack(1)
@@ -897,6 +898,7 @@ local function ChangeOptions()
 end
 
 local function StartRace()
+	if ChloeCustomTourney_OnStartRace then ChloeCustomTourney_OnStartRace() end -- ChloeCustom Tourney
 	ChloeNet_Host_StartGame()
 end
 
@@ -1173,6 +1175,7 @@ BuildLobbyMenuButtons = function(creating)
 		table.insert(menu_chloemultiplayer_lobby.items, { ICON_MULTIPLAYER_READY, function() ChloeNet_SetPlayerReady(1); BuildLobbyMenuButtons(); end, ICON(menu_chloemultiplayer_lobby,"icon_ready") } )
 	end
 
+	if ChloeCustomTourney_AddLobbyButtons then ChloeCustomTourney_AddLobbyButtons(menu_chloemultiplayer_lobby) end -- ChloeCustom Tourney
 	GUI:InitMenuButtons(menu_chloemultiplayer_lobby.items)
 	GUI:ShowMenuButtons(true)
 	ActiveLobbyOption = GUI:GetActiveItem()
@@ -1354,6 +1357,7 @@ function ExitChloeMultiplayerLobby()
 		if value == TRUE then
 			ChloeCustom_HostDefaultsApplied = false -- ChloeCustom
 			ChloeCustom_GhostBeforeStunt = nil
+			if ChloeCustomTourney_Reset then ChloeCustomTourney_Reset() end -- ChloeCustom Tourney
 			ChloeNet_Disconnect()
 		else
 			GUI:ShowMenuButtons()
@@ -1371,6 +1375,7 @@ menu_chloemultiplayer_lobby.back=ExitChloeMultiplayerLobby
 
 function menu_chloemultiplayer_lobby.create(self)
 	self.parent:create(self)
+	if ChloeCustomTourney_CaptureResults then ChloeCustomTourney_CaptureResults() end -- ChloeCustom Tourney: results of the last race
 	GameFlow.ClearRace()
 
 	self:addResource("cup_next_race_elements.tga", cup_next_race_elements, cup_next_race_elements_size)
@@ -1506,7 +1511,9 @@ function menu_chloemultiplayer_lobby.init(self)
 
 	labelTemplate.Position = POS(Layout.UpgradesX, Layout.LabelTop)
 	labelTemplate.Title=L"PING"
+	labelTemplate.Name="chloecustom_pingheader" -- ChloeCustom Tourney: "PTS (PING)" during a tournament
 	StaticText(labelTemplate):SetColor(Layout.LabelColor, false)
+	labelTemplate.Name=nil
 	
 	--local maxpl = ChloeNet_GetMaxPlayers()
 	local maxpl = NUMPLAYERS_LOBBYLIST
@@ -1695,7 +1702,11 @@ function menu_chloemultiplayer_lobby.init(self)
 			end
 			
 			local ping = ChloeNet_GetPlayerPing(playerId)
-			upgrades:SetTitle(ConvertToWString(ping))
+			if ChloeCustomTourney_RowText then -- ChloeCustom Tourney: points of the player
+				upgrades:SetTitle(ChloeCustomTourney_RowText(playerId, ping))
+			else
+				upgrades:SetTitle(ConvertToWString(ping))
+			end
 			if ChloeNet_IsPlayerChatting(playerId) then
 				voiceIcon = wm.GetResource("xbox_talking")
 			end
@@ -1777,6 +1788,7 @@ function menu_chloemultiplayer_lobby.update(self, time)
 	if ChloeNet_IsConnected() then		
 		wm.GetWindow("list"):SetNumRows(NUMPLAYERS_LOBBYLIST)
 		UpdateGameInfo(self)
+		if ChloeCustomTourney_LobbyUpdate then ChloeCustomTourney_LobbyUpdate(self, time) end -- ChloeCustom Tourney
 		
 		if Mode == SELECT_PLAYER then
 			local numplayers = ChloeNet_GetNumPlayers()
@@ -1971,6 +1983,7 @@ function menu_chloemultiplayer_lobby.update(self, time)
 	-- drop back to multiplayer main if disconnected
 	else
 		ChloeNet_Stats_Save()
+		if ChloeCustomTourney_Reset then ChloeCustomTourney_Reset() end -- ChloeCustom Tourney
 		EnterMenu("menu_chloemultiplayer")
 	end
 end

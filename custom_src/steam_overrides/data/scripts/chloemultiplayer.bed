@@ -234,3 +234,6 @@ function menu_chloemultiplayer.update(self)
 		end
 	end
 end
+
+--// ChloeCustom Tourney: tournament mode for this multiplayer (Steam package only)
+dofile("data/scripts/chloecustom_tournament.bed")

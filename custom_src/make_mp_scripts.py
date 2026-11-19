@@ -131,7 +131,30 @@ t = replace(t, '\tif ChloeNet_IsServer() then\r\n\t\tif ChloeNet_IsUsingZMenu() 
 \t\tif ChloeNet_IsUsingZMenu() or Settings["Network"]["AllowCheats"] then
 '''))
 t = replace(t, '\t\tif value == TRUE then\r\n\t\t\tChloeNet_Disconnect()\r\n',
-            '\t\tif value == TRUE then\r\n\t\t\tChloeCustom_HostDefaultsApplied = false -- ChloeCustom\r\n\t\t\tChloeCustom_GhostBeforeStunt = nil\r\n\t\t\tChloeNet_Disconnect()\r\n')
+            '\t\tif value == TRUE then\r\n\t\t\tChloeCustom_HostDefaultsApplied = false -- ChloeCustom\r\n\t\t\tChloeCustom_GhostBeforeStunt = nil\r\n'
+            '\t\t\tif ChloeCustomTourney_Reset then ChloeCustomTourney_Reset() end -- ChloeCustom Tourney\r\n\t\t\tChloeNet_Disconnect()\r\n')
+# tournament mode (Steam package: chloecustom_tournament.bed from steam_overrides, loaded by chloemultiplayer.bed).
+# In the GFWL package the ChloeCustomTourney_* functions do not exist, so every hook is skipped.
+t = replace(t, '\tEnterMenu("menu_chloemultiplayer_lobby")\r\nend\r\n\r\nlocal function ChangeTrack()',
+            '\tEnterMenu("menu_chloemultiplayer_lobby")\r\nend\r\nChloeCustomTourney_SetEvents = SetEvents -- ChloeCustom Tourney\r\n\r\nlocal function ChangeTrack()')
+t = replace(t, 'local function StartRace()\r\n\tChloeNet_Host_StartGame()\r\n',
+            'local function StartRace()\r\n\tif ChloeCustomTourney_OnStartRace then ChloeCustomTourney_OnStartRace() end -- ChloeCustom Tourney\r\n\tChloeNet_Host_StartGame()\r\n')
+t = replace(t, '\tGUI:InitMenuButtons(menu_chloemultiplayer_lobby.items)\r\n\tGUI:ShowMenuButtons(true)\r\n',
+            '\tif ChloeCustomTourney_AddLobbyButtons then ChloeCustomTourney_AddLobbyButtons(menu_chloemultiplayer_lobby) end -- ChloeCustom Tourney\r\n'
+            '\tGUI:InitMenuButtons(menu_chloemultiplayer_lobby.items)\r\n\tGUI:ShowMenuButtons(true)\r\n')
+t = replace(t, '\tself.parent:create(self)\r\n\tGameFlow.ClearRace()\r\n',
+            '\tself.parent:create(self)\r\n\tif ChloeCustomTourney_CaptureResults then ChloeCustomTourney_CaptureResults() end -- ChloeCustom Tourney: results of the last race\r\n\tGameFlow.ClearRace()\r\n')
+t = replace(t, '\tlabelTemplate.Title=L"PING"\r\n\tStaticText(labelTemplate):SetColor(Layout.LabelColor, false)\r\n',
+            '\tlabelTemplate.Title=L"PING"\r\n\tlabelTemplate.Name="chloecustom_pingheader" -- ChloeCustom Tourney: "PTS (PING)" during a tournament\r\n'
+            '\tStaticText(labelTemplate):SetColor(Layout.LabelColor, false)\r\n\tlabelTemplate.Name=nil\r\n')
+t = replace(t, '\t\t\tupgrades:SetTitle(ConvertToWString(ping))\r\n',
+            '\t\t\tif ChloeCustomTourney_RowText then -- ChloeCustom Tourney: points of the player\r\n'
+            '\t\t\t\tupgrades:SetTitle(ChloeCustomTourney_RowText(playerId, ping))\r\n\t\t\telse\r\n'
+            '\t\t\t\tupgrades:SetTitle(ConvertToWString(ping))\r\n\t\t\tend\r\n')
+t = replace(t, '\t\tUpdateGameInfo(self)\r\n',
+            '\t\tUpdateGameInfo(self)\r\n\t\tif ChloeCustomTourney_LobbyUpdate then ChloeCustomTourney_LobbyUpdate(self, time) end -- ChloeCustom Tourney\r\n')
+t = replace(t, '\t\tChloeNet_Stats_Save()\r\n\t\tEnterMenu("menu_chloemultiplayer")\r\n',
+            '\t\tChloeNet_Stats_Save()\r\n\t\tif ChloeCustomTourney_Reset then ChloeCustomTourney_Reset() end -- ChloeCustom Tourney\r\n\t\tEnterMenu("menu_chloemultiplayer")\r\n')
 save('chloemultiplayer_lobby.bed', t)
 
 # --- track selection: no FO1 / Tough Trucks / Rally Trophy categories, removed tracks hidden -------------------
