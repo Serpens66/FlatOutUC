@@ -29,6 +29,10 @@ wrap(menu_chloemultiplayer, function(current)
 		log("loopback-client-left")
 		finish()
 	elseif current == "loopback-host-leaving" and not ChloeNet_IsConnected() then
+		if track == 175 then
+			FlatOutTest_CheckDerbyTracks()
+			log("san-juan-menu 7 multiplayer 6 single-player")
+		end
 		log("loopback-host-closed")
 		finish()
 	end
@@ -40,10 +44,7 @@ wrap(menu_chloemultiplayer_lobby, function(current, menu, time)
 	assert(count <= 2, "unexpected player joined the loopback lobby")
 	if current == "loopback-hosting" and ChloeNet_IsServer() then
 		assert(count == 1)
-		if track == 175 then
-			FlatOutTest_CheckDerbyTracks()
-			log("san-juan-menu 7 multiplayer 6 single-player")
-		end
+		if track == 175 then FlatOutTest_CheckDerbyTracks() end
 		ChloeNet_Host_SetNumAI(ai)
 		ChloeNet_Host_SetHandlingMode(handling)
 		if FlatOutTest_LoopbackRace then

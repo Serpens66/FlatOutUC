@@ -68,10 +68,7 @@ $run = if ($RestoreRun) { $RestoreRun } else { [guid]::NewGuid().ToString('N').S
 $work = Join-Path $runRoot $run
 $sanJuanFiles = @('foucpack_chloecustom_sanjuan_derby.bfs', 'foucpack_chloecustom_steam.bfs', 'ChloeSteamNet.asi')
 $sanJuanTest = $LoopbackDerbyLevel -eq 175
-if ($SanJuanTestPackage -or ($RestoreRun -and
-        (Get-Content -LiteralPath (Join-Path $work 'rollback.json') -Raw | ConvertFrom-Json).Files -contains $sanJuanFiles[0])) {
-    $files += $sanJuanFiles
-}
+if ($SanJuanTestPackage) { $files += $sanJuanFiles }
 $profileFiles = @('player{0:000}.sav', 'customsave{0:000}.sav', 'customsave{0:000}.ach', 'customsave{0:000}.cht') |
     ForEach-Object { 'Savegame/' + ($_ -f $ProfileSlot) }
 
@@ -869,6 +866,8 @@ try {
     if (-not $locked) { throw 'BLOCKED: Another FlatOut test owns the installation.' }
     Assert-GameIdle
     if ($RestoreRun) {
+        $rollback = Get-Content -LiteralPath (Join-Path $work 'rollback.json') -Raw | ConvertFrom-Json
+        if ($rollback.Files -contains $sanJuanFiles[0]) { $files += $sanJuanFiles }
         Restore-FlatOutTestState $GameDir $work $files $directories
         $status = 'PASS'
         $message = 'Restored interrupted run and verified hashes.'
@@ -1020,8 +1019,12 @@ try {
         foreach ($name in @('FlatOutGameTest.bfs', 'zz_FlatOutGameTest.asi')) {
             Copy-Item -LiteralPath (Join-Path $work $name) -Destination (Get-TestPath $GameDir $name)
         }
-        $testArchives = if ($SanJuanTestPackage) { @($sanJuanFiles[0], 'FlatOutGameTest.bfs') } else { @('FlatOutGameTest.bfs') }
-        [IO.File]::AppendAllText((Join-Path $GameDir 'patch'), "`n" + ($testArchives -join "`n"))
+        $patchPath = Join-Path $GameDir 'patch'
+        $testArchives = @('FlatOutGameTest.bfs')
+        if ($SanJuanTestPackage -and $sanJuanFiles[0] -notin (Get-Content -LiteralPath $patchPath).Trim()) {
+            $testArchives = @($sanJuanFiles[0]) + $testArchives
+        }
+        [IO.File]::AppendAllText($patchPath, "`n" + ($testArchives -join "`n"))
         Invoke-TestProcess
         if ($CreateProfile) {
             $export = Join-Path $work 'created-profile'

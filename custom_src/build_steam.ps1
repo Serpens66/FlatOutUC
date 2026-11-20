@@ -119,8 +119,8 @@ $overrideArchive = 'foucpack_chloecustom_steam.bfs'
 $overridePath = Join-Path $dst $overrideArchive
 $sanJuanArchive = 'foucpack_chloecustom_sanjuan_derby.bfs'
 $sanJuanPath = Join-Path $dst $sanJuanArchive
-# Keep the entire Derby stage and shared DDS textures with the original storage flags.
-$exclude = '^(?!data/tracks/sanjuan/(?:sanjuan1/d/|textures/[^/]+\.dds$))'
+# Keep the Derby stage, shared DDS textures and its HUD map with the original storage flags.
+$exclude = '^(?!data/tracks/sanjuan/(?:sanjuan1/d/|textures/[^/]+\.dds$)|data/global/map/map_sanjuan1d\.dds$)'
 Invoke-BfsTool @('filter', (Join-Path $original 'foucpack_gcp_maps_extras.bfs'), $sanJuanPath, $exclude)
 Invoke-BfsTool @('verify', $sanJuanPath)
 $work = [IO.Directory]::CreateTempSubdirectory('fouc_steam_').FullName
