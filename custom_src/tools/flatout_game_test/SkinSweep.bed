@@ -1,0 +1,111 @@
+-- Appended after Scenario.bed so the sweep can use the same test lifecycle.
+local entries
+local entryIndex
+local pending
+
+local function matchup(car)
+	return ChloeCollection_GetCarMatchup(car) or ChloeCollection_GetCarMatchupInverse(car)
+end
+
+local function planSkins(menu)
+	entries = {}
+	local ordinal = 1
+	for row = 1, table.getn(menu.GarageCars) do
+		local base = menu.GarageCars[row].index
+		local cars = {base, matchup(base)}
+		for variant = 1, table.getn(cars) do
+			local car = cars[variant]
+			assert(ChloeCustom_IsFO2Car(car), "non-FOUC/FO2 car in all-car selection")
+			local count = ChloeSkins_GetNumSkinsForCar(car)
+			assert(count > 0 and count < 100, "invalid number of skins")
+			table.insert(entries, {
+				row = row, variant = variant, car = car, base = base,
+				first = ordinal, last = ordinal + count - 1,
+				data = ChloeCollection_GetCarDataID(car),
+				path = GetCarData(car):GetFullPath()
+			})
+			ordinal = ordinal + count
+		end
+	end
+	assert(table.getn(entries) > 0 and FlatOutTest_SkinFrom < ordinal, "empty skin sweep")
+	local through = math.min(FlatOutTest_SkinThrough, ordinal - 1)
+	assert(through >= FlatOutTest_SkinFrom, "invalid skin range")
+	log(string.format("skin range %d %d %d %d", FlatOutTest_SkinFrom, through, ordinal - 1, table.getn(entries)))
+	for i = 1, table.getn(entries) do
+		local entry = entries[i]
+		log(string.format("skin car %d-%d row=%d variant=%d db=%d folder=car_%d %s",
+			entry.first, entry.last, entry.row, entry.variant, entry.car, entry.data, entry.path))
+	end
+	entryIndex = 1
+end
+
+local function selectSkin(menu, entry, skin, time)
+	local ordinal = entry.first + skin - 1
+	local tracked = ordinal >= FlatOutTest_SkinFrom and ordinal <= FlatOutTest_SkinThrough
+	local label = string.format("%d db=%d folder=car_%d skin=%d row=%d variant=%d %s",
+		ordinal, entry.car, entry.data, skin, entry.row, entry.variant, entry.path)
+	log((tracked and "skin begin " or "skin setup ") .. label)
+	if skin == 1 then
+		assert(menu.isShowingDescription, "car tab was not selected")
+		if entry.variant == 1 or menu.SelectedCar ~= entry.base then
+			GUI:SetActiveItem(entry.row)
+			menu:OnCarChanged(entry.row)
+		end
+		if entry.variant == 2 then menu:buttonPressed(KeyCodes.BUTTON_X) end
+	else
+		assert(not menu.isShowingDescription, "skin tab was not selected")
+		menu:moveDown()
+	end
+	assert(menu.SelectedCar == entry.car and menu.SelectedSkin == skin, "preview selection did not match")
+	-- Keep the selection in the real preview across multiple menu/render updates.
+	pending = {entry = entry, skin = skin, label = label, tracked = tracked, at = time, frames = 0}
+end
+
+wrap(menu_carselection, function(current, menu, time)
+	if current ~= "skin-sweep" then return end
+	assert(ChloeNet_IsServer() and ChloeNet_GetNumPlayers() == 1, "foreign player entered the test lobby")
+	if not entries then planSkins(menu) end
+	if pending then
+		pending.frames = pending.frames + 1
+		local wait = 0.25
+		if pending.skin == 1 then wait = 0.7 end
+		if time - pending.at < wait or pending.frames < 4 then return end
+		assert(menu.SelectedCar == pending.entry.car and menu.SelectedSkin == pending.skin, "preview changed unexpectedly")
+		assert(ChloeSkins_GetNumSkinsForCurrentCar() == pending.entry.last - pending.entry.first + 1, "preview car skin count differs")
+		if pending.tracked then
+			log("skin ok " .. pending.label)
+			pending.tracked = false
+		end
+		local skin = pending.skin + 1
+		local entry = pending.entry
+		local nextOrdinal = entry.first + skin - 1
+		if nextOrdinal <= entry.last and nextOrdinal <= FlatOutTest_SkinThrough then
+			if menu.isShowingDescription then
+				if menu.canToggleDescription then menu:toggleDescription() end
+				-- Keep the completed preview while the tab changes.
+				return
+			end
+			if not menu.canToggleDescription then return end
+			selectSkin(menu, entry, skin, time)
+			return
+		end
+		entryIndex = entryIndex + 1
+		pending = nil
+	end
+	local entry = entries[entryIndex]
+	while entry and entry.last < FlatOutTest_SkinFrom do
+		entryIndex = entryIndex + 1
+		entry = entries[entryIndex]
+	end
+	if not entry or entry.first > FlatOutTest_SkinThrough then
+		advance("steam-leaving", "skin sweep complete")
+		ChloeNet_Disconnect()
+		EnterMenu("menu_chloemultiplayer")
+		return
+	end
+	if not menu.isShowingDescription then
+		if menu.canToggleDescription then menu:toggleDescription() end
+		return
+	end
+	if menu.canToggleDescription then selectSkin(menu, entry, 1, time) end
+end)

@@ -1,0 +1,88 @@
+-- Appended after Scenario.bed. Each case uses the same setup function as
+-- Change Track and the tournament, then the normal lobby start callback.
+local modes = {
+	{"Race", GAMETYPE_RACE, 19, GR_RACE, GR_RACE},
+	{"Pong-Race", GAMETYPE_PONGRACE, 19, GR_PONGRACE, GR_PONGRACE},
+	{"Knockout", GAMETYPE_KNOCKOUT, 19, GR_KNOCKOUT, GR_RACE},
+	{"Lap-Knockout", GAMETYPE_LAPKNOCKOUT, 19, GR_LAPKNOCKOUT, GR_RACE},
+	{"Drift", GAMETYPE_DRIFT, 19, GR_DRIFT, GR_ARCADE_RACE},
+	{"Carnage-Race", GAMETYPE_ARCADE_RACE, 19, GR_ARCADE_RACE, GR_ARCADE_RACE},
+	{"Beat-the-Bomb", GAMETYPE_BEAT_THE_BOMB, 19, GR_BEAT_THE_BOMB, GR_BEAT_THE_BOMB},
+	{"Stunt-Show", GAMETYPE_TONYHAWK, 19, GR_TONYHAWK, GR_ARCADE_RACE},
+	{"Speedtrap", GAMETYPE_SPEEDTRAP, 19, GR_SPEEDTRAP, GR_ARCADE_RACE},
+	{"Wrecking-Derby", GAMETYPE_DERBY_WRECKING, 31, GR_DERBY, GR_DERBY, DERBY_WRECKING},
+	{"Deathmatch-Derby", GAMETYPE_DERBY_FRAG, 31, GR_DERBY, GR_DERBY, DERBY_FRAG},
+	{"Survivor-Derby", GAMETYPE_DERBY_LMS, 31, GR_DERBY, GR_DERBY, DERBY_LMS},
+}
+
+for track = 47, 58 do
+	assert(Levels[track].Rules == GR_STUNT and Levels[track].StartPosition)
+	table.insert(modes, {string.gsub(Levels[track].Name, " ", "-"), GAMETYPE_STUNT, track, GR_STUNT, GR_STUNT})
+end
+
+local caseKey = prefix .. "mode"
+local through = math.min(FlatOutTest_ModeThrough, table.getn(modes))
+local startedHere = false
+
+local function prepareMode(index)
+	local mode = modes[index]
+	local level = Levels[mode[3]]
+	local stunt = mode[4] == GR_STUNT
+	local ai = stunt and 0 or 3
+	for slot = 1, 12 do
+		ChloeSteam_SetAIDriver(slot, slot <= ai and slot or 0)
+	end
+	assert(ChloeSteam_GetAIDriverCount() == ai)
+	ChloeNet_Host_SetNumAI(ai)
+	ChloeNet_Host_SetCarClass(CARCLASS_ANY)
+	ChloeNet_SetPlayerCar(stunt and CarIndex.Rocket or CarIndex.Insetta)
+	ChloeNet_SetPlayerCarSkin(1)
+	ChloeSteam_StoreSet(caseKey, tostring(index))
+	advance("mode-prepared", "mode preparing " .. index .. " " .. mode[1])
+	ChloeCustomTourney_SetEvents({{
+		trackid = mode[3], rules = mode[2], weather = level.Weather or 1,
+		lapsOrTimeLimit = 1,
+	}})
+end
+
+runModeSweep = function(current)
+	if current ~= "steam-hosting" and current ~= "mode-prepared" and current ~= "mode-running" then return end
+	if not ChloeNet_IsServer() then return end
+	assert(ChloeNet_GetNumPlayers() == 1, "foreign player entered the test lobby")
+	if current == "steam-hosting" then
+		if not ChloeSteam_SetLobbyValue("cc_flatout_test", FlatOutTest_Run) then return end
+		assert(FlatOutTest_ModeFrom <= through, "invalid multiplayer mode range")
+		assert(ChloeNet_GetHandlingMode() == HANDLING_NORMAL_FO2DOWNFORCE, "unexpected default Steam host handling")
+		log(string.format("mode range %d %d", FlatOutTest_ModeFrom, through))
+		prepareMode(FlatOutTest_ModeFrom)
+	elseif current == "mode-prepared" then
+		local index = tonumber(ChloeSteam_StoreGet(caseKey))
+		local mode = modes[index]
+		local level = Levels[mode[3]]
+		local stunt = mode[4] == GR_STUNT
+		local lobbyRules = level.Rules or GR_RACE
+		if lobbyRules == GR_DEFAULT then lobbyRules = GR_RACE end
+		if mode[4] ~= GR_RACE then lobbyRules = mode[4] end
+		local actual = ChloeNet_GetGameRules()
+		if actual == GR_DEFAULT then actual = level.Rules or GR_RACE end
+		assert(actual == lobbyRules and ChloeNet_GetLevelId() == mode[3], "lobby did not apply the test mode")
+		assert(ChloeNet_GetNumAI() == (stunt and 0 or 3))
+		if stunt then
+			assert(ChloeNet_GetNoContact(), "stunt ghost mode was not enabled")
+		end
+		startedHere = true
+		advance("mode-running", string.format("mode begin %d %s %d %d %d %d %d %d %d",
+			index, mode[1], mode[3], mode[4], mode[6] or 0, 1,
+			stunt and level.StartPosition or 0, stunt and 0 or 3, mode[5]))
+		FlatOutTest_StartHostRace()
+	elseif not startedHere then
+		local index = tonumber(ChloeSteam_StoreGet(caseKey))
+		log("mode return " .. index)
+		if index < through then
+			prepareMode(index + 1)
+		else
+			advance("steam-leaving", "mode sweep complete")
+			ChloeNet_Disconnect()
+		end
+	end
+end

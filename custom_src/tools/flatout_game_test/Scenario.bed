@@ -1,0 +1,192 @@
+-- Loaded only from the temporary test archive, after main.bed loaded the real menus.
+local prefix = "flatout-test:" .. FlatOutTest_Run .. ":"
+local runModeSweep
+local runLocalSweep
+local function log(message)
+	ChloeSteam_Log(prefix .. message)
+end
+
+local function phase()
+	return ChloeSteam_StoreGet(prefix .. "phase")
+end
+
+local function advance(nextPhase, evidence)
+	ChloeSteam_StoreSet(prefix .. "phase", nextPhase)
+	log(evidence or nextPhase)
+end
+
+local function quit()
+	Event:PostEvent(event(EVENT_QUIT))
+end
+
+local function finish()
+	advance("done", "DONE")
+	quit()
+end
+
+local function startSteam()
+	advance("steam-browser", "opening-steam-browser")
+	FlatOutTest_OpenBrowser()
+end
+
+local function wrap(menu, step)
+	local update = menu.update
+	menu.update = function(self, time)
+		if not GUI:IsMenuAnimating() then
+			local before = phase()
+			local ok, err = pcall(step, before, self, time)
+			if not ok and phase() ~= "error" then
+				advance("error", "ERROR " .. tostring(err))
+				if ChloeNet_IsConnected() then ChloeNet_Disconnect() end
+				quit()
+				return
+			end
+			-- The original update can request a second transition in the same frame.
+			if phase() ~= before then return end
+		end
+		if update then update(self, time) end
+	end
+end
+
+wrap(menu_startscreen, function(current)
+	if not current then
+		advance("profile", "start-screen")
+		FlatOutTest_StartFromTitle()
+	end
+end)
+
+wrap(menu_profiles, function(current)
+	if current ~= "profile" then return end
+	local slot = FlatOutTest_Profile
+	assert(ChloeProfiles_IsProfileValid(slot), "existing profile slot is invalid")
+	advance("profile-loading", "loading-profile")
+	ProfileLoad(slot, entermenu("menu_mainmenu"), entermenu("menu_profiles"))
+end)
+
+wrap(menu_mainmenu, function(current)
+	if current == "profile-loading" then
+		log("main-menu")
+		if runLocalSweep then
+			runLocalSweep(current)
+		elseif FlatOutTest_Scenario == "Smoke" then
+			-- Let the native probe collect samples of a rendered main menu.
+			advance("smoke-dwell")
+			return
+		elseif FlatOutTest_Scenario == "SteamHost" or FlatOutTest_Scenario == "Skins" or FlatOutTest_Scenario == "Modes" then
+			startSteam()
+		else
+			advance("options")
+			EnterMenu("menu_options")
+		end
+	elseif current == "smoke-dwell" then
+		local frames = (tonumber(ChloeSteam_StoreGet(prefix .. "dwell")) or 0) + 1
+		ChloeSteam_StoreSet(prefix .. "dwell", tostring(frames))
+		if frames >= 60 then finish() end
+	elseif current == "single-racing" then
+		log("single-return")
+		if FlatOutTest_Scenario == "All" then startSteam() else finish() end
+	elseif current == "steam-leaving" and not ChloeNet_IsConnected() then
+		log("steam-disconnected")
+		finish()
+	elseif runLocalSweep then
+		runLocalSweep(current)
+	end
+end)
+
+wrap(menu_options, function(current)
+	if current ~= "options" then return end
+	log("options-open")
+	advance("career")
+	EnterMenu("menu_career")
+end)
+
+wrap(menu_career, function(current)
+	if current ~= "career" then return end
+	log("career-open")
+	advance("carnage")
+	EnterMenu("menu_arcadecareer_main")
+end)
+
+wrap(menu_arcadecareer_main, function(current)
+	if current ~= "carnage" then return end
+	log("carnage-open")
+	advance("single-select")
+	EnterSingleRaceSelection(entermenu("menu_mainmenu"), TRACKTYPE_FIELDS, nil, GR_RACE)
+end)
+
+wrap(menu_singleplayer_trackselection, function(current)
+	if current ~= "single-select" then return end
+	assert(Levels[19] and Levels[19].Name == "MIDWEST RANCH 1")
+	assert(CarIndex.Insetta and ChloeSkins_GetNumSkinsForCar(CarIndex.Insetta) >= 6)
+	assert(ChloeSkins_GetSkinName(CarIndex.Insetta, 6, 0) == L"Lei Bing", "unexpected Insetta skin name")
+	ChloeArcade_ForceAICarCount(2)
+	advance("single-racing", "single-start " .. CarIndex.Insetta .. " 6")
+	FlatOutTest_StartSingleRace(19, CarIndex.Insetta, 6)
+end)
+
+wrap(menu_singleplayer_events, function(current)
+	if current ~= "single-racing" then return end
+	log("single-return")
+	if FlatOutTest_Scenario == "All" then startSteam() else finish() end
+end)
+
+wrap(menu_chloesteam_browser, function(current)
+	if current ~= "steam-browser" or ChloeSteam_IsRefreshing() then return end
+	advance("steam-host-menu", "steam-browser-ready")
+	EnterMenu("menu_chloemultiplayer")
+end)
+
+wrap(menu_chloemultiplayer, function(current)
+	if current == "steam-host-menu" then
+		advance("steam-hosting")
+		ChloeNet_CreateGame(23756)
+	elseif current == "steam-leaving" and not ChloeNet_IsConnected() then
+		log("steam-disconnected")
+		finish()
+	end
+end)
+
+wrap(menu_chloemultiplayer_lobby, function(current)
+	if runModeSweep then
+		runModeSweep(current)
+		return
+	end
+	if current ~= "steam-hosting" and current ~= "steam-racing" then return end
+	if not ChloeNet_IsServer() then return end
+	assert(ChloeNet_GetNumPlayers() == 1, "foreign player entered the test lobby")
+	if current == "steam-racing" then
+		-- The Lua VM is recreated on return from the race.
+		if FlatOutTest_StartedInThisMenu then return end
+		log("steam-return")
+		advance("steam-leaving")
+		ChloeNet_Disconnect()
+		return
+	end
+	if not ChloeSteam_SetLobbyValue("cc_flatout_test", FlatOutTest_Run) then return end
+	if FlatOutTest_Scenario == "Skins" then
+		ChloeNet_Host_SetCarClass(CARCLASS_ANY)
+		assert(ChloeNet_GetCarClass() == CARCLASS_ANY, "all-car lobby class was not applied")
+		advance("skin-sweep", "opening all-car selection")
+		FlatOutTest_ChangeHostCar()
+		return
+	end
+	assert(Levels[19] and Levels[19].Name == "MIDWEST RANCH 1")
+	for slot = 1, 12 do
+		local driver = 0
+		if slot <= 3 then driver = slot end
+		ChloeSteam_SetAIDriver(slot, driver)
+	end
+	assert(ChloeSteam_GetAIDriverCount() == 3)
+	ChloeNet_Host_SetNumAI(3)
+	ChloeNet_Host_SetAIClass(4)
+	ChloeNet_Host_SetLevelId(19)
+	ChloeNet_Host_SetGameRules(GR_RACE)
+	ChloeNet_Host_SetLapCount(1)
+	ChloeNet_Host_SetWeatherId(1)
+	ChloeNet_Host_SetTrackReversed(0)
+	ChloeNet_Host_SetIsFO2Track(0)
+	assert(ChloeNet_GetLevelId() == 19 and ChloeNet_GetNumAI() == 3)
+	FlatOutTest_StartedInThisMenu = true
+	advance("steam-racing", "steam-start")
+	FlatOutTest_StartHostRace()
+end)
