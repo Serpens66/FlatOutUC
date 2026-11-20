@@ -237,3 +237,4 @@ end
 
 --// ChloeCustom Tourney: tournament mode for this multiplayer (Steam package only)
 dofile("data/scripts/chloecustom_tournament.bed")
+dofile("data/scripts/chloecustom_instant_action.bed")

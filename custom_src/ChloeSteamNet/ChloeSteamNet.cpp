@@ -20,7 +20,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <algorithm>
+#include <bitset>
 #include <cmath>
+#include <cstdlib>
 #include <deque>
 #include <map>
 #include <string>
@@ -738,6 +740,78 @@ static auto lua_pushcfunction= (void(*)(void*, void*, int))0x633750;
 static auto lua_pushboolean  = (int(*)(void*, int))0x633870;
 static auto lua_pushlstring  = (int(*)(void*, const wchar_t*, size_t))0x6335D0;
 
+// Keep the game's random car/class/cup selection, but limit the garage candidates for the Steam menu action.
+static std::bitset<1024> gInstantActionCars;
+static bool gInstantActionFilterInstalled = false;
+static bool gInstantActionFilterActive = false;
+static uint8_t* GameFlowPtr();
+
+static int __stdcall InstantActionCarAllowed(unsigned id) {
+	return !gInstantActionFilterActive || (id < gInstantActionCars.size() && gInstantActionCars[id]);
+}
+
+static uintptr_t gInstantActionInclude = 0x467E92;
+static uintptr_t gInstantActionSkip = 0x467EB4;
+static __declspec(naked) void InstantActionFilterStub() {
+	__asm {
+		cmp eax, 2                // original check: garage classes 1..3 (eax contains class minus one)
+		ja skipCar
+		pushad
+		push ebx                  // database ID for the native garage candidate
+		call InstantActionCarAllowed
+		test eax, eax
+		popad
+		jz skipCar
+		jmp dword ptr [gInstantActionInclude]
+	skipCar:
+		jmp dword ptr [gInstantActionSkip]
+	}
+}
+
+static void PlaceInstantActionFilter() {
+	auto site = reinterpret_cast<uint8_t*>(0x467E8D);
+	static const uint8_t expected[] = { 0x83, 0xF8, 0x02, 0x77, 0x22 };
+	DWORD old;
+	if (memcmp(site, expected, sizeof(expected)) != 0 ||
+			!VirtualProtect(site, sizeof(expected), PAGE_EXECUTE_READWRITE, &old)) {
+		Log("instant action filter unavailable: unexpected code or memory protection");
+		return;
+	}
+	const int32_t relative = (int32_t)((uintptr_t)&InstantActionFilterStub - ((uintptr_t)site + 5));
+	site[0] = 0xE9;
+	memcpy(site + 1, &relative, sizeof(relative));
+	FlushInstructionCache(GetCurrentProcess(), site, sizeof(expected));
+	VirtualProtect(site, sizeof(expected), old, &old);
+	gInstantActionFilterInstalled = true;
+}
+
+static int L_PrepareInstantAction(void* L) {
+	gInstantActionFilterActive = false;
+	gInstantActionCars.reset();
+	auto gf = GameFlowPtr();
+	auto input = reinterpret_cast<const char*>(lua_tolstring(L, 1, nullptr));
+	if (gInstantActionFilterInstalled && gf && input) {
+		const int count = *reinterpret_cast<const int*>(gf + 0x325C);
+		const auto classes = *reinterpret_cast<const uint8_t* const*>(gf + 0x3264);
+		const auto entries = *reinterpret_cast<const uint8_t* const*>(gf + 0x32AC);
+		// Intersect with the exact native list criteria so the game's random modulo cannot see an empty list.
+		while (*input && classes && entries) {
+			char* end;
+			const long id = std::strtol(input, &end, 10);
+			if (input == end || (*end != ',' && *end != '\0')) break;
+			if (id >= 0 && id < count && (unsigned)id < gInstantActionCars.size() &&
+					classes[id] >= 1 && classes[id] <= 3 && *reinterpret_cast<const int*>(entries + id * 0x20) == 0) {
+				gInstantActionCars.set(id);
+			}
+			input = *end ? end + 1 : end;
+		}
+		gInstantActionFilterActive = gInstantActionCars.any();
+		Log("instant action: %u enabled cars with installed skins", (unsigned)gInstantActionCars.count());
+	}
+	lua_pushboolean(L, gInstantActionFilterActive);
+	return 1;
+}
+
 static void PushString(void* L, const std::wstring& s) { lua_pushlstring(L, s.c_str(), (s.length() + 1) * 2); }
 
 static std::wstring Widen(const char* utf8) {
@@ -947,7 +1021,6 @@ static int L_StoreGet(void* L) {   // nil if not set
 // in Chloe's multiplayer the j-th real AI slot (after the slots of the other players) gets the j-th chosen driver and
 // its name from Config/AIConfig.toml. Saved in Savegame/ChloeCustom_AIDrivers.txt, sent by the host to all clients.
 
-static uint8_t* GameFlowPtr();
 static std::vector<uint64_t> LobbyPeers();
 static const int kMaxAIDrivers = 12;
 static int gAIDrivers[kMaxAIDrivers] = {};             // host settings: 0 = none, 1..11 = profile
@@ -1293,6 +1366,7 @@ static void RegisterLua(void* L) {
 		{ "ChloeSteam_SendStuntResult", (void*)L_SendStuntResult },
 		{ "ChloeSteam_GetStuntResults", (void*)L_GetStuntResults },
 		{ "ChloeSteam_ClearStuntResults", (void*)L_ClearStuntResults },
+		{ "ChloeSteam_PrepareInstantAction", (void*)L_PrepareInstantAction },
 	};
 	for (auto& f : funcs) {
 		lua_pushcfunction(L, f.fn, 0);
@@ -1830,6 +1904,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
 		}
 		Log("ChloeSteamNet loaded (protocol %s)", kProtocol);
 		PlaceScriptHook();
+		PlaceInstantActionFilter();
 		PlaceEndSceneHook();
 		PlaceStuntHooks();
 		LoadAINames();

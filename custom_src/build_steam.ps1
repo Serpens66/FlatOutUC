@@ -20,6 +20,8 @@
 #      traffic over Steam (SteamNetworkingMessages, no port forwarding) and creates/lists the Steam lobbies.
 #      (The earlier variant with the game's own Live/Steam multiplayer is kept in custom_src/steam_live_mp_unused.)
 #   5. steam_appid.txt lets Fouc.exe start from a folder outside the Steam library (test copy).
+param([string]$BfsToolDll)
+
 $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
@@ -50,7 +52,13 @@ function Find-Bytes([byte[]]$data, [byte[]]$pattern) {
     return , $hits
 }
 
-if (Test-Path $dst) { Get-ChildItem $dst -Force | Remove-Item -Recurse -Force }
+if (Test-Path $dst) {
+    $resolvedDestination = (Resolve-Path -LiteralPath $dst).ProviderPath
+    if ($resolvedDestination -ne $dst -or (Get-Item -LiteralPath $dst).Attributes.HasFlag([IO.FileAttributes]::ReparsePoint)) {
+        throw "Unexpected Steam build output directory: $resolvedDestination"
+    }
+    Get-ChildItem -LiteralPath $dst -Force | Remove-Item -Recurse -Force
+}
 else { New-Item -ItemType Directory $dst | Out-Null }
 
 # 1. copy / hardlink the GFWL build
@@ -75,14 +83,46 @@ foreach ($asi in Get-ChildItem $dst -File -Filter '*_gcp.asi') {
     Write-Host "Patched $($asi.Name)"
 }
 
-# 3. Steam-only overrides (vanilla fonts instead of ZOOM's high-res fonts), loaded last
+# 3. Steam-only overrides, loaded last
 $bfsTool = Join-Path $root 'tools/BfsTool/BfsTool.cs'
+function Invoke-BfsTool([string[]]$Arguments) {
+    if ($BfsToolDll) { & dotnet $BfsToolDll @Arguments }
+    else { & dotnet run $bfsTool -- @Arguments }
+    if ($LASTEXITCODE -ne 0) { throw "BfsTool failed: $($Arguments -join ' ')" }
+}
+
 $overrideArchive = 'foucpack_chloecustom_steam.bfs'
 $overridePath = Join-Path $dst $overrideArchive
-& dotnet run $bfsTool -- pack (Join-Path $PSScriptRoot 'steam_overrides') $overridePath
-if ($LASTEXITCODE -ne 0) { throw 'BfsTool pack failed' }
-& dotnet run $bfsTool -- verify $overridePath
-if ($LASTEXITCODE -ne 0) { throw 'BfsTool verify failed' }
+$work = [IO.Directory]::CreateTempSubdirectory('fouc_steam_').FullName
+try {
+    $overlay = Join-Path $work 'overlay'
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'steam_overrides') -Destination $overlay -Recurse
+    $music = Join-Path $work 'base-music'
+    Invoke-BfsTool @('extract', (Join-Path $src 'foucpack_gcp_music.bfs'), $music, 'data/music/playlist_')
+    $playlistDir = Join-Path $overlay 'data/music'
+    [void][IO.Directory]::CreateDirectory($playlistDir)
+    # Steam ships these base soundtrack recordings under Data/Songs.
+    $steamSongs = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'steam_songs.txt')
+    $names = ($steamSongs | ForEach-Object { [regex]::Escape($_) }) -join '|'
+    $songPath = '(?i)(?<=["''])data/music/(' + $names + ')(?=["''])'
+    $encoding = [Text.Encoding]::Latin1
+    $updated = 0
+    foreach ($playlist in Get-ChildItem -LiteralPath (Join-Path $music 'data/music') -File -Filter 'playlist_*.bed') {
+        $before = [IO.File]::ReadAllText($playlist.FullName, $encoding)
+        $rewrites = [regex]::Matches($before, $songPath).Count
+        if ($rewrites) {
+            $after = [regex]::Replace($before, $songPath, 'data/songs/$1')
+            [IO.File]::WriteAllText((Join-Path $playlistDir $playlist.Name), $after, $encoding)
+            $updated += $rewrites
+        }
+    }
+    if (-not $updated) { throw 'No Steam soundtrack paths matched in the source playlists.' }
+    Write-Host "Updated $updated Steam soundtrack paths"
+    Invoke-BfsTool @('pack', $overlay, $overridePath)
+    Invoke-BfsTool @('verify', $overridePath)
+} finally {
+    Remove-Item -LiteralPath $work -Recurse -Force
+}
 $patchFile = Join-Path $dst 'patch'   # small file, copied (not hardlinked) in step 1
 $patch = @(Get-Content $patchFile | Where-Object { $_ }) + $overrideArchive
 [IO.File]::WriteAllText($patchFile, ($patch -join "`n"))   # no trailing newline, like the original

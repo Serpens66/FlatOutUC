@@ -1,0 +1,95 @@
+local client = CommandLine["-flatouttestclient"]
+local port = 23757
+local handling = HANDLING_PROFESSIONAL
+local joinedAt
+local raceStartedHere
+local peer
+
+wrap(menu_mainmenu, function(current)
+	if current ~= "profile-loading" then return end
+	log("main-menu")
+	advance(client and "loopback-client-menu" or "loopback-host-menu")
+	EnterMenu("menu_chloemultiplayer")
+end)
+
+wrap(menu_chloemultiplayer, function(current)
+	if current == "loopback-host-menu" then
+		advance("loopback-hosting")
+		ChloeNet_CreateGame(port)
+	elseif current == "loopback-client-menu" then
+		advance("loopback-connecting")
+		ChloeNet_JoinGame(L"127.0.0.1", port)
+	elseif current == "loopback-connecting" then
+		local reason = ChloeNet_GetLastKickReason()
+		assert(reason == -1, "loopback client was rejected: " .. reason)
+	elseif current == "loopback-client-leaving" and not ChloeNet_IsConnected() then
+		log("loopback-client-left")
+		finish()
+	elseif current == "loopback-host-leaving" and not ChloeNet_IsConnected() then
+		log("loopback-host-closed")
+		finish()
+	end
+end)
+
+wrap(menu_chloemultiplayer_lobby, function(current, menu, time)
+	if not ChloeNet_IsConnected() then return end
+	local count = ChloeNet_GetNumPlayers()
+	assert(count <= 2, "unexpected player joined the loopback lobby")
+	if current == "loopback-hosting" and ChloeNet_IsServer() then
+		assert(count == 1)
+		ChloeNet_Host_SetNumAI(3)
+		ChloeNet_Host_SetHandlingMode(handling)
+		if FlatOutTest_LoopbackRace then
+			ChloeNet_Host_SetLevelId(19)
+			ChloeNet_Host_SetGameRules(GR_RACE)
+			ChloeNet_Host_SetLapCount(1)
+			ChloeNet_SetPlayerCar(CarIndex.Insetta)
+			ChloeNet_SetPlayerCarSkin(1)
+		end
+		advance("loopback-host-listening")
+	elseif current == "loopback-host-listening" and count == 2 then
+		local name = ""
+		for index = 1, count do
+			if not ChloeNet_IsPlayerLocalPlayer(index) then
+				peer = index
+				local wide = ChloeNet_GetPlayerName(index)
+				name = string.gsub(wide or "", "%z", "")
+			end
+		end
+		if name == "" then return end
+		assert(string.lower(name) == "foucloopback", "unexpected loopback client name: " .. name)
+		advance("loopback-host-joined")
+	elseif current == "loopback-host-joined" and FlatOutTest_LoopbackRace and count == 2 and ChloeNet_IsPlayerReady(peer) then
+		raceStartedHere = true
+		advance("loopback-host-racing")
+		FlatOutTest_StartHostRace()
+	elseif current == "loopback-host-racing" and not raceStartedHere then
+		advance("loopback-host-returned")
+	elseif (current == "loopback-host-joined" or current == "loopback-host-returned") and count == 1 then
+		advance("loopback-host-leaving")
+		ChloeNet_Disconnect()
+		EnterMenu("menu_chloemultiplayer")
+	elseif current == "loopback-connecting" and not ChloeNet_IsServer() and count == 2 then
+		if ChloeNet_GetHandlingMode() ~= handling or ChloeNet_GetNumAI() ~= 3 then return end
+		joinedAt = time
+		advance("loopback-client-joined")
+	elseif current == "loopback-client-joined" and time - joinedAt >= 2 then
+		if FlatOutTest_LoopbackRace then
+			assert(ChloeNet_GetLevelId() == 19 and ChloeNet_GetLapCount() == 1)
+			ChloeNet_SetPlayerCar(CarIndex.Chili)
+			ChloeNet_SetPlayerCarSkin(1)
+			ChloeNet_SetPlayerReady(1)
+			raceStartedHere = true
+			advance("loopback-client-racing")
+			return
+		end
+		advance("loopback-client-leaving")
+		ChloeNet_Disconnect()
+		EnterMenu("menu_chloemultiplayer")
+	elseif current == "loopback-client-racing" and not raceStartedHere then
+		log("loopback-client-returned")
+		advance("loopback-client-leaving")
+		ChloeNet_Disconnect()
+		EnterMenu("menu_chloemultiplayer")
+	end
+end)

@@ -1,0 +1,91 @@
+local cases = {
+	{31, GAMETYPE_DERBY_FRAG, "Derby", GR_DERBY, DERBY_FRAG, 1, 3, 0, GR_DERBY, 29},
+	{32, GAMETYPE_DERBY_FRAG, "Derby", GR_DERBY, DERBY_FRAG, 1, 3, 0, GR_DERBY, 29},
+}
+if FlatOutTest_MixedTournament then
+	cases = {
+		{19, GAMETYPE_KNOCKOUT, "Knockout-Race", GR_KNOCKOUT, 0, 0, 3, 0, GR_DEFAULT, 29},
+		cases[1],
+		{47, GAMETYPE_STUNT, "High-Jump", GR_STUNT, 0, 0, 0, Levels[47].StartPosition, GR_STUNT, 22},
+	}
+end
+local caseKey = prefix .. "tournament"
+local totalKey = caseKey .. ":points"
+local standingsSeen
+
+local function prepareCar(case)
+	local stunt = case[4] == GR_STUNT
+	ChloeNet_Host_SetNumAI(case[7])
+	ChloeNet_SetPlayerCar(stunt and CarIndex.Rocket or CarIndex.Insetta)
+	ChloeNet_SetPlayerCarSkin(1)
+end
+
+runModeSweep = function(current)
+	if current ~= "steam-hosting" and current ~= "tournament-next" then return end
+	if not ChloeNet_IsServer() then return end
+	assert(ChloeNet_GetNumPlayers() == 1, "foreign player entered the test lobby")
+	if current == "steam-hosting" then
+		if not ChloeSteam_SetLobbyValue("cc_flatout_test", FlatOutTest_Run) then return end
+		for slot = 1, 12 do
+			ChloeSteam_SetAIDriver(slot, slot <= 3 and slot or 0)
+		end
+		assert(ChloeSteam_GetAIDriverCount() == 3)
+		ChloeNet_Host_SetCarClass(CARCLASS_ANY)
+		prepareCar(cases[1])
+		local events = {}
+		for _, case in ipairs(cases) do
+			table.insert(events, {trackid = case[1], rules = case[2], lapsOrTimeLimit = 1, weather = 1})
+		end
+		log("mode range 1 " .. table.getn(cases))
+		ChloeSteam_StoreSet(caseKey, "1")
+		advance("tournament-next", "tournament created")
+		ChloeCustomTourney_Start(events, false)
+		return
+	end
+	local event = tonumber(ChloeSteam_StoreGet(caseKey))
+	local case = cases[event]
+	if not case then
+		advance("steam-leaving", "tournament complete")
+		ChloeNet_Disconnect()
+		return
+	end
+	if ChloeNet_GetLevelId() ~= case[1] or ChloeCustomTourney.pendingApply then return end
+	assert(ChloeCustomTourney.active and ChloeCustomTourney.played == event - 1)
+	assert(ChloeNet_GetGameRules() == case[4] and ChloeNet_GetLapCount() == 1)
+	advance("tournament-racing", string.format("mode begin %d %s %d %d %d %d %d %d %d",
+		event, case[3], case[1], case[4], case[5], case[6], case[8], case[7], case[9]))
+	FlatOutTest_StartHostRace()
+end
+
+wrap(menu_chloecustom_tourney_standings, function(current, menu, time)
+	if current ~= "tournament-racing" then return end
+	standingsSeen = standingsSeen or time
+	if time - standingsSeen < 0.5 then return end
+	assert(ChloeNet_GetNumPlayers() == 1, "foreign player entered the test lobby")
+	local event = tonumber(ChloeSteam_StoreGet(caseKey))
+	local tournament = ChloeCustomTourney
+	assert(tournament.played == event and tournament.total == table.getn(cases), "event result not restored")
+	assert(tournament.finished == (event == table.getn(cases)), "unexpected tournament finish state")
+	local total = 0
+	local humans = 0
+	local round = {}
+	for _, entry in ipairs(tournament.standings) do
+		total = total + entry.points
+		if not entry.ai then humans = humans + 1 end
+		if entry.last then table.insert(round, entry.last) end
+	end
+	table.sort(round)
+	local priorTotal = tonumber(ChloeSteam_StoreGet(totalKey)) or 0
+	local points = total - priorTotal
+	ChloeSteam_StoreSet(totalKey, tostring(total))
+	local values = cases[event][4] == GR_STUNT and "4,4,4,10" or "5,6,8,10"
+	if humans ~= 1 or table.concat(round, ",") ~= values or points ~= cases[event][10] then
+		log(string.format("tournament check failed %d %s: %s / %d points", event, cases[event][3],
+			table.concat(round, ","), points))
+	end
+	log("mode return " .. event)
+	ChloeSteam_StoreSet(caseKey, tostring(event + 1))
+	advance("tournament-next", "tournament standings " .. event .. " points " .. total)
+	if cases[event + 1] then prepareCar(cases[event + 1]) end
+	menu.back()
+end)

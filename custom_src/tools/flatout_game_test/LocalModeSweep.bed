@@ -4,11 +4,11 @@ local localModes = {
 	{"Lap-Knockout", TRACKTYPE_FIELDS, GR_LAPKNOCKOUT, 19, GR_RACE, 0, 2},
 	{"Single-Stunt", TRACKTYPE_STUNT, GR_STUNT, 47, GR_STUNT, 0, 0},
 	{"Single-Derby", TRACKTYPE_DERBY, GR_DERBY, 31, GR_DERBY, DERBY_WRECKING, 2},
-	{"Time-Trial", TRACKTYPE_FIELDS, GR_TIME_TRIAL, 19, GR_RACE, 0, 0},
+	{"Time-Trial", TRACKTYPE_FIELDS, GR_TIME_TRIAL, 19, GR_DEFAULT, 0, 2},
 	{"Speedtrap", TRACKTYPE_FIELDS, GR_SPEEDTRAP, 19, GR_ARCADE_RACE, 0, 2},
-	{"Stunt-Show", TRACKTYPE_FIELDS, GR_TONYHAWK, 19, GR_ARCADE_RACE, 0, 2},
-	{"Drift", TRACKTYPE_FIELDS, GR_DRIFT, 19, GR_ARCADE_RACE, 0, 2},
-	{"Career-Cup", nil, GR_RACE, Classes[1].Cups[1].Races[1].Level, GR_RACE, 0, -1, menu_career},
+	{"Stunt-Show", TRACKTYPE_FIELDS, GR_TONYHAWK, 19, GR_ARCADE_RACE, 0, 0},
+	{"Drift", TRACKTYPE_FIELDS, GR_DRIFT, 19, GR_ARCADE_RACE, 0, 0},
+	{"Career-Cup", nil, GR_RACE, Classes[1].Cups[1].Races[1].Level, GR_DEFAULT, 0, -1, menu_career},
 }
 
 local arcadeRules = {
@@ -22,23 +22,78 @@ for race = 1, table.getn(ArcadeClasses[1].Races) do
 	local name = arcadeRules[event.Rules]
 	if name then
 		arcadeRules[event.Rules] = nil
-		local derby = event.Rules == GR_DERBY and (event.DerbyType or DERBY_WRECKING) or 0
+		local derby = event.Rules == GR_DERBY and (event.DerbyType or DERBY_FRAG) or 0
 		table.insert(localModes, {name, nil, event.Rules, event.Level, event.Rules, derby, -1, menu_arcadecareer_main, race})
 	end
+end
+table.insert(localModes, {"Party-Stunt", nil, GR_STUNT, 47, GR_STUNT, 0, 0, menu_partymode_playersetup})
+table.insert(localModes, {"Instant-Action", nil, GR_RACE, 0, GR_DEFAULT, 0, -1, menu_mainmenu})
+
+if FlatOutTest_TrackSweep then
+	localModes = {}
+	local function addTrack(id, level, variant)
+		local rules = level.Rules or GR_RACE
+		local title = string.gsub(level.Name, " ", "-") .. (variant and "-FO2" or "")
+		local derby = rules == GR_DERBY and DERBY_WRECKING or 0
+		local ai = (rules == GR_STUNT or rules == GR_TEST) and 0 or 2
+		local menu = rules == GR_TEST and menu_mainmenu or nil
+		table.insert(localModes, {title, level.TrackType, rules, id, rules == GR_RACE and GR_DEFAULT or rules,
+			derby, ai, menu, nil, variant})
+	end
+	for id = 1, 58 do
+		local level = assert(Levels[id])
+		assert(not level.ChloeCustomHidden)
+		addTrack(id, level, false)
+	end
+	for id = 1, 58 do
+		if ChloeCollection_DoesTrackHaveFO2Variant(id) then addTrack(id, Levels[id], true) end
+	end
+elseif FlatOutTest_FullCarnage then
+	localModes = {}
+	for cls, class in ipairs(ArcadeClasses) do
+		for race, event in ipairs(class.Races) do
+			local derby = event.Rules == GR_DERBY and (event.DerbyType or DERBY_FRAG) or 0
+			local title = string.format("Carnage-%d-%d", cls, race)
+			table.insert(localModes, {title, nil, event.Rules, event.Level, event.Rules, derby,
+				-1, menu_arcadecareer_main, race, nil, cls})
+		end
+	end
+	assert(table.getn(localModes) == 36, "unexpected Carnage grid size")
 end
 
 local caseKey = prefix .. "local-mode"
 local through = math.min(FlatOutTest_ModeThrough, table.getn(localModes))
 local startedHere = false
+local starterBalance
 
 local function prepareLocal(index)
 	local mode = localModes[index]
 	ChloeSteam_StoreSet(caseKey, tostring(index))
 	advance("local-mode-prepared", "mode preparing " .. index .. " " .. mode[1])
 	if mode[8] == menu_career then
-		EnterMenu("menu_career")
+		local classCars = Classes[1].ClassCars
+		log(string.format("career diagnostics: owned %d, class cars %d, starter choices %d, Chili locked %s",
+			Garage:GetNumCarsPurchased(), classCars and table.getn(classCars) or 0,
+			table.getn(CarlistFromClassStart(1, false, false)), tostring(Garage:IsCarLocked(CarIndex.Chili))))
+		if FlatOutTest_StarterFixtures and Garage:GetNumCarsPurchased() == 0 then
+			Garage:SetCarPurchased(CarIndex.Chili, TRUE)
+			Garage:SetCarSkinIndex(CarIndex.Chili, 1)
+			SetActiveCar(CarIndex.Chili)
+			log("career starter prepared in memory without the shop")
+		end
+		FlatOutTest_OpenCareer()
 	elseif mode[8] == menu_arcadecareer_main then
 		EnterMenu("menu_arcadecareer_main")
+	elseif mode[8] == menu_partymode_playersetup then
+		local choices = table.getn(CarlistStuntCarsUnlocked())
+		log("party diagnostics: unlocked stunt cars " .. choices)
+		if FlatOutTest_StarterFixtures and choices == 0 then
+			FlatOutTest_UsePartyCar(CarIndex.Rocket)
+			log("party stunt car prepared in memory")
+		end
+		EnterMenu("menu_partymode")
+	elseif mode[8] == menu_mainmenu then
+		EnterMenu("menu_mainmenu")
 	else
 		EnterSingleRaceSelection(entermenu("menu_mainmenu"), mode[2], nil, mode[3])
 	end
@@ -63,33 +118,100 @@ local function beginLocal(current, menu, start)
 	local mode = localModes[index]
 	if menu ~= (mode[8] or menu_singleplayer_trackselection) then return end
 	startedHere = true
+	local rules = mode[3] == GR_TIME_TRIAL and GR_RACE or mode[3]
 	advance("local-mode-running", string.format("mode begin %d %s %d %d %d 0 0 %d %d",
-		index, mode[1], mode[4], mode[3], mode[6], mode[7], mode[5]))
+		index, mode[1], mode[4], rules, mode[6], mode[7], mode[5]))
 	start(mode)
 end
 
 wrap(menu_singleplayer_trackselection, function(current, menu)
 	beginLocal(current, menu, function(mode)
-		if mode[7] > 0 then ChloeArcade_ForceAICarCount(mode[7]) end
+		-- TimeTrialGhosts creates its own pair of opponent slots.
+		if mode[7] > 0 and mode[3] ~= GR_TIME_TRIAL then ChloeArcade_ForceAICarCount(mode[7]) end
 		local car = mode[3] == GR_STUNT and CarIndex.Rocket or CarIndex.Insetta
-		FlatOutTest_StartSingleRace(mode[4], car, 1, mode[6] > 0 and mode[6] or nil)
+		FlatOutTest_StartSingleRace(mode[4], car, 1, mode[6] > 0 and mode[6] or nil, mode[10])
 	end)
 end)
 
 wrap(menu_career, function(current, menu)
 	beginLocal(current, menu, function()
 		assert(Garage:GetNumCarsPurchased() > 0, "the existing profile has no career car")
+		if starterBalance then
+			assert(PlayerProfile:GetActiveCar() == CarIndex.Chili and PlayerProfile:GetMoney() == starterBalance - 4500,
+				"starter purchase did not debit the stock price")
+		end
 		EnterRace({event_type = TYPE_CUP, class_id = 1, event_id = 1, subclass = 1})
 	end)
 end)
 
+wrap(menu_carselection, function(current, menu)
+	if current ~= "local-mode-prepared" or starterBalance or not menu.shop_mode then return end
+	local index = tonumber(ChloeSteam_StoreGet(caseKey))
+	if localModes[index][8] ~= menu_career then return end
+	assert(not Garage:IsCarLocked(CarIndex.Chili) and Garage:GetCarValue(CarIndex.Chili) == 4500)
+	assert(PlayerProfile:EnoughMoney(4500), "the existing profile cannot afford the starter car")
+	starterBalance = PlayerProfile:GetMoney()
+	log("career buying starter car inside rollback scope")
+	menu.okaction(CarIndex.Chili, 1)
+end)
+
 wrap(menu_arcadecareer_main, function(current, menu)
 	beginLocal(current, menu, function(mode)
-		local row = math.floor((mode[9] - 1) / 3) + 1
+		local cls = mode[11] or 1
+		local row = (cls - 1) * 2 + math.floor((mode[9] - 1) / 3) + 1
 		local item = math.mod(mode[9] - 1, 3) + 1
-		assert(not PlayerProfile:IsArcadeLevelLocked(1, mode[9]), "Carnage event locked in the existing profile")
+		if not FlatOutTest_FullCarnage then
+			assert(not PlayerProfile:IsArcadeLevelLocked(cls, mode[9]), "Carnage event locked in the existing profile")
+		end
 		FlatOutTest_StartCarnage(row, item)
 	end)
 end)
 
 wrap(menu_singleplayer_events, runLocalSweep)
+
+wrap(menu_partymode, function(current)
+	if current == "local-mode-prepared" then
+		FlatOutTest_SetPartyPlayers(2)
+	elseif current == "local-mode-running" then
+		runLocalSweep(current)
+	end
+end)
+
+wrap(menu_partymode_playersetup, function(current, menu)
+	beginLocal(current, menu, function(mode) FlatOutTest_StartParty({{trackid = mode[4]}}) end)
+end)
+
+wrap(menu_partymode_results, runLocalSweep)
+
+wrap(menu_mainmenu, function(current, menu)
+	beginLocal(current, menu, function(mode)
+		if mode[3] == GR_TEST then
+			EnterTestTrack(CarIndex.Insetta, 0, 1)
+			ChloeCollection_SetTrackFO2Variant(mode[10] and 1 or 0)
+			return
+		end
+		local title = TRANSLATOR(ICON_MAIN_INSTANTACTION)
+		for _, item in ipairs(menu.items) do
+			if item[1] == title then
+				local prepare = ChloeSteam_PrepareInstantAction
+				if prepare then
+					ChloeSteam_PrepareInstantAction = function(cars)
+						assert(cars ~= "", "the test profile has no Instant Action cars")
+						for value in string.gfind(cars, "%d+") do
+							local car = tonumber(value)
+							assert(ChloeCustom_IsFO2Car(car) and ChloeSkins_GetNumSkinsForCar(car) > 0,
+								"Instant Action offered a car without installed skins: " .. car)
+						end
+						ChloeSteam_Log("flatout-test-instant:" .. FlatOutTest_Run .. ":allowed " .. cars)
+						return prepare(cars)
+					end
+				end
+				local ok, failure = pcall(item[2])
+				ChloeSteam_PrepareInstantAction = prepare
+				assert(ok, failure)
+				return
+			end
+		end
+		error("Instant Action menu item was not found")
+	end)
+end)

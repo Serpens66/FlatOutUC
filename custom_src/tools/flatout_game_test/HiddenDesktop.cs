@@ -95,6 +95,11 @@ public sealed class FlatOutDesktop : IDisposable
     }
 
     public FlatOutDesktop(string name, string exe, string directory)
+        : this(name, exe, directory, null)
+    {
+    }
+
+    public FlatOutDesktop(string name, string exe, string directory, string argument)
     {
         desktop = FlatOutDesktopNative.CreateDesktop(name, IntPtr.Zero, IntPtr.Zero, 0, 0xC3, IntPtr.Zero);
         if (desktop == IntPtr.Zero) throw new Win32Exception();
@@ -102,6 +107,7 @@ public sealed class FlatOutDesktop : IDisposable
         startup.Size = Marshal.SizeOf(typeof(FlatOutDesktopNative.Startup));
         startup.Desktop = "WinSta0\\" + name;
         var command = new StringBuilder("\"" + exe + "\"");
+        if (!string.IsNullOrEmpty(argument)) command.Append(" ").Append(argument);
         uint mode = FlatOutDesktopNative.SetErrorMode(0x8003);
         try {
             if (!FlatOutDesktopNative.CreateProcess(exe, command, IntPtr.Zero, IntPtr.Zero, false, 4,

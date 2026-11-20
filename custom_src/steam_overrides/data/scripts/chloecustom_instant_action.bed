@@ -1,0 +1,20 @@
+-- The native Instant Action path still chooses a random car and a track from that car's class.
+function instantaction()
+	return function()
+		local eligible = {}
+		for car = 0, Garage:GetNumCars() - 1 do
+			local class = Garage:GetCarClass(car)
+			if class >= 1 and class <= 3 and not Garage:IsCarLocked(car) and
+					ChloeCustom_IsFO2Car(car) and ChloeSkins_GetNumSkinsForCar(car) > 0 then
+				table.insert(eligible, car)
+			end
+		end
+		if not ChloeSteam_PrepareInstantAction or not ChloeSteam_PrepareInstantAction(table.concat(eligible, ",")) then
+			MessageBox(L("Instant Action could not find a playable car."), MESSAGEBOX_OK, function() end)
+			return
+		end
+		db.GameFlow.PreRace.Mode = GM_INSTANT_ACTION
+		db.GameFlow.PreRace.Rules = GR_RACE
+		Event:PostEvent(event("EVENT_RACE_BEGIN"))
+	end
+end

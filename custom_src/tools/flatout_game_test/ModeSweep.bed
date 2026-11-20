@@ -1,13 +1,13 @@
 -- Appended after Scenario.bed. Each case uses the same setup function as
 -- Change Track and the tournament, then the normal lobby start callback.
 local modes = {
-	{"Race", GAMETYPE_RACE, 19, GR_RACE, GR_RACE},
+	{"Race", GAMETYPE_RACE, 19, GR_RACE, GR_DEFAULT},
 	{"Pong-Race", GAMETYPE_PONGRACE, 19, GR_PONGRACE, GR_PONGRACE},
-	{"Knockout", GAMETYPE_KNOCKOUT, 19, GR_KNOCKOUT, GR_RACE},
-	{"Lap-Knockout", GAMETYPE_LAPKNOCKOUT, 19, GR_LAPKNOCKOUT, GR_RACE},
+	{"Knockout", GAMETYPE_KNOCKOUT, 19, GR_KNOCKOUT, GR_DEFAULT},
+	{"Lap-Knockout", GAMETYPE_LAPKNOCKOUT, 19, GR_LAPKNOCKOUT, GR_DEFAULT},
 	{"Drift", GAMETYPE_DRIFT, 19, GR_DRIFT, GR_ARCADE_RACE},
 	{"Carnage-Race", GAMETYPE_ARCADE_RACE, 19, GR_ARCADE_RACE, GR_ARCADE_RACE},
-	{"Beat-the-Bomb", GAMETYPE_BEAT_THE_BOMB, 19, GR_BEAT_THE_BOMB, GR_BEAT_THE_BOMB},
+	{"Beat-the-Bomb", GAMETYPE_BEAT_THE_BOMB, 16, GR_BEAT_THE_BOMB, GR_BEAT_THE_BOMB},
 	{"Stunt-Show", GAMETYPE_TONYHAWK, 19, GR_TONYHAWK, GR_ARCADE_RACE},
 	{"Speedtrap", GAMETYPE_SPEEDTRAP, 19, GR_SPEEDTRAP, GR_ARCADE_RACE},
 	{"Wrecking-Derby", GAMETYPE_DERBY_WRECKING, 31, GR_DERBY, GR_DERBY, DERBY_WRECKING},
@@ -27,6 +27,8 @@ local startedHere = false
 local function prepareMode(index)
 	local mode = modes[index]
 	local level = Levels[mode[3]]
+	if mode[4] == GR_BEAT_THE_BOMB then assert(level.AllowBeatTheBomb) end
+	if mode[4] == GR_SPEEDTRAP then assert(level.AllowSpeedtrap) end
 	local stunt = mode[4] == GR_STUNT
 	local ai = stunt and 0 or 3
 	for slot = 1, 12 do
@@ -72,7 +74,7 @@ runModeSweep = function(current)
 		end
 		startedHere = true
 		advance("mode-running", string.format("mode begin %d %s %d %d %d %d %d %d %d",
-			index, mode[1], mode[3], mode[4], mode[6] or 0, 1,
+			index, mode[1], mode[3], mode[4], mode[6] or 0, mode[6] and 1 or 0,
 			stunt and level.StartPosition or 0, stunt and 0 or 3, mode[5]))
 		FlatOutTest_StartHostRace()
 	elseif not startedHere then

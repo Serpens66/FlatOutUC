@@ -163,6 +163,19 @@ local function LobbyPlayerKeys()
 	return keys
 end
 
+-- PlayerPosition can contain 1,1,3 after a tie. PlayerVisualPosition contains the game's
+-- complete ordered result list, with one position per driver even when scores are equal.
+local function ResultIdsByPosition(count)
+	local ids = {}
+	for slot = 0, 31 do
+		local position = db.GameFlow.PostRace:GetProperty("PlayerVisualPosition", slot)
+		if position and position >= 1 and position <= count then
+			ids[position] = slot + 1  -- GameFlow.GetPlayerName uses one-based indices
+		end
+	end
+	return ids
+end
+
 local function IsStuntEvent(ev)
 	if ev == nil then
 		return false
@@ -501,8 +514,9 @@ local function SendStuntResult()
 	local humans = LobbyPlayerKeys()
 	local keys = { }
 	local seen = { }
+	local ids = ResultIdsByPosition(n)
 	for i = 1, n do
-		local id = GameFlow.GetPlayerIdByPosition(i)
+		local id = ids[i]
 		if id ~= nil then
 			local key = NameKey(GameFlow.GetPlayerName(id))
 			if humans[key] and not seen[key] then
@@ -645,8 +659,9 @@ function ChloeCustomTourney_CaptureResults()
 	local rank = 0
 	local counted = { }
 	local logparts = { }
+	local ids = ResultIdsByPosition(n)
 	for i = 1, n do
-		local id = GameFlow.GetPlayerIdByPosition(i)
+		local id = ids[i]
 		local key = ""
 		if id ~= nil then
 			key = NameKey(GameFlow.GetPlayerName(id))
@@ -662,7 +677,7 @@ function ChloeCustomTourney_CaptureResults()
 					e = AddEntry(key, not human)
 				end
 				rank = rank + 1
-				local p = TOURNEY_POINTS[rank] or 0
+				local p = TOURNEY_POINTS[stunt and rank or i] or 0
 				e.points = e.points + p
 				e.last = p
 			end
