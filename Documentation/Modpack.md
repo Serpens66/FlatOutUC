@@ -38,6 +38,7 @@ Alle Archive sind 4096-Byte-ausgerichtet. Chloes Archive nutzen die Flags `00`/`
 ## IDs
 
 - **Strecken** (`levels.bed`): 1–58 FO2/FOUC (46 = FO2-Garage-Testtrack, 47–58 Stunts), 59–94 FO1, 95–98 Retro Demo, 99–114 Tough Trucks, 115–146 Rally Trophy, 147–156 Rally Trophy Arcade, 157–180 Zusatzstrecken (FO1-Varianten, Re-Volt, GT, NFS, Mario, Drift, URL, San Juan, Burnout, ProStreet).
+- **Derby-Karten** (`TRACKTYPE_DERBY` in `levels.bed`): Die sechs Vanilla-Arenen (31–36) und San Juan Derby (175, `IsMultiplayerOnly = true`, Streckendaten in `maps_extras`).
 - **Autos**: Die Skripte arbeiten mit Datenordner-Nummern (`CarIndex.X = ChloeCollection_GetCarDBID(N)`). 1–47 Vanilla, 1xx FO1/Retro/TT, 2xx FO2-Varianten, 3xx Custom/Props/NFS, 4xx Rally Trophy. `GetCarDBID` sucht den ersten DB-Eintrag mit passendem `DataPath`.
 - `Config/CarUnlocks.toml` und `CarMatchups.toml` verknüpfen Zusatzautos mit Vanilla-Autos (Freischaltung bzw. Umschalten im Autohändler).
 

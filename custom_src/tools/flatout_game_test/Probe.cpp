@@ -6,7 +6,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <cmath>
 #include <share.h>
+#include "StuntPosePreview.h"
 
 // Only staged by Invoke-FlatOutGameTest.ps1 after checking the executable hash.
 // Offsets and layouts are from nya-common-fouc's DeviceD3d, GameFlow,
@@ -18,6 +20,167 @@ static HANDLE captureFrame;
 static PVOID exceptionObserver;
 static bool verifyMusic;
 static bool forceTournamentTie;
+static bool verifyDerbyGrid;
+static bool verifyDerbyImpact;
+static bool recordStuntPose;
+static uintptr_t drawDerbyNitro;
+
+// Give the renderer a repeatable half-full nitro bar with the flame active.
+// This runs only for the test capture and restores the car fields before the next simulation tick.
+static uint32_t __stdcall PrepareNitroDraw(uintptr_t player, float* original) {
+    if (!player) return 0;
+    const auto car = *reinterpret_cast<uintptr_t*>(player + 0x294);
+    if (!car) return 0;
+    auto fuel = reinterpret_cast<float*>(car + 0x5EC);
+    auto button = reinterpret_cast<float*>(car + 0x1F18);
+    auto gauge = reinterpret_cast<float*>(player + 0x2B0);
+    original[0] = *fuel;
+    original[1] = *button;
+    original[2] = *gauge;
+    *fuel = fuel[1] > 0.0f ? fuel[1] * 0.5f : 10.0f;
+    *button = 1.0f;
+    *gauge = 0.5f;
+    return car;
+}
+
+static __declspec(naked) void DerbyNitroFixture() {
+    __asm {
+        push ebp
+        mov ebp, esp
+        sub esp, 16
+        pushad
+        lea edx, [ebp - 12]
+        push edx
+        push dword ptr [ebp + 8]
+        call PrepareNitroDraw
+        mov [ebp - 16], eax
+        popad
+        push dword ptr [ebp + 20]
+        push dword ptr [ebp + 16]
+        push dword ptr [ebp + 12]
+        push dword ptr [ebp + 8]
+        call dword ptr [drawDerbyNitro]
+        mov edx, [ebp - 16]
+        test edx, edx
+        jz done
+        mov ecx, [ebp - 12]
+        mov [edx + 0x5EC], ecx
+        mov ecx, [ebp - 8]
+        mov [edx + 0x1F18], ecx
+        mov edx, [ebp + 8]
+        mov ecx, [ebp - 4]
+        mov [edx + 0x2B0], ecx
+    done:
+        mov esp, ebp
+        pop ebp
+        ret 16
+    }
+}
+
+static bool InstallDerbyHudFixture() {
+    auto site = reinterpret_cast<uint8_t*>(0x4E83D9);
+    if (site[0] != 0xE8) return false;
+    int32_t displacement;
+    memcpy(&displacement, site + 1, sizeof(displacement));
+    drawDerbyNitro = uintptr_t(site + 5) + displacement;
+    DWORD protection;
+    if (!VirtualProtect(site, 5, PAGE_EXECUTE_READWRITE, &protection)) return false;
+    displacement = int32_t(uintptr_t(&DerbyNitroFixture) - uintptr_t(site + 5));
+    memcpy(site + 1, &displacement, sizeof(displacement));
+    FlushInstructionCache(GetCurrentProcess(), site, 5);
+    VirtualProtect(site, 5, protection, &protection);
+    return true;
+}
+
+static bool LogDerbyGrid(FILE* log, uintptr_t flow, int level) {
+    const auto begin = *reinterpret_cast<const uintptr_t**>(flow + 0x2824);
+    const auto end = *reinterpret_cast<const uintptr_t**>(flow + 0x2828);
+    if (!begin || end <= begin || end - begin > 32) return false;
+    for (auto pos = begin; pos < end; ++pos) {
+        if (!*pos || !*reinterpret_cast<const uintptr_t*>(*pos + 0x294)) return false;
+    }
+    fprintf(log, "derby-grid %d %.4f", level, *reinterpret_cast<const float*>(flow + 0x4FC));
+    for (auto pos = begin; pos < end; ++pos) {
+        const auto car = *reinterpret_cast<const uintptr_t*>(*pos + 0x294);
+        const auto xyz = reinterpret_cast<const float*>(car + 0x1F0);
+        fprintf(log, " %d,%.2f,%.2f,%.2f", *reinterpret_cast<const int*>(*pos + 0x2CC), xyz[0], xyz[1], xyz[2]);
+    }
+    fputc('\n', log);
+    return true;
+}
+
+static void ObserveSanJuanDerby(FILE* log, uintptr_t flow, int time) {
+    static float start[9][2]{};
+    static bool sampled = false, moved = false, collision = false;
+    if ((moved && collision) || time < 500) return;
+    const auto players = *reinterpret_cast<const uintptr_t**>(flow + 0x2824);
+    const auto end = *reinterpret_cast<const uintptr_t**>(flow + 0x2828);
+    if (!players || end - players != 9) return;
+    for (int i = 2; i < 9; ++i) {
+        if (!players[i] || !*reinterpret_cast<const uintptr_t*>(players[i] + 0x294)) return;
+    }
+    for (int i = 2; i < 9; ++i) {
+        const auto car = *reinterpret_cast<const uintptr_t*>(players[i] + 0x294);
+        const auto xyz = reinterpret_cast<const float*>(car + 0x1F0);
+        if (!sampled) {
+            start[i][0] = xyz[0];
+            start[i][1] = xyz[2];
+        }
+        const float dx = xyz[0] - start[i][0], dz = xyz[2] - start[i][1];
+        const float damage = *reinterpret_cast<const float*>(car + 0x7AB8);
+        if (!moved && dx * dx + dz * dz >= 25.0f) {
+            fprintf(log, "san-juan ai moved: slot %d at %d ms\n", i + 1, time);
+            moved = true;
+        }
+        if (!collision && damage > 0.001f) {
+            fprintf(log, "san-juan collision damage: slot %d, %.4f at %d ms\n", i + 1, damage, time);
+            collision = true;
+        }
+    }
+    sampled = true;
+}
+
+static void MeasureDerbyImpact(FILE* log, uintptr_t flow, int time) {
+    static int start = -1;
+    static bool reported = false;
+    static float beforePlayer = 0, beforeAI = 0;
+    if (reported || time < 200) return;
+    const auto players = *reinterpret_cast<const uintptr_t**>(flow + 0x2824);
+    const auto end = *reinterpret_cast<const uintptr_t**>(flow + 0x2828);
+    if (!players || end - players != 6) return;
+    const auto localCar = *reinterpret_cast<const uintptr_t*>(players[0] + 0x294);
+    const auto aiCar = *reinterpret_cast<const uintptr_t*>(players[2] + 0x294);
+    if (!localCar || !aiCar) return;
+    const float playerDamage = *reinterpret_cast<const float*>(localCar + 0x7AB8);
+    const float aiDamage = *reinterpret_cast<const float*>(aiCar + 0x7AB8);
+    if (start >= 0) {
+        if (time - start >= 1000) {
+            fprintf(log, "derby impact %.4f %.6f %.6f\n", *reinterpret_cast<const float*>(flow + 0x4FC),
+                playerDamage - beforePlayer, aiDamage - beforeAI);
+            reported = true;
+        }
+        return;
+    }
+
+    // Place the stationary AI six metres ahead of the local car, then bring the local car straight into it.
+    // This runs only on the host of this short fixture. Both cars keep their own orientations.
+    auto localMatrix = reinterpret_cast<const float*>(localCar + 0x1C0);
+    auto aiMatrix = reinterpret_cast<float*>(aiCar + 0x1C0);
+    const float length = std::sqrt(localMatrix[8] * localMatrix[8] + localMatrix[10] * localMatrix[10]);
+    if (length < 0.5f) return;
+    const float x = localMatrix[8] / length, z = localMatrix[10] / length;
+    aiMatrix[12] = localMatrix[12] + x * 6.0f;
+    aiMatrix[13] = localMatrix[13];
+    aiMatrix[14] = localMatrix[14] + z * 6.0f;
+    auto velocity = reinterpret_cast<float*>(localCar + 0x290);
+    velocity[0] = x * 27.0f;
+    velocity[1] = 0;
+    velocity[2] = z * 27.0f;
+    memset(reinterpret_cast<void*>(aiCar + 0x290), 0, 3 * sizeof(float));
+    start = time;
+    beforePlayer = playerDamage;
+    beforeAI = aiDamage;
+}
 
 static bool ApplyTournamentTie(uintptr_t flow) {
     if (!*reinterpret_cast<const int*>(flow + 0x530)) return false;
@@ -207,12 +370,147 @@ static bool CaptureFrame(void* self) {
     return success;
 }
 
+static bool WritePose(FILE* file, uint32_t ms, int object, const float* position, const float* rotation) {
+    for (int i = 0; i < 3; ++i) if (!std::isfinite(position[i])) return false;
+    for (int i = 0; i < 4; ++i) if (!std::isfinite(rotation[i])) return false;
+    return fprintf(file, "%u,%d,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f\n", ms, object,
+        position[0], position[1], position[2], rotation[0], rotation[1], rotation[2], rotation[3]) > 0;
+}
+
+static bool CheckStuntReplay(void* self, stunt_preview::Replay& replay, uint32_t ejection, uint32_t duration) {
+    using namespace stunt_preview;
+    Frame approach{}, launch{}, flight{}, landing{}, switched{};
+    if (!replay.Sample(0, 501, approach) || approach.jointCount ||
+        !replay.Sample(0, ejection + 25, launch) || launch.jointCount != MaxJoints ||
+        !replay.Sample(0, ejection + 1350, flight) || flight.jointCount != MaxJoints ||
+        !replay.Sample(1, duration + 325, landing) || landing.jointCount != MaxJoints ||
+        !replay.Sample(1, ejection + 1350, switched) || switched.jointCount != MaxJoints) return false;
+    if (flight.joints[1].position.y < launch.joints[1].position.y + 2.0f ||
+        landing.joints[1].position.y > 2.5f) return false;
+    const Vec3 difference = switched.joints[1].position - flight.joints[1].position;
+    if (Dot(difference, difference) < 1.0f) return false;
+
+    // A new event on the same level must never reuse buffered poses from its predecessor.
+    replay.Begin(2);
+    Frame old{};
+    if (replay.Record(1, 0, flight) || replay.Sample(0, flight.ms, old) ||
+        !replay.Record(2, 0, flight) || !replay.Sample(0, flight.ms, old) ||
+        replay.Sample(1, flight.ms, old)) return false;
+
+    const auto device = *reinterpret_cast<IDirect3DDevice9**>(static_cast<char*>(self) + 0x60);
+    const auto score = *reinterpret_cast<uintptr_t*>(0x846514);
+    const auto flow = *reinterpret_cast<uintptr_t*>(0x9298FAC);
+    if (!score || *reinterpret_cast<uintptr_t*>(score) != 0x6E3E4C || !flow) return false;
+    const int state = *reinterpret_cast<int*>(flow + 0x2738);
+    const auto scoreFields = reinterpret_cast<const int*>(score + 0x30);
+    std::array<int, 5> before;
+    std::copy_n(scoreFields, before.size(), before.begin());
+    for (const Frame* frame : {&approach, &launch, &flight, &landing, &switched}) {
+        if (!DrawFrame(device, *frame) || !CaptureFrame(self)) return false;
+    }
+    return *reinterpret_cast<uintptr_t*>(0x846514) == score &&
+        *reinterpret_cast<int*>(flow + 0x2738) == state &&
+        std::equal(before.begin(), before.end(), scoreFields);
+}
+
+static void RecordStuntPose(void* device, ULONGLONG now) {
+    static ULONGLONG started = 0, last = 0, launched = 0;
+    static bool complete = false, launchSent = false;
+    static unsigned carFrames = 0, driverFrames = 0;
+    static stunt_preview::Replay replay;
+    if (complete || now - last < 50) return;
+    const auto flow = *reinterpret_cast<uintptr_t*>(0x9298FAC);
+    if (!flow || *reinterpret_cast<int*>(flow + 0x4A4) != 2 || *reinterpret_cast<int*>(flow + 0x514) != 2 ||
+        *reinterpret_cast<int*>(flow + 0x4CC) != 47 || *reinterpret_cast<int*>(flow + 0x2738) != 8) return;
+    const auto host = *reinterpret_cast<uintptr_t*>(flow + 0x2820);
+    if (!host) return;
+    const auto players = *reinterpret_cast<uintptr_t**>(host + 0x14);
+    const auto end = *reinterpret_cast<uintptr_t**>(host + 0x18);
+    if (!players || end <= players || !players[0] || *reinterpret_cast<int*>(players[0] + 0x2C8) != 1) return;
+    const auto player = players[0];
+    const auto car = *reinterpret_cast<uintptr_t*>(player + 0x294);
+    if (!car) return;
+    const auto matrix = reinterpret_cast<const float*>(car + 0x1C0);
+    last = now;
+    if (!started) {
+        started = now;
+        replay.Begin(1);
+        // Give the local test car an initial speed along its own forward axis. No global input is used.
+        auto velocity = reinterpret_cast<float*>(car + 0x290);
+        velocity[0] = matrix[8] * 25.0f;
+        velocity[2] = matrix[10] * 25.0f;
+        CaptureFrame(device);
+    }
+    const auto elapsed = static_cast<uint32_t>(now - started);
+    if (!launchSent && elapsed >= 1100) {
+        launchSent = true;
+        // The same native action as releasing the launch control. The test sets the middle of the launch meter.
+        *reinterpret_cast<float*>(player + 0x484) = 0.5f;
+        PostGameEvent(0x1774, *reinterpret_cast<int*>(player + 0x2C4));
+    }
+
+    wchar_t path[_countof(logPath) + 15];
+    swprintf_s(path, L"%ls.stunt.csv", logPath);
+    FILE* file;
+    if (_wfopen_s(&file, path, L"a")) return;
+    if (!carFrames) fputs("ms,object,x,y,z,qx,qy,qz,qw\n", file);
+    stunt_preview::Frame frame{};
+    frame.ms = elapsed;
+    const auto rotation = reinterpret_cast<const float*>(car + 0x280);
+    const bool validCar = stunt_preview::ReadPose(frame.car, matrix + 12, rotation);
+    if (validCar && WritePose(file, elapsed, -1, matrix + 12, rotation)) ++carFrames;
+
+    if (*reinterpret_cast<int*>(car + 0x3590)) {
+        const auto body = *reinterpret_cast<const uint8_t**>(car + 0x3570);
+        const int count = *reinterpret_cast<const int*>(car + 0x3574);
+        // The game's replay serializer uses the same array and writes at most eleven joints.
+        if (body && count == stunt_preview::MaxJoints) {
+            bool validDriver = true;
+            for (int i = 0; i < count; ++i) {
+                const auto joint = body + i * 0x180;
+                const auto position = reinterpret_cast<const float*>(joint + 0x30);
+                const auto orientation = reinterpret_cast<const float*>(joint + 0xC0);
+                if (!stunt_preview::ReadPose(frame.joints[i], position, orientation) ||
+                    !WritePose(file, elapsed, i, position, orientation)) validDriver = false;
+            }
+            if (validDriver) {
+                frame.jointCount = count;
+                if (driverFrames++ == 0) {
+                    launched = now;
+                    CaptureFrame(device);
+                }
+                if (driverFrames == 15 || driverFrames == 60) CaptureFrame(device);
+            }
+        }
+    }
+    fclose(file);
+    if (validCar) {
+        replay.Record(1, 0, frame);
+        // The second fixture replays the clip 350 ms behind the first.
+        frame.ms += 350;
+        replay.Record(1, 1, frame);
+    }
+
+    if (launched && now - launched >= 3300 && driverFrames >= 35) {
+        CaptureFrame(device);
+        const bool preview = CheckStuntReplay(device, replay, static_cast<uint32_t>(launched - started), elapsed);
+        FILE* proof;
+        if (!_wfopen_s(&proof, logPath, L"a")) {
+            fprintf(proof, "stunt pose capture complete: %u car frames and %u driver frames\n", carFrames, driverFrames);
+            fprintf(proof, "stunt pose replay %s\n", preview ? "complete" : "failed");
+            fclose(proof);
+        }
+        complete = true;
+    }
+}
+
 static void __fastcall EndScene(void* self, void*) {
     originalEndScene(self);
     static unsigned frames = 0;
     static ULONGLONG lastSample = 0;
     ++frames;
     const auto now = GetTickCount64();
+    if (recordStuntPose) RecordStuntPose(self, now);
     if (now - lastSample < 200) return;
     lastSample = now;
     if (WaitForSingleObject(captureFrame, 0) == WAIT_OBJECT_0 && !CaptureFrame(self))
@@ -278,6 +576,12 @@ static void __fastcall EndScene(void* self, void*) {
         fprintf(log, "%u %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d\n",
             frames, mode, state, time, track, car, skin, local, ai, remote,
             rules, derby, limit, stunt, playerStart, attempt, attempts);
+        static bool gridLogged = false;
+        if (verifyDerbyGrid && !gridLogged && mode == 2 && (state == 7 || state == 8) && rules == 3) {
+            gridLogged = LogDerbyGrid(log, flow, track);
+        }
+        if (verifyDerbyGrid && mode == 2 && state == 8 && rules == 3 && track == 175) ObserveSanJuanDerby(log, flow, time);
+        if (verifyDerbyImpact && mode == 2 && state == 8 && rules == 3 && track == 31) MeasureDerbyImpact(log, flow, time);
         if (forceTournamentTie && state == 9 && rules == 3 && track == 31 && ApplyTournamentTie(flow)) {
             static bool tieLogged = false;
             if (!tieLogged) {
@@ -312,6 +616,12 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID) {
         leaveRace = OpenEventW(SYNCHRONIZE, FALSE, eventName);
         verifyMusic = GetEnvironmentVariableW(L"FOUC_TEST_MUSIC", eventName, _countof(eventName)) != 0;
         forceTournamentTie = GetEnvironmentVariableW(L"FOUC_TEST_TOURNAMENT_TIE", eventName, _countof(eventName)) != 0;
+        verifyDerbyGrid = GetEnvironmentVariableW(L"FOUC_TEST_DERBY_GRID", eventName, _countof(eventName)) != 0;
+        verifyDerbyImpact = GetEnvironmentVariableW(L"FOUC_TEST_DERBY_IMPACT", eventName, _countof(eventName)) != 0 &&
+            !wcsstr(GetCommandLineW(), L"-flatouttestclient");
+        recordStuntPose = GetEnvironmentVariableW(L"FOUC_TEST_STUNT_POSE", eventName, _countof(eventName)) != 0;
+        if (GetEnvironmentVariableW(L"FOUC_TEST_DERBY_HUD", eventName, _countof(eventName)))
+            LogAttach(InstallDerbyHudFixture() ? L"Derby HUD fixture installed" : L"Derby HUD fixture unavailable");
         if (GetEnvironmentVariableW(L"FOUC_TEST_STUNT_INPUT", eventName, _countof(eventName)))
             LogAttach(SetupTestController() ? L"test controller installed" : L"test controller unavailable");
         if (GetEnvironmentVariableW(L"FOUC_TEST_FRAME_EVENT", eventName, _countof(eventName)))

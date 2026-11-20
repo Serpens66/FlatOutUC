@@ -72,6 +72,12 @@ end)
 wrap(menu_mainmenu, function(current)
 	if current == "profile-loading" then
 		assert(ChloeProfiles_IsProfileValid(FlatOutTest_Profile), "profile is invalid at the main menu")
+		if FlatOutTest_DerbyHud ~= "" then
+			Settings.Game.HUDType = FlatOutTest_DerbyHud == "FO2" and 1 or 0
+			log("derby HUD " .. tostring(Settings.Game.HUDType))
+		end
+		log("profile options " .. tostring(Settings.Game.ImperialUnits) .. " " ..
+			tostring(Settings.Game.HighCarCam) .. " " .. tostring(Settings.Control.Transmission))
 		log("main-menu")
 		if runLocalSweep then
 			runLocalSweep(current)
@@ -79,7 +85,7 @@ wrap(menu_mainmenu, function(current)
 			-- Let the native probe collect samples of a rendered main menu.
 			advance("smoke-dwell")
 			return
-		elseif FlatOutTest_Scenario == "SteamHost" or FlatOutTest_Scenario == "Skins" or
+		elseif FlatOutTest_Scenario == "SteamHost" or FlatOutTest_Scenario == "SteamPeer" or FlatOutTest_Scenario == "Skins" or
 				FlatOutTest_Scenario == "Modes" or FlatOutTest_Scenario == "Tournament" then
 			startSteam()
 		else

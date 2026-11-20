@@ -1,6 +1,9 @@
 local client = CommandLine["-flatouttestclient"]
 local port = 23757
 local handling = HANDLING_PROFESSIONAL
+local derby = FlatOutTest_LoopbackDerbyLevel > 0
+local track = derby and FlatOutTest_LoopbackDerbyLevel or 19
+local ai = derby and FlatOutTest_LoopbackDerbyAI or 3
 local joinedAt
 local raceStartedHere
 local peer
@@ -37,11 +40,19 @@ wrap(menu_chloemultiplayer_lobby, function(current, menu, time)
 	assert(count <= 2, "unexpected player joined the loopback lobby")
 	if current == "loopback-hosting" and ChloeNet_IsServer() then
 		assert(count == 1)
-		ChloeNet_Host_SetNumAI(3)
+		if track == 175 then
+			FlatOutTest_CheckDerbyTracks()
+			log("san-juan-menu 7 multiplayer 6 single-player")
+		end
+		ChloeNet_Host_SetNumAI(ai)
 		ChloeNet_Host_SetHandlingMode(handling)
 		if FlatOutTest_LoopbackRace then
-			ChloeNet_Host_SetLevelId(19)
-			ChloeNet_Host_SetGameRules(GR_RACE)
+			ChloeNet_Host_SetLevelId(track)
+			ChloeNet_Host_SetGameRules(derby and GR_DERBY or GR_RACE)
+			if derby then
+				ChloeNet_Host_SetDerbyType(DERBY_FRAG)
+				FlatOutTest_ChooseDamage(FlatOutTest_LoopbackDamage)
+			end
 			ChloeNet_Host_SetLapCount(1)
 			ChloeNet_SetPlayerCar(CarIndex.Insetta)
 			ChloeNet_SetPlayerCarSkin(1)
@@ -70,12 +81,14 @@ wrap(menu_chloemultiplayer_lobby, function(current, menu, time)
 		ChloeNet_Disconnect()
 		EnterMenu("menu_chloemultiplayer")
 	elseif current == "loopback-connecting" and not ChloeNet_IsServer() and count == 2 then
-		if ChloeNet_GetHandlingMode() ~= handling or ChloeNet_GetNumAI() ~= 3 then return end
+		if ChloeNet_GetHandlingMode() ~= handling or ChloeNet_GetNumAI() ~= ai then return end
+		if derby and math.abs(ChloeNet_GetDamageMult() - FlatOutTest_LoopbackDamage) > 0.0001 then return end
+		if derby then FlatOutTest_CheckDisplayedDamage(FlatOutTest_LoopbackDamage) end
 		joinedAt = time
 		advance("loopback-client-joined")
 	elseif current == "loopback-client-joined" and time - joinedAt >= 2 then
 		if FlatOutTest_LoopbackRace then
-			assert(ChloeNet_GetLevelId() == 19 and ChloeNet_GetLapCount() == 1)
+			assert(ChloeNet_GetLevelId() == track and ChloeNet_GetLapCount() == 1)
 			ChloeNet_SetPlayerCar(CarIndex.Chili)
 			ChloeNet_SetPlayerCarSkin(1)
 			ChloeNet_SetPlayerReady(1)

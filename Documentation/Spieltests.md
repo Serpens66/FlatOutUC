@@ -98,6 +98,7 @@ Der Steam-Build schreibt die Pfade zu 20 Songs auf `Data/Songs` um. Betroffen si
 - Mit im Test bereitgestelltem Rocket startete High Jump mit zwei lokalen Spielern und kehrte ins Menü zurück. Nachweis im Lauf `f05d94c9165a`.
 - Sofortaktion beendet `Fouc.exe` beim Rennenstart mit `0xC0000094` (Integer-Division durch null). Der Fehler trat nach dem Party-Stunt auf und wurde über den normalen Menüeintrag aus einem frischen Spielstart reproduziert. Nachweise in `f05d94c9165a` und `187315c24977`.
 - Die alte `player999.sav` führte bereits beim Speichern eines neuen Profils zum Absturz im nativen Carnage-Fortschrittscheck (`Fouc.exe+0x87D13`, Lauf `51fa3225555d`). Ohne diese Arbeitsdatei legte das unveränderte Spiel ein neues Profil an (`b8da13304db7`). Damit bestanden der erste Karriere-Cup inklusive Chili-Kauf für 4.500 Dollar und elf KI-Fahrern, High Jump mit zwei lokalen Spielern und Sofortaktion mit elf KI-Fahrern. Nachweise `e6668f60f5b2`, `126e0ad4f22f` und `ec2bd79f5e92`.
+- Am 20.11.2026 stürzte die Profilerstellung auch auf `LENOVO_SERP` ab. Der SHA-256-Vergleich ergab, dass `Savegame/player999.sav` auf dem Laptop bytegleich zu der Datei aus dem reproduzierten Host-Absturz `51fa3225555d` ist. Beim fehlgeschlagenen Speichern wurden zwei `customsave001.*`-Dateien geschrieben, `player001.sav` fehlte danach. Die Diagnose auf dem Laptop war rein lesend.
 - 20.11.2026: Mit dem neu gebauten Steam-Paket wurde `xcxc` auf Profilplatz 1 neu angelegt (`7ef0317550f7`). Karriere, Party-Modus und Sofortaktion bestanden erneut (`e95afbd2c9fe`, `13fb8459fa41` und `791c1131b6bf`). Das alte Profil und die alte Arbeitsdatei liegen mit SHA-256-Dateiliste in `.work/t/flatout/profil-vor-reset-2026-11-20-final/`.
 - Der kombinierte Lauf `48bb08eb886a` mit dem neuen Profil bestand die ersten 15 lokalen Fälle. Sofortaktion stürzte nach der Rückkehr aus dem Party-Modus auf `FlatOutUCChloeCollection_gcp.asi+0xB6A93` ab. Das ist die Modulo-Operation in `RandomizeInstantActionSkin`; die Skin-Anzahl des zufällig gewählten Fahrzeugs war null.
 - Im isolierten Nachtest `a7f29c891c98` reproduziert. Sofortaktion wählte den aus dem Custom-Paket entfernten Volvo Amazon (Datenbank-ID 109, `Car_405`) für Pinegrove 3 (Level 6). Der Skin-Zähler war null.
@@ -105,5 +106,29 @@ Der Steam-Build schreibt die Pfade zu 20 Songs auf `Data/Songs` um. Betroffen si
 - Der direkte Sofortstart bestand zusätzlich mit der nun verpflichtenden Prüfung der Kandidatenliste (`24b425b5e07c`). Anschließend stimmten die SHA-256-Hashes aller 499 installierten Paketdateien mit dem Build überein. Die 58 zuvor erfassten Dateien für Profil, Spielstände und Einstellungen entsprachen dem Stand vor den Korrekturen.
 
 ## Weitere Szenarien
+
+Am 20.11.2026 wurden im Steam-Build die Derby-Startplätze für zwei lokale Spielprozesse vermessen. Auf allen sechs Karten wurden mit zwei Spielern und vier KI-Fahrern sechs unterschiedliche Startkoordinaten gelesen. Die beiden Prozesse sahen jeweils ihre eigene und die anderen Positionen in derselben Zuordnung. Mit neun Autos auf Gas Station Derby waren erst die acht Plätze belegt, danach wurde Platz 1 wiederverwendet. Nachweise `1f07b4030caa`, `58eb1149963c`, `85d83efe9b73`, `797065eb295d`, `cfb6246b76a4`, `4d71f763e1e4` und `170ab3d0800a`.
+
+Die Derby-Resetwerte in Vanilla und in der gepackten `game.db` stimmen überein. `DerbyStandingStillResetTimeMs` ist 5.000, `DerbyResetThrottleThreshold` 0,2 und `DerbyResetThrottleTimeMs` 750. Die native Reset-Prüfung berücksichtigt außerdem die Startphase `DerbyStartImmunityTimeMs` von 15.000 ms. Der native HUD-Code zeichnet die eigene Lebensleiste im Derby-Zweig. Das normale Renn-Tachometer zeichnet Drehzahl, Nitro, Geschwindigkeit und Gang. Die Warnung für kritischen Schaden ist ein eigener HUD-Bestandteil.
+
+Am 20.11.2026 zeigte ein neu angelegtes Profil km/h, hohe Fahrzeugkamera und Automatik, auch nach erneutem Laden in einem frischen Prozess (`40c968bed2f3`, `4eb5255796df`). Ein separates, älteres Profil behielt mph und die niedrige Kamera (`469d2b46b76e`).
+
+Am 20.11.2026 zeigten Renderaufnahmen im Derby beide Tachovarianten mit halb gefüllter Nitro-Leiste und aktivierter Flamme. Für die gerade Derby-Leiste verwendet jetzt auch der FlatOut-2-Tacho die passenden Flammenparameter (`a55439ae0b73`, `9a8f2d2be0d4`).
+
+Beim kontrollierten Aufprall in Gas Station Derby verlor das getroffene KI-Auto bei `0x` keine Lebenspunkte, bei `0.1x` rund 5,9 Prozent und bei `1.0x` rund 59,3 Prozent (`ef9f7b24c59c`, `df66a3e62a5e`, `2c7fb9a63259`). Die Tests verwendeten die Menüauswahl des Hosts, prüften die Auswahl in den Client-Sitzungsdetails und lasen den aktiven Multiplikator in beiden Prozessen aus.
+
+`-Scenario SteamPeer` öffnet eine Steam-Lobby für Gas Station Derby mit vier KI und `0.1x`. Der Test wartet auf den namentlich zugelassenen Teilnehmer (`-SteamPeerName`, Standard `Laptop`) und startet, sobald dieser sich auf bereit setzt. Der erstmalige Wartelauf `feb36318460c` wurde ohne Client-Beitritt beendet und stellte die Installationsdateien wieder her.
+
+Der abschließende Lauf `All` (`ca48b90f33af`) bestätigte Optionen, Karriere- und Carnage-Menü, ein Einzelrennen mit zwei KI, den Steam-Host mit drei KI und die Wiederherstellung der Installation. Der Dachlieger im direkten Vanilla-Vergleich und eine Steam-Verbindung zwischen den zwei Rechnern sind noch offen. Stunt-Zuschauen benötigt eine geprüfte Darstellung des entfernten Autos und der Fahrerfigur. Die vorhandenen Stunt-Mitspieler sind reine Wertungseinträge, daher enthält dieser Build noch keinen Zuschauermodus.
+
+### Lokaler Stunt-Pose-Test
+
+```powershell
+pwsh -NoProfile -File custom_src/tools/Invoke-FlatOutGameTest.ps1 -Scenario LocalModes -ModeFrom 4 -ModeThrough 4 -StuntPose
+```
+
+Der Runner beschleunigt den Testwagen in High Jump und löst den nativen Abschuss aus. Anschließend zeichnet er aus interpolierten Aufnahmen visuelle Drahtmodelle für Anfahrt, Abschuss, Flug und Landung. Ein zweites synthetisches Ziel nutzt dieselbe Aufnahme mit 350 ms Verzögerung. Der Test prüft das Umschalten auf dieses Ziel, das Verwerfen von Daten beim Eventwechsel und unveränderte Stunt-Wertungsfelder während des Zeichnens.
+
+Am 20.11.2026 bestanden die Hintergrundläufe mit je 73 Auto- und 54 Fahrerposen (`d4d49369dc77`, `ec0e5794d9a9`). `probe.log.stunt.csv` enthält die Messwerte. `probe.log.005.bmp` bis `probe.log.009.bmp` zeigen die Diagnoseansichten im Renderpuffer. Die Installationsprüfung nach den Tests bestand. Das Testbild verwendet Drahtmodelle und eine eigene Kamera. Die Anbindung der Spielmodelle, Steam-Übertragung und die Abnahme des Ergebnislisten-Buttons auf zwei PCs stehen aus.
 
 Ein Szenariostart prüft die ersten Sekunden und den Menü-Rückweg. Vollständige Rennen, Effektprüfungen während des Fahrens, Freischaltungen und alle Karriere- sowie Carnage-Events benötigen gezielte Läufe. Die Hostprüfung belegt die lokale Hostseite. Ein Loopback-Test setzt zwei regulär parallel laufende Instanzen voraus. Für Steam-Beitritt und Synchronisation zwischen Spielern braucht es einen zweiten Steam-Teilnehmer.

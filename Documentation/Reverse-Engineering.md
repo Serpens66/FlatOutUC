@@ -96,6 +96,12 @@ Ansatz auf dem Vanilla-Einzelspieler-Stunt (simulierte Gegner) statt auf dem Van
 - Gesamtpunkte je Eintrag berechnet das Spiel je nach `nStuntType` (GameFlow+0x518) unterschiedlich (`FUN_004b4c80`: Summe, Maximum oder Minimum der Versuche über `FUN_004960b0`/`FUN_00496100`/`FUN_00496370`/`FUN_00496a70`/`FUN_00497770`, Register-Aufrufkonventionen). Deshalb überträgt das Turnier keine Punktzahlen, sondern die Reihenfolge der Ergebnisliste des vollständigsten PCs.
 - Rangfeld der Einträge: `PlayerScore+8` (Platz, in der MP-Ergebnistafel als Zahl ausgegeben).
 
+### Stunt-Pose und Kamera
+
+- Die auf High Jump geprüfte Steam-`Fouc.exe` hält die Fahrzeugposition in der Matrix ab `Car+0x1C0` und die Drehung als Quaternion ab `Car+0x280`. Nach dem Abschuss liegen elf Körperteile in der über `Car+0x3570` referenzierten Liste, je `0x180` Bytes groß. Position und Quaternion stehen darin bei `+0x30` und `+0xC0`. Der Replay-Schreiber `0x44E830` liest dieselben Werte. Die Prüfroutine liest sie nur bei aktivem Ragdoll (`Car+0x3590`).
+- Der Replay-Leser `0x44F150` schreibt Posen, Geschwindigkeiten und Update-Flags in echte Physikkörper. `0x579F00` registriert diese Körper beim Aktivieren. Für ein Zuschauerabbild müssen die Renderobjekte separat erzeugt und aktualisiert werden. Die Aufzeichnung liefert die dafür benötigten Posen.
+- `StuntCameraTracker` (`0x50B9F0`) verwendet Spieler und Transform aus dem Kameramanager bei `+0x54` und `+0x58`. Der Test zeichnet seine Kopien mit einer eigenen Zielverfolgung in den Renderpuffer. Ein Kamerawechsel auf eine Kopie im Spiel ist damit noch nicht nachgewiesen.
+
 ## Derby (ScoreManagerDerby)
 
 - Zeitlimit `ScoreManager+0x38` (ms, -1 = keins). `FUN_00490c10` und `FUN_00490b60` setzen es nur bei `PreRace.Mode` 5 auf `Laps * 60000`, sonst -1 bzw. bei Frag (`nDerbyType` 3) 300000. Geprüft wird es bei `Fouc.exe_all.c` ~90178 (Ereignisse nach Ablauf ignoriert) und ~90466 (Ende, `FUN_0048ef30`).

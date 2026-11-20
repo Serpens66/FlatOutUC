@@ -31,7 +31,7 @@
 // ------------------------------------------------------------------------------------------------------------
 // constants
 
-static const char*    kProtocol      = "chloecustom-183-steam-1"; // lobbies of other pack versions are not listed
+static const char*    kProtocol      = "chloecustom-183-steam-3"; // both players need San Juan Derby and its grid assignment
 static const char*    kKeyProtocol   = "chloecustommp";
 static const char*    kKeyName       = "name";
 static const char*    kKeyHost       = "host";
@@ -675,6 +675,101 @@ static bool PatchImports(HMODULE mod) {
 	return patched == 5;
 }
 
+static bool ReplaceCall(uint8_t* site, uintptr_t original, uintptr_t replacement) {
+	int32_t oldDisplacement;
+	memcpy(&oldDisplacement, site + 1, sizeof(oldDisplacement));
+	DWORD protection;
+	if (site[0] != 0xE8 || uintptr_t(site + 5) + oldDisplacement != original ||
+			!VirtualProtect(site, 5, PAGE_EXECUTE_READWRITE, &protection)) return false;
+	const int32_t displacement = int32_t(replacement - uintptr_t(site + 5));
+	memcpy(site + 1, &displacement, sizeof(displacement));
+	FlushInstructionCache(GetCurrentProcess(), site, 5);
+	VirtualProtect(site, 5, protection, &protection);
+	return true;
+}
+
+static uint8_t* gChloeMP;
+static constexpr uintptr_t kChloeMPBase = 0x62840000;
+static const auto gNativeGrid = reinterpret_cast<void(__stdcall*)(uint8_t*)>(0x469F50);
+
+static int DerbyGridSize(int level) {
+	if (level == 175) return 24; // San Juan Derby, startpoints.bed
+	return level >= 31 && level <= 36 ? 8 : 0;
+}
+
+// The MP packet already transmits one dense slot per human. Fill the packet in roster order for Derby.
+// Chloe takes the return value modulo count and marks the chosen slot as used.
+static int __stdcall ChooseDerbyRosterSlot(const uint8_t* used, int count) {
+	const int rules = *reinterpret_cast<const int*>(gChloeMP + (0x62D5D0C4 - kChloeMPBase));
+	const int level = *reinterpret_cast<const int*>(gChloeMP + (0x62D5D0CC - kChloeMPBase));
+	if (rules == 3 && DerbyGridSize(level)) {
+		for (int slot = 0; slot < count; ++slot) if (!used[slot]) return slot;
+	}
+	return reinterpret_cast<int(*)()>(gChloeMP + (0x629259D8 - kChloeMPBase))();
+}
+
+static __declspec(naked) void DerbyRosterStub() {
+	__asm {
+		push esi  // number of drivers in Chloe's roster
+		push ebp  // occupied flags for this start packet
+		call ChooseDerbyRosterSlot
+		ret
+	}
+}
+
+// Called after Player objects exist but before the vanilla placement routine reads nStartPosition.
+static void __stdcall AssignDerbyGrid(uint8_t* flow) {
+	const int level = *reinterpret_cast<int*>(flow + 0x4CC);
+	const int gridSize = DerbyGridSize(level);
+	if (gChloeMP && *reinterpret_cast<int*>(gChloeMP + (0x62D58CF8 - kChloeMPBase)) &&
+			*reinterpret_cast<int*>(flow + 0x514) == 3 && gridSize) {
+		auto begin = *reinterpret_cast<uint8_t***>(flow + 0x2824);
+		auto end = *reinterpret_cast<uint8_t***>(flow + 0x2828);
+		const int count = int(end - begin);
+		const int humans = reinterpret_cast<int(*)()>(gChloeMP + (0x628D3BB0 - kChloeMPBase))();
+		const int local = *reinterpret_cast<int*>(gChloeMP + (0x62D58E98 - kChloeMPBase));
+		if (humans > 0 && humans <= count && count <= 32 && local >= 0 && local < humans) {
+			for (int i = 0; i < count; ++i) {
+				// Index 0 is local. The following human proxies are in roster order excluding local.
+				const int slot = i == 0 ? local : i <= local ? i - 1 : i;
+				*reinterpret_cast<int*>(begin[i] + 0x2CC) = slot % gridSize + 1;
+			}
+			Log("derby grid: level %d, cars %d, human drivers %d, local grid slot %d", level, count, humans, local + 1);
+			return;
+		}
+		Log("derby grid: inconsistent roster, using native grid (cars %d, humans %d, local %d)", count, humans, local);
+	}
+	gNativeGrid(flow);
+}
+
+// Derby uses the vanilla straight nitro bar in both HUDs. Use its matching flame parameters only for that draw call.
+static uintptr_t gDrawNitro = 0x4E5810;
+static __declspec(naked) void DerbyNitroStub() {
+	__asm {
+		push ebp
+		mov ebp, esp
+		push dword ptr ds:[0x84ABDC]
+		push dword ptr ds:[0x84ABE0]
+		push dword ptr ds:[0x84ABE4]
+		push dword ptr ds:[0x84ABEC]
+		mov dword ptr ds:[0x84ABDC], 0x3F333333  // x scale 0.7
+		mov dword ptr ds:[0x84ABE0], 0x3F800000  // y scale 1.0
+		mov dword ptr ds:[0x84ABE4], 0x42180000  // start offset 38
+		mov dword ptr ds:[0x84ABEC], 0x41B00000  // y offset 22
+		push dword ptr [ebp + 20]
+		push dword ptr [ebp + 16]
+		push dword ptr [ebp + 12]
+		push dword ptr [ebp + 8]
+		call dword ptr [gDrawNitro]
+		pop dword ptr ds:[0x84ABEC]
+		pop dword ptr ds:[0x84ABE4]
+		pop dword ptr ds:[0x84ABE0]
+		pop dword ptr ds:[0x84ABDC]
+		pop ebp
+		ret 16
+	}
+}
+
 // Chloe's multiplayer gives every player its own grid slot each frame:
 //   FlatOutUCCustomMP_gcp.asi 0x628F94AA: mov [eax+0x2CC], edx   (Player.nStartPosition = sessionSlot % numStartPoints + 1)
 // In stunts all players must start at the stunt's start point (several stunts share one map), so this store is
@@ -710,7 +805,7 @@ static void PatchChloeStartPosition(HMODULE mp) {
 	static const uint8_t expected[6] = { 0x89, 0x90, 0xCC, 0x02, 0x00, 0x00 };
 	if (memcmp(p, expected, 6) != 0) { Log("start position patch skipped: unexpected code in FlatOutUCCustomMP_gcp.asi"); return; }
 	DWORD old;
-	VirtualProtect(p, 6, PAGE_EXECUTE_READWRITE, &old);
+	if (!VirtualProtect(p, 6, PAGE_EXECUTE_READWRITE, &old)) return;
 	p[0] = 0xE8;
 	int32_t rel = (int32_t)((uintptr_t)&ChloeStartPositionStub - ((uintptr_t)p + 5));
 	memcpy(p + 1, &rel, 4);
@@ -725,7 +820,13 @@ static void TryPatchChloeMP() {
 	HMODULE mp = GetModuleHandleA("FlatOutUCCustomMP_gcp.asi");
 	if (!mp) return;
 	gImportsPatched = PatchImports(mp);
-	if (gImportsPatched) PatchChloeStartPosition(mp);
+	if (gImportsPatched) {
+		PatchChloeStartPosition(mp);
+		auto base = reinterpret_cast<uint8_t*>(mp);
+		if (ReplaceCall(base + (0x628DC8F0 - kChloeMPBase), uintptr_t(base) + (0x629259D8 - kChloeMPBase),
+				uintptr_t(&DerbyRosterStub))) gChloeMP = base;
+		else Log("Derby roster patch unavailable: unexpected code or memory protection");
+	}
 	Log(gImportsPatched ? "network functions of FlatOutUCCustomMP_gcp.asi redirected" : "ERROR: could not patch FlatOutUCCustomMP_gcp.asi imports");
 }
 
@@ -1905,6 +2006,10 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
 		Log("ChloeSteamNet loaded (protocol %s)", kProtocol);
 		PlaceScriptHook();
 		PlaceInstantActionFilter();
+		if (!ReplaceCall(reinterpret_cast<uint8_t*>(0x4686BC), 0x469F50, uintptr_t(&AssignDerbyGrid)))
+			Log("Derby grid patch unavailable: unexpected code or memory protection");
+		if (!ReplaceCall(reinterpret_cast<uint8_t*>(0x4E83D9), 0x4E5810, uintptr_t(&DerbyNitroStub)))
+			Log("Derby nitro patch unavailable: unexpected code or memory protection");
 		PlaceEndSceneHook();
 		PlaceStuntHooks();
 		LoadAINames();
