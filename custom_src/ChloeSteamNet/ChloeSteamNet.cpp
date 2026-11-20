@@ -27,6 +27,8 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <xinput.h>
+#include "StuntVideo.h"
 
 // ------------------------------------------------------------------------------------------------------------
 // constants
@@ -37,6 +39,7 @@ static const char*    kKeyName       = "name";
 static const char*    kKeyHost       = "host";
 static const uint16_t kServerPort    = 23756;                     // ChloeNet_CreateGame(23756) in chloemultiplayer.bed
 static const int      kChannel       = 23756;                     // SteamNetworkingMessages channel (ZOOM's xlive uses its own)
+static const int      kStuntVideoChannel = 23757;
 static const uint8_t  kTypeData      = 0x43;
 static const uint8_t  kTypeHello     = 0x48;   // host -> lobby members, client -> host while connecting
 static const uint8_t  kTypeHelloAck  = 0x41;   // host -> client (answer to a client hello)
@@ -931,7 +934,17 @@ static int L_IsAvailable(void* L) {
 	return 1;
 }
 
+static bool VideoPreviewEnabled();
 static int L_RefreshLobbies(void*) {
+	if (VideoPreviewEnabled()) {
+		const auto* hash = *reinterpret_cast<const uint8_t* const*>(0x825520);
+		if (hash) {
+			char text[41]{};
+			for (int i = 0; i < 20; ++i)
+				sprintf_s(text + i * 2, sizeof(text) - i * 2, "%02x", static_cast<unsigned>(hash[i] ^ 0x53));
+			Log("stunt video: engine script checksum %s", text);
+		}
+	}
 	EnterCriticalSection(&gLock);
 	TryPatchChloeMP();
 	if (SteamReady() && !gListCall) {
@@ -1044,6 +1057,7 @@ static int L_LeaveLobby(void*) {   // cancel: leave a joined lobby that is not u
 // Steam lobby data (key "cc_<key>", max. 8 KB), every member of the lobby reads it (also players joining later).
 // Values are narrow Lua strings (bytes), not the game's wide strings; the script hex-encodes names itself.
 static auto lua_pushnil_cc = (int(*)(void*))0x633520;
+static int L_PrepareStuntVideo(void*);
 
 static int L_SetLobbyValue(void* L) {   // host only; returns true if written
 	size_t klen = 0, vlen = 0;
@@ -1458,6 +1472,7 @@ static void RegisterLua(void* L) {
 		{ "ChloeSteam_GetAIDriverCount", (void*)L_GetAIDriverCount },
 		{ "ChloeSteam_GetAIDriverText", (void*)L_GetAIDriverText },
 		{ "ChloeSteam_SetLobbyValue", (void*)L_SetLobbyValue },
+		{ "ChloeSteam_PrepareStuntVideo", (void*)L_PrepareStuntVideo },
 		{ "ChloeSteam_GetLobbyValue", (void*)L_GetLobbyValue },
 		{ "ChloeSteam_Log", (void*)L_Log },
 		{ "ChloeSteam_StoreSet", (void*)L_StoreSet },
@@ -1665,11 +1680,13 @@ static void RaceTick() {
 // her time trial flag is set (it is reset before other races, ChloeCollection_ReinitHooks). Our value is written
 // last to be safe; the actual cause of wrong stunt start points was Chloe's MP plugin (see PatchChloeStartPosition).
 static void StuntTick();
+static void StuntVideoTick(void*);
 static HRESULT __fastcall EndSceneHook(void* self, void*) {
 	HRESULT r = gEndSceneOrig(self);
 	FixStuntStartPositions();
 	StuntTick();
 	RaceTick();
+	if (SUCCEEDED(r)) StuntVideoTick(self);
 	return r;
 }
 
@@ -1917,9 +1934,327 @@ static void __fastcall StuntResultsHook(void* self, void*, void* a) {
 static const uintptr_t kSingleStuntTabDrawSlot = 0x6E7878;
 static void(__thiscall* gSingleStuntTabDrawOrig)(void*, int) = nullptr;
 static auto MultiplayerStuntTabDraw = (void(__thiscall*)(void*, int))0x4B7CC0;
+static bool gStuntResultsDrawn = false;
 static void __fastcall SingleStuntTabDrawHook(void* self, void*, int time) {
-	if (gStuntActive) MultiplayerStuntTabDraw(self, time);
+	if (gStuntActive) {
+		gStuntResultsDrawn = true;
+		MultiplayerStuntTabDraw(self, time);
+	}
 	else gSingleStuntTabDrawOrig(self, time);
+}
+
+// The feature remains a local opt-in for the peer test until the two-PC acceptance run.
+static bool VideoPreviewEnabled() {
+	static const bool enabled = [] {
+		const auto attr = GetFileAttributesW(L"Config\\StuntVideoPreview.enabled");
+		return attr != INVALID_FILE_ATTRIBUTES && !(attr & FILE_ATTRIBUTE_DIRECTORY);
+	}();
+	return enabled;
+}
+
+static constexpr const char* kVideoEventKey = "cc_stunt_video_event";
+static uint64_t gPreparedVideoEvent = 0;
+static int L_PrepareStuntVideo(void* L) {
+	if (!VideoPreviewEnabled()) return 0;
+	const auto level = static_cast<unsigned>(luaL_checknumber(L, 1));
+	EnterCriticalSection(&gLock);
+	if (gHostLobby && SteamReady()) {
+		LARGE_INTEGER counter{};
+		QueryPerformanceCounter(&counter);
+		gPreparedVideoEvent = (std::max)(gPreparedVideoEvent + 1, static_cast<uint64_t>(counter.QuadPart));
+		char value[48];
+		sprintf_s(value, "%llu:%u", gPreparedVideoEvent, level);
+		if (S.SetLobbyData(gMM, gHostLobby, kVideoEventKey, value))
+			Log("stunt video: host published event %llu level %u", gPreparedVideoEvent, level);
+	}
+	LeaveCriticalSection(&gLock);
+	return 0;
+}
+
+namespace {
+using namespace stunt_video;
+struct VideoPeer {
+	uint64_t offered = 0, subscribed = 0, subscription = 0;
+	bool live = false;
+};
+
+struct VideoSession {
+	uint64_t lobby = 0, consumedEvent = 0, event = 0, target = 0, subscription = 0, nextSubscription = 0;
+	uint64_t lastOffer = 0, lastSubscribe = 0, lastPicture = 0, lastCapture = 0, budgetSince = 0, captureAttempt = 0;
+	uint64_t displayedSubscription = 0;
+	uint32_t sent = 0, received = 0, lastDisplayedSequence = 0;
+	size_t sentBytes = 0;
+	bool wasDriving = false;
+	bool resultsLogged = false;
+	unsigned heldInput = 0;
+	std::map<uint64_t, VideoPeer> peers;
+	std::optional<Frame> display;
+	std::wstring captionText;
+	Frame caption;
+	// Created lazily outside the loader lock. The DLL is loaded for the lifetime of Fouc.exe.
+	Codec* codec = nullptr; // Loader detach must never join this worker.
+
+	Codec& Worker() {
+		if (!codec) codec = new Codec();
+		return *codec;
+	}
+};
+VideoSession gVideo;
+
+void SendVideo(uint64_t peer, Kind kind, uint64_t subscription, uint32_t sequence, const std::vector<uint8_t>* picture = nullptr) {
+	const Message msg{gVideo.event, subscription, sequence, kind};
+	std::vector<uint8_t> packet(sizeof(msg) + (picture ? picture->size() : 0));
+	memcpy(packet.data(), &msg, sizeof(msg));
+	if (picture) memcpy(packet.data() + sizeof(msg), picture->data(), picture->size());
+	const auto identity = Identity(peer);
+	const int flags = picture ? 1 | 4 : 8 | 1;  // unreliable/no-delay images, reliable/no-Nagle control
+	S.SendMessageToUser(gMsg, &identity, packet.data(), static_cast<uint32_t>(packet.size()), flags, kStuntVideoChannel);
+}
+
+void StopWatching() {
+	if (gVideo.target) {
+		SendVideo(gVideo.target, Unsubscribe, gVideo.subscription, 0);
+		Log("stunt video: closed target %llu", gVideo.target);
+	}
+	gVideo.target = 0;
+	gVideo.display.reset();
+	gVideo.received = 0;
+	gVideo.lastDisplayedSequence = 0;
+}
+
+void ResetVideoEvent() {
+	gVideo.event = 0;
+	gVideo.target = 0;
+	gVideo.display.reset();
+	gVideo.peers.clear();
+	gVideo.lastOffer = gVideo.lastCapture = gVideo.budgetSince = 0;
+	gVideo.sent = gVideo.received = 0;
+	gVideo.sentBytes = 0;
+	gVideo.wasDriving = false;
+	gVideo.resultsLogged = false;
+}
+
+void PumpVideo(uint64_t now, bool driving) {
+	void* messages[32];
+	const int count = S.ReceiveMessagesOnChannel(gMsg, kStuntVideoChannel, messages, _countof(messages));
+	for (int i = 0; i < count; ++i) {
+		const auto raw = static_cast<const uint8_t*>(messages[i]);
+		const auto data = *reinterpret_cast<const uint8_t* const*>(raw);
+		const int length = *reinterpret_cast<const int*>(raw + 4);
+		if (gIdentityOffset < 0) gIdentityOffset = (*reinterpret_cast<const int*>(raw + 16) == kIdentitySteamID &&
+			*reinterpret_cast<const int*>(raw + 20) == 8) ? 16 : 12;
+		const auto* identity = reinterpret_cast<const SteamNetworkingIdentity*>(raw + gIdentityOffset);
+		auto peer = gVideo.peers.find(identity->eType == kIdentitySteamID ? identity->steamID64 : 0);
+		Message msg{};
+		if (peer != gVideo.peers.end() && length > 0 && Parse(data, length, msg) && msg.event == gVideo.event) {
+			auto& state = peer->second;
+			if (msg.kind == Available) {
+				state.live = msg.sequence != 0;
+				state.offered = now;
+			} else if (msg.kind == Subscribe && driving) {
+				state.subscription = msg.subscription;
+				state.subscribed = now;
+			} else if (msg.kind == Unsubscribe && state.subscription == msg.subscription) {
+				state.subscribed = state.subscription = 0;
+			} else if (msg.kind == PictureSeen && state.subscription == msg.subscription) {
+				Log("stunt video: peer %llu displayed picture %u", peer->first, msg.sequence);
+			} else if (peer->first == gVideo.target && AcceptPicture(msg, gVideo.event, gVideo.subscription, gVideo.received)) {
+				gVideo.received = msg.sequence;
+				Frame frame{msg.event, msg.subscription, msg.sequence, 0, 0, {data + sizeof(msg), data + length}};
+				gVideo.Worker().Submit(true, std::move(frame));
+			}
+		}
+		S.ReleaseMessage(messages[i]);
+	}
+}
+
+unsigned VideoInput(IDirect3DDevice9* device) {
+	enum { Watch = 1, Left = 2, Right = 4, Back = 8, Click = 16 };
+	D3DDEVICE_CREATION_PARAMETERS params{};
+	if (!device || FAILED(device->GetCreationParameters(&params)) || GetForegroundWindow() != params.hFocusWindow) return 0;
+	auto key = [](int code) { return (GetAsyncKeyState(code) & 0x8000) != 0; };
+	unsigned input = (key('V') ? Watch : 0) | (key(VK_LEFT) ? Left : 0) |
+		(key(VK_RIGHT) ? Right : 0) | (key(VK_BACK) ? Back : 0);
+	for (DWORD i = 0; i < XUSER_MAX_COUNT; ++i) {
+		XINPUT_STATE state{};
+		if (XInputGetState(i, &state) != ERROR_SUCCESS) continue;
+		const WORD buttons = state.Gamepad.wButtons;
+		if (buttons & XINPUT_GAMEPAD_X) input |= Watch;
+		if (buttons & XINPUT_GAMEPAD_DPAD_LEFT) input |= Left;
+		if (buttons & XINPUT_GAMEPAD_DPAD_RIGHT) input |= Right;
+		if (buttons & XINPUT_GAMEPAD_LEFT_SHOULDER) input |= Back;
+	}
+	if (key(VK_LBUTTON)) input |= Click;
+	return input;
+}
+
+bool ClickedVideoCaption(IDirect3DDevice9* device) {
+	D3DDEVICE_CREATION_PARAMETERS params{};
+	POINT cursor{};
+	RECT bounds{};
+	return SUCCEEDED(device->GetCreationParameters(&params)) && GetCursorPos(&cursor) &&
+		ScreenToClient(params.hFocusWindow, &cursor) && GetClientRect(params.hFocusWindow, &bounds) &&
+		cursor.x >= bounds.right / 5 && cursor.x <= bounds.right * 4 / 5 &&
+		cursor.y >= bounds.bottom * 93 / 100 && cursor.y <= bounds.bottom * 98 / 100;
+}
+
+void BeginWatching(uint64_t peer, uint64_t now) {
+	StopWatching();
+	gVideo.target = peer;
+	gVideo.subscription = ++gVideo.nextSubscription;
+	gVideo.lastPicture = gVideo.lastSubscribe = now;
+	SendVideo(peer, Subscribe, gVideo.subscription, 0);
+	Log("stunt video: subscribed to %llu", peer);
+}
+}
+
+static void StuntVideoTick(void* renderer) {
+	const bool results = std::exchange(gStuntResultsDrawn, false);
+	if (!VideoPreviewEnabled()) return;
+	static const bool peerTest = GetEnvironmentVariableW(L"FOUC_TEST_STUNT_VIDEO_PEER_HOST", nullptr, 0) != 0;
+	static bool peerTestSelected = false;
+	auto gf = GameFlowPtr();
+	auto score = *reinterpret_cast<uint8_t**>(0x846514);
+	const bool active = gStuntActive && gf && score && *reinterpret_cast<uintptr_t*>(score) == 0x6E3E4C;
+	const bool replay = active && *reinterpret_cast<int*>(gf + 0x275C) != 0;
+	const bool driving = active && !replay && !results && *reinterpret_cast<int*>(gf + 0x2738) == 8 &&
+		*reinterpret_cast<int*>(gf + 0x2754) == 0;
+	const bool watchingAllowed = active && !replay && results && gStuntOwnRounds > 0 &&
+		gStuntOwnRounds < *reinterpret_cast<int*>(score + 0x3C);
+	const uint64_t now = GetTickCount64();
+	auto device = *reinterpret_cast<IDirect3DDevice9**>(static_cast<char*>(renderer) + 0x60);
+	const unsigned held = watchingAllowed ? VideoInput(device) : 0;
+	const unsigned pressed = held & ~std::exchange(gVideo.heldInput, held);
+
+	bool capture = false;
+	std::wstring caption;
+	{
+		EnterCriticalSection(&gLock);
+		struct Unlock { ~Unlock() { LeaveCriticalSection(&gLock); } } unlock;
+		const uint64_t lobby = gHostLobby ? gHostLobby : gJoinedLobby;
+		if (lobby != gVideo.lobby) {
+			ResetVideoEvent();
+			gVideo.consumedEvent = 0;
+			gVideo.lobby = lobby;
+		}
+		if (!active || !lobby || !SteamReady()) {
+			if (gVideo.event && lobby && SteamReady()) {
+				StopWatching();
+				for (const auto& peer : gVideo.peers) SendVideo(peer.first, Available, 0, 0);
+			}
+			ResetVideoEvent();
+			return;
+		}
+		if (!gVideo.event) {
+			const char* value = S.GetLobbyData(gMM, lobby, kVideoEventKey);
+			uint64_t event = 0;
+			int level = 0;
+			if (!value || sscanf_s(value, "%llu:%d", &event, &level) != 2 ||
+				event <= gVideo.consumedEvent || level != CurrentLevel()) return;
+			gVideo.event = gVideo.consumedEvent = event;
+			Log("stunt video: acquired event %llu", event);
+		}
+		const auto members = LobbyPeers();
+		for (const auto id : members)
+			if (std::find(gStuntPeers.begin(), gStuntPeers.end(), id) != gStuntPeers.end()) gVideo.peers.try_emplace(id);
+		for (auto peer = gVideo.peers.begin(); peer != gVideo.peers.end();) {
+			if (!std::binary_search(members.begin(), members.end(), peer->first)) peer = gVideo.peers.erase(peer);
+			else ++peer;
+		}
+		PumpVideo(now, driving);
+		if (watchingAllowed && !gVideo.resultsLogged) {
+			Log("stunt video: between-attempt results ready");
+			gVideo.resultsLogged = true;
+		}
+		if (driving != gVideo.wasDriving || (driving && now - gVideo.lastOffer >= 750)) {
+			if (driving && !gVideo.wasDriving) ++gVideo.captureAttempt;
+			gVideo.wasDriving = driving;
+			gVideo.lastOffer = now;
+			for (auto& peer : gVideo.peers) {
+				SendVideo(peer.first, Available, 0, driving ? 1 : 0);
+				if (!driving) peer.second.subscription = 0;
+			}
+		}
+		std::vector<uint64_t> targets;
+		for (auto& peer : gVideo.peers)
+			if (peer.second.live && now - peer.second.offered <= 2500) targets.push_back(peer.first);
+		if (!watchingAllowed) StopWatching();
+		else {
+			if (gVideo.codec) {
+				auto decoded = gVideo.codec->Take(true);
+				if (decoded && gVideo.target && decoded->event == gVideo.event && decoded->subscription == gVideo.subscription) {
+					gVideo.display = std::move(decoded);
+				}
+			}
+			auto current = std::find(targets.begin(), targets.end(), gVideo.target);
+			if (gVideo.target && (current == targets.end() || now - gVideo.lastPicture >= 2000)) {
+				const auto previous = gVideo.target;
+				StopWatching();
+				auto next = std::find_if(targets.begin(), targets.end(), [previous](uint64_t target) { return target != previous; });
+				if (next != targets.end()) BeginWatching(*next, now);
+			} else if (gVideo.target && (pressed & (1 | 8) || ((pressed & 16) && ClickedVideoCaption(device)))) StopWatching();
+			else if (gVideo.target && targets.size() > 1 && (pressed & (2 | 4))) {
+				const size_t index = static_cast<size_t>(current - targets.begin());
+				BeginWatching(targets[(index + ((pressed & 2) ? targets.size() - 1 : 1)) % targets.size()], now);
+			} else if (!gVideo.target && !targets.empty() && ((pressed & 1) || ((pressed & 16) && ClickedVideoCaption(device)))) {
+				BeginWatching(targets.front(), now);
+			}
+			if (peerTest && !peerTestSelected && !gVideo.target && !targets.empty()) {
+				BeginWatching(targets.front(), now);
+				peerTestSelected = true;
+			}
+			if (gVideo.target && now - gVideo.lastSubscribe >= 500) {
+				SendVideo(gVideo.target, Subscribe, gVideo.subscription, 0);
+				gVideo.lastSubscribe = now;
+			}
+			if (gVideo.target) {
+				const auto name = gStuntNames.find(gVideo.target);
+				caption = (name == gStuntNames.end() ? L"Live" : name->second) + std::wstring(L"   |   Links/Rechts   |   Zurueck: V / LB");
+			} else if (!targets.empty()) caption = L"ZUGUCKEN   [V / X]";
+		}
+		if (driving) {
+			const auto subscribed = [now](const auto& peer) { return peer.second.subscription && now - peer.second.subscribed < 2000; };
+			if (std::any_of(gVideo.peers.begin(), gVideo.peers.end(), subscribed)) {
+				if (now - gVideo.budgetSince >= 1000) { gVideo.budgetSince = now; gVideo.sentBytes = 0; }
+				if (gVideo.codec) {
+					auto frame = gVideo.codec->Take(false);
+					if (frame && frame->event == gVideo.event && frame->subscription == gVideo.captureAttempt) {
+						const size_t size = frame->bytes.size() + sizeof(Message);
+						const auto pending = static_cast<size_t>(std::count_if(gVideo.peers.begin(), gVideo.peers.end(), subscribed));
+						if (gVideo.sentBytes + size * pending <= 384 * 1024) {
+							for (auto& peer : gVideo.peers) if (subscribed(peer))
+								SendVideo(peer.first, Picture, peer.second.subscription, frame->sequence, &frame->bytes);
+							gVideo.sentBytes += size * pending;
+						}
+					}
+				}
+				capture = now - gVideo.lastCapture >= 67 && gVideo.sentBytes < 384 * 1024;
+				if (capture) gVideo.lastCapture = now;
+			}
+		}
+	}
+	if (capture) {
+		Frame frame{gVideo.event, gVideo.captureAttempt, ++gVideo.sent, 0, 0, {}};
+		if (Capture(device, frame)) gVideo.Worker().Submit(false, std::move(frame));
+	}
+	if (gVideo.display && Draw(device, *gVideo.display)) {
+		if (gVideo.display->sequence != gVideo.lastDisplayedSequence) gVideo.lastPicture = now;
+		gVideo.lastDisplayedSequence = gVideo.display->sequence;
+		if (gVideo.displayedSubscription != gVideo.subscription) {
+			EnterCriticalSection(&gLock);
+			if (SteamReady()) SendVideo(gVideo.target, PictureSeen, gVideo.subscription, gVideo.display->sequence);
+			LeaveCriticalSection(&gLock);
+			gVideo.displayedSubscription = gVideo.subscription;
+			Log("stunt video: first picture %u from %llu", gVideo.display->sequence, gVideo.target);
+		}
+	}
+	if (!caption.empty()) {
+		if (caption != gVideo.captionText) {
+			gVideo.captionText = caption;
+			gVideo.caption = MakeCaption(caption);
+		}
+		Draw(device, gVideo.caption, true);
+	}
 }
 
 static void PlaceStuntHooks() {
@@ -2003,6 +2338,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
 			Log("unknown Fouc.exe, plugin disabled");
 			return TRUE;
 		}
+		if (VideoPreviewEnabled()) kProtocol = "chloecustom-183-steam-3-stunt-video-preview";
 		Log("ChloeSteamNet loaded (protocol %s)", kProtocol);
 		PlaceScriptHook();
 		PlaceInstantActionFilter();

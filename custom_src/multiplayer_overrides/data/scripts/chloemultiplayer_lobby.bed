@@ -916,6 +916,7 @@ end
 
 local function StartRace()
 	if ChloeCustomTourney_OnStartRace then ChloeCustomTourney_OnStartRace() end -- ChloeCustom Tourney
+	if ChloeSteam_PrepareStuntVideo then ChloeSteam_PrepareStuntVideo(ChloeNet_GetLevelId()) end -- ChloeCustom StuntVideo
 	ChloeNet_Host_StartGame()
 end
 

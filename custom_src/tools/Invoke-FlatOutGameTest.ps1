@@ -51,12 +51,21 @@ param(
     [string]$SanJuanTestPackage,
     [Parameter(ParameterSetName = 'Run')]
     [switch]$StuntPose,
+    [Parameter(ParameterSetName = 'Run')]
+    [switch]$StuntVideo,
+    [Parameter(ParameterSetName = 'Run')]
+    [string]$StuntVideoPreviewPackage,
+    [Parameter(ParameterSetName = 'Run')]
+    [ValidatePattern('^[0-9a-f]{12}$')][string]$ReuseSteamPeerArchive,
     [Parameter(Mandatory, ParameterSetName = 'Restore')]
     [ValidatePattern('^[0-9a-f]{12}$')][string]$RestoreRun,
     [string]$GameDir = 'E:\ProgrammeE\Steam\steamapps\common\FlatOut Ultimate Carnage CE'
 )
 
 $ErrorActionPreference = 'Stop'
+if ($StuntVideo) { $StuntPose = $true }
+$stuntVideoPeer = [bool]($StuntVideoPreviewPackage -and $Scenario -eq 'SteamPeer')
+$stuntVideoHostCheck = [bool]($StuntVideoPreviewPackage -and $Scenario -eq 'Modes' -and $ModeFrom -eq 13 -and $ModeThrough -eq 13)
 $support = Join-Path $PSScriptRoot 'flatout_game_test'
 . (Join-Path $support 'Transaction.ps1')
 $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
@@ -65,8 +74,11 @@ $GameDir = [IO.Path]::GetFullPath($GameDir).TrimEnd('\')
 $files = @('patch', 'FlatOutGameTest.bfs', 'zz_FlatOutGameTest.asi', 'FlatOutGameTest.attach', 'ChloeSteamNet.log', 'Fouc_d3d9.log')
 $directories = @('Savegame', 'Profiles', 'Ghosts')
 $run = if ($RestoreRun) { $RestoreRun } else { [guid]::NewGuid().ToString('N').Substring(0, 12) }
+$luaRun = if ($ReuseSteamPeerArchive) { $ReuseSteamPeerArchive } else { $run }
 $work = Join-Path $runRoot $run
 $sanJuanFiles = @('foucpack_chloecustom_sanjuan_derby.bfs', 'foucpack_chloecustom_steam.bfs', 'ChloeSteamNet.asi')
+$videoFiles = @('ChloeSteamNet.asi', 'foucpack_chloecustom_stunt_video.bfs', 'Config/StuntVideoPreview.enabled')
+if ($StuntVideoPreviewPackage) { $files += $videoFiles }
 $sanJuanTest = $LoopbackDerbyLevel -eq 175
 if ($SanJuanTestPackage) { $files += $sanJuanFiles }
 $profileFiles = @('player{0:000}.sav', 'customsave{0:000}.sav', 'customsave{0:000}.ach', 'customsave{0:000}.cht') |
@@ -90,6 +102,14 @@ function Invoke-Bfs([string[]]$Arguments) {
 }
 
 function New-TestBfs {
+    if ($ReuseSteamPeerArchive) {
+        $prior = Join-Path $runRoot $ReuseSteamPeerArchive
+        $result = Get-Content -LiteralPath (Join-Path $prior 'result.json') -Raw | ConvertFrom-Json
+        if ($result.scenario -ne 'SteamPeer') { throw 'The archive was not built for SteamPeer.' }
+        Copy-Item -LiteralPath (Join-Path $prior 'FlatOutGameTest.bfs') -Destination $work
+        Write-ProgressLine "Reusing the Steam peer archive from $ReuseSteamPeerArchive."
+        return
+    }
     $project = Join-Path $work 'Bfs.csproj'
     @'
 <Project Sdk="Microsoft.NET.Sdk">
@@ -125,6 +145,9 @@ function New-TestBfs {
         foreach ($script in $wanted) {
             Invoke-Bfs @('extract', $source, $resolved, "data/scripts/$script")
         }
+    }
+    if ($StuntVideoPreviewPackage) {
+        Invoke-Bfs @('extract', (Get-TestPath $StuntVideoPreviewPackage $videoFiles[1]), $resolved, 'data/scripts/chloemultiplayer_lobby.bed')
     }
     $encoding = [Text.Encoding]::Latin1
     $luaProfile = if ($LoopbackClientProfile) { "CommandLine['-flatouttestclient'] and 2 or $ProfileSlot" } else { "$ProfileSlot" }
@@ -168,6 +191,7 @@ FlatOutTest_LoopbackDerbyLevel = $LoopbackDerbyLevel
 FlatOutTest_LoopbackDerbyAI = $LoopbackDerbyAI
 FlatOutTest_LoopbackDamage = $LoopbackDamage
 FlatOutTest_SteamPeerName = "$SteamPeerName"
+FlatOutTest_StuntVideoPeer = $($stuntVideoPeer.ToString().ToLowerInvariant())
 FlatOutTest_DerbyHud = "$DerbyHud"
 dofile("data/scripts/flatout_test_scenario.bed")
 "@
@@ -295,7 +319,13 @@ local r
         [IO.File]::WriteAllText((Join-Path $scripts $script), $body, $encoding)
     }
     $scenarioFile = Join-Path $scripts 'flatout_test_scenario.bed'
-    Copy-Item -LiteralPath (Join-Path $support 'Scenario.bed') -Destination $scenarioFile
+    $scenarioSource = [IO.File]::ReadAllText((Join-Path $support 'Scenario.bed'))
+    if ($Scenario -eq 'SteamPeer') {
+        # Fouc hashes the scripts it loads during main.bed. Both peers must load
+        # the same file, although its test callbacks only run on the host.
+        $scenarioSource = "if not CommandLine['-flatouttesthost'] then return end`n" + $scenarioSource
+    }
+    [IO.File]::WriteAllText($scenarioFile, $scenarioSource)
     $extension = @{
         Skins = 'SkinSweep.bed'; Modes = 'ModeSweep.bed'; LocalModes = 'LocalModeSweep.bed'; Tournament = 'Tournament.bed'; SteamPeer = 'SteamPeer.bed'
     }[$Scenario]
@@ -329,7 +359,7 @@ function New-TestProbe {
 @echo off
 call "%FOUC_TEST_VCVARS%" >nul
 if errorlevel 1 exit /b 1
-cl /nologo /O2 /MT /LD /W4 /EHsc /std:c++17 "%FOUC_TEST_PROBE_SOURCE%" /Fo"%FOUC_TEST_BUILD%\Probe.obj" /Fe"%FOUC_TEST_BUILD%\zz_FlatOutGameTest.asi" /link /IMPLIB:"%FOUC_TEST_BUILD%\Probe.lib"
+cl /nologo /O2 /MT /LD /W4 /EHsc /std:c++17 "%FOUC_TEST_PROBE_SOURCE%" /Fo"%FOUC_TEST_BUILD%\Probe.obj" /Fe"%FOUC_TEST_BUILD%\zz_FlatOutGameTest.asi" /link user32.lib gdi32.lib ole32.lib windowscodecs.lib /IMPLIB:"%FOUC_TEST_BUILD%\Probe.lib"
 exit /b %errorlevel%
 '@ | Set-Content -LiteralPath $batch -Encoding ascii
     & $env:ComSpec /d /c ('"{0}"' -f $batch)
@@ -411,18 +441,24 @@ function Invoke-TestProcess {
     $env:FOUC_TEST_LEAVE_EVENT = "Local\FlatOut-Test-Leave-$run"
     $env:FOUC_TEST_FRAME_EVENT = "Local\FlatOut-Test-Frame-$run"
     $env:FOUC_TEST_MUSIC = if ($VerifySteamMusic) { '1' } else { $null }
-    $env:FOUC_TEST_STUNT_INPUT = if ($MixedTournament) { '1' } else { $null }
+    $env:FOUC_TEST_STUNT_INPUT = if ($MixedTournament -or $stuntVideoPeer -or $stuntVideoHostCheck) { '1' } else { $null }
+    $env:FOUC_TEST_STUNT_VIDEO_PEER_HOST = if ($stuntVideoPeer) { '1' } else { $null }
+    $env:FOUC_TEST_STUNT_ADVANCE_EVENT = if ($stuntVideoPeer -or $stuntVideoHostCheck) { "Local\FlatOut-Test-Stunt-Advance-$run" } else { $null }
     $env:FOUC_TEST_TOURNAMENT_TIE = if ($ForceTournamentTie) { '1' } else { $null }
     $env:FOUC_TEST_DERBY_GRID = if ($LoopbackDerbyLevel -or $Scenario -eq 'SteamPeer') { '1' } else { $null }
     $env:FOUC_TEST_DERBY_HUD = if ($DerbyHud) { '1' } else { $null }
     $env:FOUC_TEST_DERBY_IMPACT = if ($DerbyImpact) { '1' } else { $null }
-    $env:FOUC_TEST_STUNT_POSE = if ($StuntPose) { '1' } else { $null }
+    $env:FOUC_TEST_STUNT_POSE = if ($StuntPose -or ($StuntVideoPreviewPackage -and $Scenario -eq 'Modes') -or $stuntVideoPeer) { '1' } else { $null }
+    $env:FOUC_TEST_STUNT_VIDEO = if ($StuntVideo) { '1' } else { $null }
     $leaveRace = [Threading.EventWaitHandle]::new($false, [Threading.EventResetMode]::AutoReset, $env:FOUC_TEST_LEAVE_EVENT)
     $clientLeaveName = $env:FOUC_TEST_LEAVE_EVENT + '-client'
     $clientLeaveRace = if ($LoopbackRace) {
         [Threading.EventWaitHandle]::new($false, [Threading.EventResetMode]::AutoReset, $clientLeaveName)
     }
     $captureFrame = [Threading.EventWaitHandle]::new($false, [Threading.EventResetMode]::AutoReset, $env:FOUC_TEST_FRAME_EVENT)
+    $advanceStunt = if ($env:FOUC_TEST_STUNT_ADVANCE_EVENT) {
+        [Threading.EventWaitHandle]::new($false, [Threading.EventResetMode]::AutoReset, $env:FOUC_TEST_STUNT_ADVANCE_EVENT)
+    }
     $instance = $null
     $second = $null
     $secondWindow = $false
@@ -432,7 +468,8 @@ function Invoke-TestProcess {
     $sanJuanFinished = { $_[1] -eq 2 -and $_[2] -eq 9 -and $_[3] -ge 59800 -and $_[4] -eq 175 -and $_[12] -eq 60000 }
     try {
         Assert-GameIdle
-        $instance = [FlatOutDesktop]::new("FlatOut-Test-$run", (Join-Path $GameDir 'Fouc.exe'), $GameDir)
+        $argument = if ($Scenario -eq 'SteamPeer') { '-flatouttesthost' } else { '' }
+        $instance = [FlatOutDesktop]::new("FlatOut-Test-$run", (Join-Path $GameDir 'Fouc.exe'), $GameDir, $argument)
         Write-ProgressLine "Starting installed FlatOut on the inactive desktop (PID $($instance.Pid))."
         $instance.Resume()
         $watch = [Diagnostics.Stopwatch]::StartNew()
@@ -440,6 +477,12 @@ function Invoke-TestProcess {
         $singlePassed = $false
         $steamPassed = $false
         $steamStartFrame = $null
+        $videoResumed = $false
+        $videoReceived = $false
+        $videoResumeLogLength = 0
+        $lastVideoAdvance = $null
+        $videoSeenAt = $null
+        $videoResultsSince = $null
         $markers = @()
         $lobby = $null
         $nextStatus = 15
@@ -499,7 +542,7 @@ function Invoke-TestProcess {
                     if ($null -ne $contents) {
                         $log = $contents
                         $logSize = $size
-                        $markers = @([regex]::Matches($log, "flatout-test:${run}:([^\r\n]+)") | ForEach-Object { $_.Groups[1].Value })
+                        $markers = @([regex]::Matches($log, "flatout-test:${luaRun}:([^\r\n]+)") | ForEach-Object { $_.Groups[1].Value })
                     }
                 }
                 $launchMarker = if ($LoopbackClientProfile) { 'loopback-host-listening' } else { 'main-menu' }
@@ -600,6 +643,25 @@ function Invoke-TestProcess {
                             $passed = $passed -and (Select-String -LiteralPath $probeLog -SimpleMatch 'stunt pose replay complete' -Quiet)
                             $mismatch = Select-String -LiteralPath $probeLog -SimpleMatch 'stunt pose replay failed' -Quiet
                         }
+                        if ($StuntVideo) {
+                            $passed = $passed -and (Select-String -LiteralPath $probeLog -SimpleMatch 'stunt video loopback complete' -Quiet)
+                            $mismatch = $mismatch -or (Select-String -LiteralPath $probeLog -SimpleMatch 'stunt video loopback failed' -Quiet)
+                        }
+                        if ($stuntVideoHostCheck) {
+                            if ($log.Contains('stunt video: between-attempt results ready')) {
+                                if ($null -eq $videoResultsSince) {
+                                    $videoResultsSince = $watch.Elapsed.TotalSeconds
+                                    [void]$captureFrame.Set()
+                                }
+                                if (-not $videoResumed -and $watch.Elapsed.TotalSeconds - $videoResultsSince -ge 1) {
+                                    [void]$advanceStunt.Set()
+                                    $videoResumed = $true
+                                    $stepTime = $watch.Elapsed.TotalSeconds
+                                }
+                            }
+                            $passed = $passed -and $videoResumed -and ($matching | Where-Object { $_[15] -eq 2 } | Select-Object -First 1)
+                            $mismatch = $mismatch -and -not $matching.Count
+                        }
                         if ($passed -or $mismatch) {
                             $lastMode = $step
                             if ($passed) {
@@ -646,7 +708,38 @@ function Invoke-TestProcess {
                         [void]$leaveRace.Set()
                     }
                 }
-                if ($Scenario -eq 'SteamPeer' -and -not $steamPassed -and 'steam-peer-racing' -in $markers) {
+                if ($stuntVideoPeer -and -not $steamPassed -and 'steam-peer-racing' -in $markers) {
+                    if (-not $videoReceived -and $log -match 'stunt video: first picture') {
+                        [void]$captureFrame.Set()
+                        $videoReceived = $true
+                        Write-ProgressLine 'Host displayed the laptop video.'
+                    }
+                    if (-not $videoResumed -and $videoReceived -and $log -match 'stunt video: closed target') {
+                        [void]$advanceStunt.Set()
+                        $videoResumed = $true
+                        $videoResumeLogLength = $log.Length
+                        $lastVideoAdvance = $watch.Elapsed.TotalSeconds
+                        $stepTime = $watch.Elapsed.TotalSeconds
+                        Write-ProgressLine 'Host displayed laptop video and is continuing its own stunt.'
+                    }
+                    $secondAttempt = $samples | Where-Object { $_[1] -eq 2 -and $_[4] -eq 47 -and $_[15] -eq 2 } | Select-Object -First 1
+                    if ($videoResumed -and -not $secondAttempt -and $watch.Elapsed.TotalSeconds - $lastVideoAdvance -ge 2) {
+                        # The first confirm may coincide with the game incorporating the remote result.
+                        [void]$advanceStunt.Set()
+                        $lastVideoAdvance = $watch.Elapsed.TotalSeconds
+                    }
+                    if ($videoResumed -and $log.Substring($videoResumeLogLength) -match 'stunt video: peer \d+ displayed picture' -and $secondAttempt) {
+                        if ($null -eq $videoSeenAt) {
+                            $videoSeenAt = $watch.Elapsed.TotalSeconds
+                            Write-ProgressLine 'Laptop confirmed rendering the host video.'
+                        }
+                        if ($watch.Elapsed.TotalSeconds - $videoSeenAt -ge 10) {
+                            $steamPassed = $true
+                            [void]$captureFrame.Set()
+                            [void]$leaveRace.Set()
+                        }
+                    }
+                } elseif ($Scenario -eq 'SteamPeer' -and -not $steamPassed -and 'steam-peer-racing' -in $markers) {
                     $proof = $samples | Where-Object {
                         $_[1] -eq 2 -and $_[2] -eq 8 -and $_[3] -ge 12000 -and $_[4] -eq 31 -and
                             $_[7] -eq 1 -and ($_[8] + $_[9]) -eq 5
@@ -663,7 +756,7 @@ function Invoke-TestProcess {
                 [void]$captureFrame.Set()
                 $capturedStall = $true
             }
-            $currentBudget = if ($Scenario -eq 'SteamPeer' -and $lastStep -eq 'steam-peer-lobby') { 900 } else { $stepBudget }
+            $currentBudget = if ($Scenario -eq 'SteamPeer' -and ($lastStep -eq 'steam-peer-lobby' -or $stuntVideoPeer)) { 900 } else { $stepBudget }
             if ($watch.Elapsed.TotalSeconds - $stepTime -ge $currentBudget) {
                 $latest = @(Get-ProbeSamples) | Select-Object -Last 1
                 throw "No progress for $stepBudget s. Last step: $lastStep. Latest sample: $latest"
@@ -773,9 +866,13 @@ function Invoke-TestProcess {
         }
         if ($Scenario -eq 'SteamPeer') {
             $required += @('steam-browser-ready', 'steam-peer-returned', 'steam-disconnected')
-            $grid = Get-Content -LiteralPath $probeLog | Where-Object { $_ -like 'derby-grid 31 0.1000 *' } | Select-Object -First 1
-            if (-not $steamPassed -or -not $grid) { throw 'Steam Derby progress or 0.1x damage proof is missing.' }
-            if ($grid -notmatch '^derby-grid 31 0\.1000 1,\S+ 2,\S+ 3,\S+ 4,\S+ 5,\S+ 6,\S+$') { throw "Unexpected Steam Derby grid: $grid" }
+            if ($stuntVideoPeer) {
+                if (-not $steamPassed) { throw 'Steam stunt video in both directions or host attempt 2 is missing.' }
+            } else {
+                $grid = Get-Content -LiteralPath $probeLog | Where-Object { $_ -like 'derby-grid 31 0.1000 *' } | Select-Object -First 1
+                if (-not $steamPassed -or -not $grid) { throw 'Steam Derby progress or 0.1x damage proof is missing.' }
+                if ($grid -notmatch '^derby-grid 31 0\.1000 1,\S+ 2,\S+ 3,\S+ 4,\S+ 5,\S+ 6,\S+$') { throw "Unexpected Steam Derby grid: $grid" }
+            }
             Write-ProgressLine $grid
         }
         if ($Scenario -eq 'Skins') {
@@ -833,7 +930,7 @@ function Invoke-TestProcess {
             }
         }
         foreach ($marker in $required) {
-            if ($log -notmatch "flatout-test:${run}:$marker\r?\n") { throw "Missing in-game result: $marker" }
+            if ($log -notmatch "flatout-test:${luaRun}:$marker\r?\n") { throw "Missing in-game result: $marker" }
         }
         if ($VerifySteamMusic) {
             $music = Get-Content -LiteralPath $probeLog | Where-Object { $_ -like 'music *' }
@@ -850,6 +947,7 @@ function Invoke-TestProcess {
         if ($clientLeaveRace) { $clientLeaveRace.Dispose() }
         if ($second) { $second.Dispose() }
         $captureFrame.Dispose()
+        if ($advanceStunt) { $advanceStunt.Dispose() }
         $leaveRace.Dispose()
         if ($instance) { $instance.Dispose() }
     }
@@ -868,6 +966,7 @@ try {
     if ($RestoreRun) {
         $rollback = Get-Content -LiteralPath (Join-Path $work 'rollback.json') -Raw | ConvertFrom-Json
         if ($rollback.Files -contains $sanJuanFiles[0]) { $files += $sanJuanFiles }
+        if ($rollback.Files -contains $videoFiles[1]) { $files += $videoFiles }
         Restore-FlatOutTestState $GameDir $work $files $directories
         $status = 'PASS'
         $message = 'Restored interrupted run and verified hashes.'
@@ -890,10 +989,20 @@ try {
         }
         if ($LoopbackDerbyLevel -and -not $LoopbackRace) { throw 'BLOCKED: Derby grid testing requires LoopbackRace.' }
         if ($SanJuanTestPackage -and -not $sanJuanTest) { throw 'BLOCKED: SanJuanTestPackage requires LoopbackDerbyLevel 175.' }
+        if ($ReuseSteamPeerArchive -and -not $stuntVideoPeer) { throw 'BLOCKED: ReuseSteamPeerArchive requires the Steam video peer scenario.' }
         if ($SanJuanTestPackage) {
             $SanJuanTestPackage = (Resolve-Path -LiteralPath $SanJuanTestPackage).ProviderPath
             foreach ($name in $sanJuanFiles) {
                 if (-not (Test-Path -LiteralPath (Get-TestPath $SanJuanTestPackage $name) -PathType Leaf)) { throw "Missing test package file: $name" }
+            }
+        }
+        if ($StuntVideoPreviewPackage) {
+            if ($SanJuanTestPackage) { throw 'BLOCKED: Select only one test package.' }
+            $StuntVideoPreviewPackage = (Resolve-Path -LiteralPath $StuntVideoPreviewPackage).ProviderPath
+            foreach ($name in $videoFiles) {
+                if (-not (Test-Path -LiteralPath (Get-TestPath $StuntVideoPreviewPackage $name) -PathType Leaf)) {
+                    throw "Missing video preview package file: $name"
+                }
             }
         }
         if ($DerbyImpact -and ($LoopbackDerbyLevel -ne 31 -or $LoopbackDerbyAI -ne 4)) {
@@ -976,6 +1085,11 @@ try {
         Assert-GameIdle
         Save-FlatOutTestState $GameDir $work $files $directories
         $staged = $true
+        if ($StuntVideoPreviewPackage) {
+            foreach ($name in $videoFiles) {
+                Copy-Item -LiteralPath (Get-TestPath $StuntVideoPreviewPackage $name) -Destination (Get-TestPath $GameDir $name) -Force
+            }
+        }
         if ($SanJuanTestPackage) {
             foreach ($name in $sanJuanFiles) {
                 Copy-Item -LiteralPath (Get-TestPath $SanJuanTestPackage $name) -Destination (Get-TestPath $GameDir $name) -Force
@@ -1021,6 +1135,9 @@ try {
         }
         $patchPath = Join-Path $GameDir 'patch'
         $testArchives = @('FlatOutGameTest.bfs')
+        if ($StuntVideoPreviewPackage -and $videoFiles[1] -notin (Get-Content -LiteralPath $patchPath).Trim()) {
+            $testArchives = @($videoFiles[1]) + $testArchives
+        }
         if ($SanJuanTestPackage -and $sanJuanFiles[0] -notin (Get-Content -LiteralPath $patchPath).Trim()) {
             $testArchives = @($sanJuanFiles[0]) + $testArchives
         }

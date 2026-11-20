@@ -49,7 +49,7 @@ pwsh -File custom_src/uninstall.ps1 -GameDir <Spielordner> [-RemoveUserData]
 | Wo | Pfad | Stand |
 |---|---|---|
 | Steam-Installation (dieser PC, Host) | `E:\ProgrammeE\Steam\steamapps\common\FlatOut Ultimate Carnage CE` (Branch `public`) | Seit 19.11.2026: Steam-Paket per `install.ps1` installiert (499 Dateien, keine Spieldatei überschrieben; zuletzt neu installiert am 20.11.2026 mit Vanilla-Karriere, -Carnage und -Autopreisen, davor am 19.11.2026 mit Derby-Zeitlimit, Lobby-Fortschritt, Stunt-Endwertung und neuen Carnage-Medaillen), Spielstände und Einstellungen aus der früheren Testkopie `FOUC_steam_latest/` übernommen. Die Testkopie ist gelöscht |
-| Client-PC (Laptop) | `\\LENOVO_SERP\common\FlatOut Ultimate Carnage CE` (Steam-Bibliothek des Clients, Netzwerkfreigabe; lokal `C:\Program Files (x86)\Steam\steamapps\common\…`) | Stand 19.11.2026: aktuelles Steam-Paket (499 Dateien: Ghost Mode bei Stunts, neu komprimierte Autos, Musikauswahl; zuletzt neu installiert am 20.11.2026 mit Vanilla-Karriere, -Carnage und -Autopreisen, davor am 19.11.2026 mit Derby-Zeitlimit, Lobby-Fortschritt, Stunt-Endwertung und neuen Carnage-Medaillen) per `install.ps1` über das Netzwerk installiert und geprüft. Die Freigabe braucht Schreibrechte ("Ändern"). Zusätzlich liegen dort die Diagnose-Werkzeuge `ChloeCustom_diag.bat/.ps1` und `ChloeCustom_trace.bat/.ps1` (nicht im Manifest). Start über Steam |
+| Client-PC (Laptop) | `\\LENOVO_SERP\common\FlatOut Ultimate Carnage CE` (Steam-Bibliothek des Clients, Netzwerkfreigabe, lokal unter `C:\Program Files (x86)\Steam\steamapps\common\…`) | Am 21.11.2026 per `install.ps1` über das Netzwerk auf das Steam-Paket mit San Juan Derby aktualisiert. 500 Paketdateien und 55 erhaltene Nutzerdaten geprüft. Die Freigabe braucht Schreibrechte ("Ändern"). Die Diagnose-Werkzeuge `ChloeCustom_diag.bat/.ps1` und `ChloeCustom_trace.bat/.ps1` liegen zusätzlich im Spielordner. Start über Steam. |
 
 Am 20.11.2026 wurden die Derby-Korrekturen und die neuen Profilvorgaben auf Host und Laptop installiert. Die drei aktualisierten Paketdateien wurden auf beiden Rechnern per SHA-256 mit dem Build verglichen.
 
@@ -93,6 +93,12 @@ Er läuft über Steam statt über direktes UDP, deshalb ist keine Portfreigabe n
 - **Handling:** Der Handling-Modus aus den Lobby-Optionen des Hosts gilt für alle (`ChloeNet_Host_SetHandlingMode`, jeder PC übernimmt ihn in der Lobby mit `ChloeCollection_SetHandlingMode(ChloeNet_GetHandlingMode())`, `handlingmode.h` nutzt ihn bei `bIsInMultiplayer`).
 - **AI nach dem Zieleinlauf**: fährt weiter wie im Original (Anhalten probiert, die AI setzt sich dann ständig zurück). **Schaden an der AI durch den Client** (seit 19.11.2026, im Test): Der Client meldet den Schaden, den er AI-Autos zufügt, an den Host, der ihn überträgt. Das Plugin protokolliert Runden, Ende-Flags und Schaden aller Spieler ("race: …" in `ChloeSteamNet.log`), um "1 Runde eingestellt, Menschen mussten 2 fahren" zu klären. Details: [Reverse-Engineering.md](Reverse-Engineering.md).
 - Jeder Spieler braucht einen **eigenen Profilnamen**. Chloe lehnt doppelte Namen ab ("Your name is taken").
+
+### Stunt-Livebild in der Testvorschau
+
+Die Vorschau zeigt aus der Ergebnisliste zwischen eigenen Versuchen das stumme Spielbild des ausgewählten Mitspielers. `V` oder `X` am Controller öffnen die Ansicht. Links und rechts wechseln das Ziel. `V`, Rücktaste oder `LB` kehren zur Ergebnisliste zurück. Die Ansicht verwendet die Mitspieler-Kamera samt Spiel-HUD.
+
+Die Vorschau wird separat mit `pwsh -File custom_src/ChloeSteamNet/build.ps1 -StuntVideoPreview -OutputDir .work/t/stunt-video-preview` gebaut. Mit `-BfsToolDll` lässt sich eine bereits gebaute BfsTool-DLL wiederverwenden. Der Host-Runner lädt das Paket temporär. Auf dem Laptop installiert `custom_src/tools/Set-FlatOutStuntVideoPreview.ps1 -Package <Paketordner>` die drei Vorschau-Dateien und sichert die bisherige Konfiguration. `-Restore` stellt sie hashgeprüft wieder her. Die Vorschau hat eine eigene Steam-Lobby-Protokollkennung. Der Menüpunkt bleibt bis zur Zwei-PC-Abnahme in der regulären Version deaktiviert. [Tests](Spieltests.md#stunt-livebild)
 
 ### Turnier (seit 19.11.2026, im Test)
 

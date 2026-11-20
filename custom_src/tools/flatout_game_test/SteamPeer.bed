@@ -6,16 +6,20 @@ runModeSweep = function(current)
 	assert(count <= 2, "another player entered the Steam test lobby")
 	if current == "steam-hosting" then
 		if not ChloeSteam_SetLobbyValue("cc_flatout_test", FlatOutTest_Run) then return end
-		for slot = 1, 12 do ChloeSteam_SetAIDriver(slot, slot <= 4 and slot or 0) end
-		ChloeNet_Host_SetNumAI(4)
+		for slot = 1, 12 do ChloeSteam_SetAIDriver(slot, not FlatOutTest_StuntVideoPeer and slot <= 4 and slot or 0) end
+		ChloeNet_Host_SetNumAI(FlatOutTest_StuntVideoPeer and 0 or 4)
 		ChloeNet_Host_SetAIClass(4)
 		ChloeNet_Host_SetCarClass(CARCLASS_ANY)
-		ChloeNet_Host_SetLevelId(31)
-		ChloeNet_Host_SetGameRules(GR_DERBY)
-		ChloeNet_Host_SetDerbyType(DERBY_FRAG)
-		ChloeNet_Host_SetLapCount(1)
-		ChloeNet_Host_SetDamageMult(0.1)
-		ChloeNet_SetPlayerCar(CarIndex.Insetta)
+		if FlatOutTest_StuntVideoPeer then
+			ChloeCustomTourney_SetEvents({{trackid = 47, rules = GAMETYPE_STUNT, weather = Levels[47].Weather or 1, lapsOrTimeLimit = 1}})
+		else
+			ChloeNet_Host_SetLevelId(31)
+			ChloeNet_Host_SetGameRules(GR_DERBY)
+			ChloeNet_Host_SetDerbyType(DERBY_FRAG)
+			ChloeNet_Host_SetLapCount(1)
+			ChloeNet_Host_SetDamageMult(0.1)
+		end
+		ChloeNet_SetPlayerCar(FlatOutTest_StuntVideoPeer and CarIndex.Rocket or CarIndex.Insetta)
 		ChloeNet_SetPlayerCarSkin(1)
 		advance("steam-peer-lobby")
 	elseif current == "steam-peer-lobby" and count == 2 then
