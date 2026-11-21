@@ -31,6 +31,29 @@ pwsh -File custom_src/build_steam.ps1
 
 Ergebnis: `FlatOutUCChloeCollection_1.83_custom_steam/` (499 Dateien inkl. `DisplayFix.asi` und `ChloeSteamNet.asi`, ~2,6 GB; Autos teilweise neu komprimiert, Live-Texturen unkomprimiert, Musikauswahl, Stand 19.11.2026).
 
+## GitHub-Release als zwei ZIPs
+
+```powershell
+pwsh -File custom_src/package_steam.ps1 -CodeVersion 1.83-custom.1
+```
+
+Die ZIPs entstehen standardmäßig unter `.work/steam-release/`. Beide enthalten ihren Teil im Unterordner `Mod/`.
+
+| ZIP | Inhalt | Größe des ersten Builds |
+|---|---|---:|
+| `FlatOutUC-Steam-Assets-13a694c6bbe99df4.zip` | Autos, Skins, Strecken, Vorschaubilder, Karosserieteile, Porträts, lose Musik und Sounds, mitgelieferte Karriere-Ghosts und Steam-Grafiken | 1,60 GiB |
+| `FlatOutUC-Steam-Code-1.83-custom.1.zip` | ASI-Plugins, DLLs, Konfiguration, `patch`, die kleinen BFS mit Skripten, Datenbank, Playlists und Steam-Overrides sowie Installer und `release.json` | 31,1 MiB |
+
+Die Trennung folgt den vorhandenen Spielarchiven. Die Fonts im Steam-Override und die Bilder oder Texte in den kleineren gemischten BFS bleiben deshalb im Code-ZIP. Die großen Archive werden bei der Aufteilung bytegleich verpackt. GitHub setzt je Release-Datei eine Grenze von unter 2 GiB. [GitHub Releases](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases)
+
+Für das erste Release beide ZIPs anhängen. Für einen späteren reinen Code-Release `package_steam.ps1` mit einer neuen `-CodeVersion` und `-CodeOnly` aufrufen. Im Release den exakten Assets-Link aus dem vorherigen Release angeben. Der Dateiname der Assets hängt von den Pfaden und SHA-256-Werten ihres Inhalts ab. Bei einer neuen Assets-Kennung beide ZIPs bereitstellen.
+
+Spieler entpacken für die erste Installation beide ZIPs in denselben leeren Ordner außerhalb des Spiels. Für ein Codeupdate genügt das neue Code-ZIP in einem frischen Ordner. In beiden Fällen genügt ein Doppelklick auf `Install or Update.bat`. Der Installer verwendet das mit Windows gelieferte PowerShell 5.1, sucht das Spiel in den Steam-Bibliotheken und öffnet bei Bedarf die Ordnerauswahl. Manuell lässt sich auch der Spielordner auf die BAT ziehen oder per `-GameDir` an `Install-Steam.ps1` übergeben.
+
+Der Installer prüft die installierte Assets-Version und aktualisiert nur die geänderten Moddateien. Spielstände, Profile und `Savegame/options.cfg` bleiben erhalten. Mitgelieferte Mod-Konfigurationen können aktualisiert werden. Bei einer neuen Assets-Version braucht der Installer beide ZIPs. Ein abgebrochenes Codeupdate kann mit `-RestoreUpdate` zum vorherigen Stand zurückgesetzt werden.
+
+Die Testinstallation des Releases mit beiden ZIPs und der BAT enthielt alle 496 Modpack-Dateien. Das anschließende Update mit dem Code-ZIP allein ersetzte das geänderte Plugin und behielt die vorhandenen Assets und Einstellungen. Die Paketvorbereitung prüfte außerdem fehlende Assets, die Wiederherstellung der Originaldatei eines entfernten Plugins und die Rücksicherung eines simulierten Abbruchs. Der Vanilla-Starter schaltete im Test die Moddateien ab, trennte die Spielstände und stellte den Modpack-Zustand nach einem simulierten Abbruch wieder her.
+
 ## Installieren
 
 `install.ps1` funktioniert auch für das Steam-Paket. Es braucht dafür `-GameDir` und `-ModDir`:
@@ -62,6 +85,7 @@ Das Bewegungsupdate für Ghost-Autos wurde am 21.11.2026 auf Host und Laptop get
 
 - **Dieser PC:** ganz normal über Steam starten (Branch `public`).
 - **Steam-Bibliothek (z. B. Client):** ganz normal über Steam starten, der Branch muss `public` sein.
+- **Vanilla:** Bei laufendem Steam im Spielordner `FlatOut ohne Modpack starten.bat` doppelklicken. Das Skript deaktiviert die Mod-Archive und Gameplay-Plugins einschließlich `ChloeSteamNet.asi` und verwendet getrennte Spielstände. DisplayFix und DXVK bleiben für den Spielstart aktiv. Nach Spielende schaltet die BAT zurück. Bei einem vorzeitig geschlossenen Fenster stellt der nächste Aufruf nach Spielende das Modpack wieder her. Über `-RestoreOnly` kann dieselbe BAT auch manuell nur zurückschalten.
 - Beim ersten Online-Spiel fragt die Windows-Firewall nach Netzwerkzugriff für `Fouc.exe`. Zugriff erlauben.
 
 ## Multiplayer (Chloes Multiplayer über Steam)

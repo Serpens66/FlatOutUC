@@ -1,6 +1,7 @@
 function Get-TestPath([string]$Root, [string]$Relative) {
     $rootPath = [IO.Path]::GetFullPath($Root).TrimEnd('\')
-    $full = [IO.Path]::GetFullPath($Relative, $rootPath + '\')
+    if ([IO.Path]::IsPathRooted($Relative)) { throw "Expected a relative path: $Relative" }
+    $full = [IO.Path]::GetFullPath((Join-Path $rootPath $Relative))
     if (-not $full.StartsWith($rootPath + '\', [StringComparison]::OrdinalIgnoreCase)) {
         throw "Path outside test root: $Relative"
     }
@@ -13,13 +14,41 @@ function Get-TestPath([string]$Root, [string]$Relative) {
     return $full
 }
 
+function ConvertTo-FlatOutHashtable($Value) {
+    if ($Value -is [pscustomobject]) {
+        $converted = @{}
+        foreach ($property in $Value.PSObject.Properties) {
+            $converted[$property.Name] = ConvertTo-FlatOutHashtable $property.Value
+        }
+        return $converted
+    }
+    if ($Value -is [array]) { return ,@($Value | ForEach-Object { ConvertTo-FlatOutHashtable $_ }) }
+    return $Value
+}
+
+function Read-FlatOutJson([string]$Path) {
+    $json = Get-Content -LiteralPath $Path -Raw -Encoding UTF8
+    if ($PSVersionTable.PSVersion.Major -ge 7) { return ($json | ConvertFrom-Json -AsHashtable) }
+    return (ConvertTo-FlatOutHashtable ($json | ConvertFrom-Json))
+}
+
+function Get-FlatOutFileHash([string]$Path) {
+    $stream = [IO.File]::OpenRead($Path)
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try { return [BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-', '') }
+    finally {
+        $sha.Dispose()
+        $stream.Dispose()
+    }
+}
+
 function Get-TestInventory([string]$Root, [string[]]$Files, [string[]]$Directories) {
     $inventory = @{}
     foreach ($relative in $Files) {
         $path = Get-TestPath $Root $relative
         if (Test-Path -LiteralPath $path) {
             if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Expected file: $path" }
-            $inventory[$relative] = (Get-FileHash -LiteralPath $path).Hash
+            $inventory[$relative] = Get-FlatOutFileHash $path
         }
     }
     $queue = [Collections.Generic.Queue[string]]::new()
@@ -28,10 +57,10 @@ function Get-TestInventory([string]$Root, [string[]]$Files, [string[]]$Directori
         $path = Get-TestPath $Root $queue.Dequeue()
         if (-not (Test-Path -LiteralPath $path)) { continue }
         foreach ($item in Get-ChildItem -LiteralPath $path -Force) {
-            $relative = [IO.Path]::GetRelativePath($Root, $item.FullName)
+            $relative = $item.FullName.Substring([IO.Path]::GetFullPath($Root).TrimEnd('\').Length + 1)
             if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw "Reparse point: $relative" }
             if ($item.PSIsContainer) { $queue.Enqueue($relative) }
-            else { $inventory[$relative] = (Get-FileHash -LiteralPath $item.FullName).Hash }
+            else { $inventory[$relative] = Get-FlatOutFileHash $item.FullName }
         }
     }
     return $inventory
@@ -64,7 +93,7 @@ function Save-FlatOutTestState([string]$GameDir, [string]$RunDir, [string[]]$Fil
 }
 
 function Restore-FlatOutTestState([string]$GameDir, [string]$RunDir, [string[]]$Files, [string[]]$Directories) {
-    $state = Get-Content -LiteralPath (Join-Path $RunDir 'rollback.json') -Raw | ConvertFrom-Json -AsHashtable
+    $state = Read-FlatOutJson (Join-Path $RunDir 'rollback.json')
     if ($state.GameDir -ne $GameDir -or ($state.Files -join '|') -ne ($Files -join '|') -or
         ($state.Directories -join '|') -ne ($Directories -join '|')) { throw 'Rollback scope does not match the runner.' }
     $prior = $state.Before

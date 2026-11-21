@@ -8,7 +8,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 
-$modDir    = $ModDir
+$modDir    = [IO.Path]::GetFullPath($ModDir).TrimEnd('\', '/')
 $manifest  = Join-Path $GameDir 'ChloeCustom_install_manifest.txt'
 $backupDir = Join-Path $GameDir '_ChloeCustom_backup'   # game files the mod overwrites (restored on uninstall)
 
@@ -39,7 +39,7 @@ $files = Get-ChildItem $modDir -Recurse -File
 $i = 0
 foreach ($f in $files) {
     $i++
-    $rel = [IO.Path]::GetRelativePath($modDir, $f.FullName)
+    $rel = $f.FullName.Substring($modDir.Length + 1)
     $target = Join-Path $GameDir $rel
     Write-Progress -Activity 'Installing Chloe Collection (custom)' -Status $rel -PercentComplete (100 * $i / $files.Count)
     if ($PSCmdlet.ShouldProcess($target, 'copy')) {
