@@ -147,6 +147,8 @@ Der Wiederholungslauf `71d203bcc9fc` bestand nach Verkürzung der Wartezeit für
 
 Der Opus-Build lässt sich mit `-StuntOpusSource <Opus-Quellordner> -StuntOpusLibrary <x86-opus.lib>` zusätzlich zu `-StuntVideo` testen. Der Runner legt Audio- und Bildnachweise im `probe.log` ab.
 
+Die erweiterte Vorschau erlaubt Zuschauen bereits am Enter-Hinweis vor dem eigenen ersten Versuch. Der Ein-PC-Hostlauf `3fa47ddd2c04` prüfte diesen Zustand, den stehenden Timer, den unveränderten Versuchszähler und anschließend den Ablauf bis zum zweiten Versuch. `SteamPeer` wartet am Enter-Hinweis auf das Livebild des Laptops und startet den ersten Versuch des Hosts nach Ende der Übertragung. Diesen Versuch kann der Laptop für die Gegenrichtung ansehen. Der Live-Empfang vor dem ersten Versuch muss mit einem zweiten Steam-Teilnehmer geprüft werden.
+
 #### Frühere JPEG-Vorschau
 
 `-Scenario LocalModes -ModeFrom 4 -ModeThrough 4 -StuntVideo` überträgt High-Jump-Aufnahmen im Testprozess über das Bildpaketformat des Steam-Plugins. Der Test nutzt denselben D3D9-Bildzugriff, JPEG-Worker und Zuschauer-Renderer wie die Vorschau. Er verwirft Bildpakete mit einer alten Eventkennung, einem anderen Ziel, doppelter Bildnummer oder einem unvollständigen Header. Beim Zeichnen werden der lokale Timer und die Stunt-Wertungsfelder verglichen. Lauf `9092ee371422` zeigte 57 Bilder mit Aufnahmen von Anfahrt, Abschuss, Flug und Landung. Die Bildkopie dauerte im Mittel 1,56 ms. In diesem High-Jump-Abschnitt erreichten der Referenzlauf `1a76ba5397e7` und der Videolauf jeweils rund 100 Spielbilder pro Sekunde. Bildkopie und Darstellung bestanden auch nach dem Reset eines separaten D3D9-Testgeräts.

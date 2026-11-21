@@ -1366,18 +1366,20 @@ static void StoreRaceStatus(uint64_t from, const uint8_t* data, int len) {   // 
 	in.tick = GetTickCount();
 }
 
-static void SendRaceStatus(const RaceStatus& st) {   // game thread, at most once per second
+static void SendRaceStatus(const RaceStatus& st) {   // game thread, once per second or when a video source starts/stops
 	static DWORD last = 0;
-	if (GetTickCount() - last < 1000) return;
+	static uint64_t lastLiveVideo = 0;
+	const uint64_t liveVideo = st.kind == 1 && gVideoStatusDriving ? gVideoStatusEvent : 0;
+	if (GetTickCount() - last < 1000 && liveVideo == lastLiveVideo) return;
 	if (!TryEnterCriticalSection(&gLock)) return;
 	last = GetTickCount();
+	lastLiveVideo = liveVideo;
 	uint8_t payload[sizeof(st) + sizeof(uint64_t)];
 	size_t length = sizeof(st);
 	memcpy(payload, &st, sizeof(st));
 	if (st.kind == 1 && gVideoStatusEvent) {
-		const uint64_t event = gVideoStatusDriving ? gVideoStatusEvent : 0;
-		memcpy(payload + length, &event, sizeof(event));
-		length += sizeof(event);
+		memcpy(payload + length, &liveVideo, sizeof(liveVideo));
+		length += sizeof(liveVideo);
 	}
 	for (auto peer : LobbyPeers()) SendRaw(peer, kTypeRaceStatus, 0, 0, payload, length);
 	LeaveCriticalSection(&gLock);
@@ -2026,7 +2028,7 @@ struct VideoSession {
 	unsigned lastQuality = 2;
 	size_t sentBytes = 0;
 	bool needKey = true, forceKey = true, sourceActive = false;
-	bool resultsLogged = false;
+	bool startPromptLogged = false, resultsLogged = false;
 	unsigned heldInput = 0;
 	std::vector<uint64_t> members;
 	std::map<uint64_t, VideoRoute> routes;
@@ -2148,7 +2150,7 @@ void ResetVideoEvent() {
 	gVideo.sent = 0;
 	gVideo.sentBytes = 0;
 	gVideo.sourceActive = false;
-	gVideo.resultsLogged = false;
+	gVideo.startPromptLogged = gVideo.resultsLogged = false;
 }
 
 void UpdateVideoRoutes(uint64_t now) {
@@ -2342,10 +2344,16 @@ static void StuntVideoTick(void* renderer) {
 	auto score = *reinterpret_cast<uint8_t**>(0x846514);
 	const bool active = gStuntActive && gf && score && *reinterpret_cast<uintptr_t*>(score) == 0x6E3E4C;
 	const bool replay = active && *reinterpret_cast<int*>(gf + 0x275C) != 0;
-	const bool driving = active && !replay && !results && *reinterpret_cast<int*>(gf + 0x2738) == 8 &&
-		*reinterpret_cast<int*>(gf + 0x2754) == 0;
-	const bool watchingAllowed = active && !replay && results && gStuntOwnRounds > 0 &&
+	const int raceState = active ? *reinterpret_cast<int*>(gf + 0x2738) : 0;
+	const bool paused = active && *reinterpret_cast<int*>(gf + 0x2754) != 0;
+	// A driver who has confirmed can already be watched during the countdown.
+	const bool driving = active && !replay && !paused && !results && (raceState == 7 || raceState == 8);
+	// State 6 is the native "press Enter" prompt. State 7 is already the countdown.
+	const bool startPrompt = active && !replay && !paused && raceState == 6 && gStuntOwnRounds == 0 &&
+		*reinterpret_cast<int*>(score + 0x34) == 1;
+	const bool betweenAttempts = active && !replay && results && gStuntOwnRounds > 0 &&
 		gStuntOwnRounds < *reinterpret_cast<int*>(score + 0x3C);
+	const bool watchingAllowed = startPrompt || betweenAttempts;
 	const uint64_t now = GetTickCount64();
 	auto device = *reinterpret_cast<IDirect3DDevice9**>(static_cast<char*>(renderer) + 0x60);
 	const unsigned held = watchingAllowed ? VideoInput(device) : 0;
@@ -2394,7 +2402,11 @@ static void StuntVideoTick(void* renderer) {
 		}), gVideo.members.end());
 		PumpVideo(now);
 		if (VideoHost() == gSelf) UpdateVideoRoutes(now);
-		if (watchingAllowed && !gVideo.resultsLogged) {
+		if (startPrompt && !gVideo.startPromptLogged) {
+			Log("stunt video: first-attempt start prompt ready");
+			gVideo.startPromptLogged = true;
+		}
+		if (betweenAttempts && !gVideo.resultsLogged) {
 			Log("stunt video: between-attempt results ready");
 			gVideo.resultsLogged = true;
 		}
@@ -2540,7 +2552,8 @@ static void StuntVideoTick(void* renderer) {
 			}
 			LeaveCriticalSection(&gLock);
 			gVideo.displayedSubscription = gVideo.subscription;
-			Log("stunt video: first picture %u from %llu", gVideo.display->sequence, gVideo.target);
+			Log("stunt video: first picture %u from %llu%s", gVideo.display->sequence, gVideo.target,
+				startPrompt ? " before first attempt" : "");
 		}
 	}
 	if (!caption.empty()) {

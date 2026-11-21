@@ -95,7 +95,7 @@ Er läuft über Steam statt über direktes UDP, deshalb ist keine Portfreigabe n
 
 ### Stunt-Livebild in der Testvorschau
 
-Die Vorschau zeigt zwischen eigenen Versuchen das Spielbild des ausgewählten Mitspielers mit dessen Kamera und HUD. `V` oder `X` am Controller öffnen die Ansicht. Links und rechts wechseln das Ziel. `V`, Rücktaste oder `LB` kehren zur Ergebnisliste zurück.
+Die Vorschau zeigt das Spielbild des ausgewählten Mitspielers mit dessen Kamera und HUD. Sobald der Countdown eines Mitspielers läuft, erscheint **Zugucken** bereits am Enter-Hinweis vor dem eigenen ersten Versuch und später zwischen eigenen Versuchen in der Ergebnisliste. `V` oder `X` am Controller öffnen die Ansicht. Links und rechts wechseln das Ziel. `V`, Rücktaste oder `LB` bringen dich zum Enter-Hinweis oder zur Ergebnisliste zurück. Den eigenen ersten Versuch startest du wie gewohnt mit Enter.
 
 Der Stream nutzt Windows Media Foundation für H.264 und steigt bei stabiler Verbindung bis auf 1280 × 720 bei 24 Bildern pro Sekunde. Bei Verlusten oder wachsender Verzögerung sinken Bitrate, Bildrate und Auflösung stufenweise bis auf 240p bei 8 Bildern pro Sekunde. Ohne Zuschauer gibt es keine Bild- oder Tonerfassung. Bei mehreren Zuschauern lädt der Fahrer an den ersten Zuschauer hoch. Jeder Empfänger gibt den Stream an höchstens einen weiteren Zuschauer weiter. Der Host aktualisiert die Reihenfolge bei Zu- und Abgängen.
 

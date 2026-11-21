@@ -400,10 +400,10 @@ function Get-CloudRoot([string]$SteamDir) {
     return $cloud
 }
 
-function Get-ProbeSamples([string]$Path = $probeLog) {
+function Get-ProbeSamples([string]$Path = $probeLog, [int]$Tail = 50) {
     if (-not (Test-Path -LiteralPath $Path)) { return }
     try {
-        $lines = Get-Content -LiteralPath $Path -Tail 50 -ErrorAction Stop
+        $lines = Get-Content -LiteralPath $Path -Tail $Tail -ErrorAction Stop
     } catch [IO.IOException] {
         if (($_.Exception.HResult -band 0xffff) -in 32, 33) { return }
         throw
@@ -446,6 +446,7 @@ function Invoke-TestProcess {
     $env:FOUC_TEST_MUSIC = if ($VerifySteamMusic) { '1' } else { $null }
     $env:FOUC_TEST_STUNT_INPUT = if ($MixedTournament -or $stuntVideoPeer -or $stuntVideoHostCheck) { '1' } else { $null }
     $env:FOUC_TEST_STUNT_VIDEO_PEER_HOST = if ($stuntVideoPeer) { '1' } else { $null }
+    $env:FOUC_TEST_STUNT_VIDEO_HOST_PROMPT = if ($stuntVideoHostCheck) { '1' } else { $null }
     $env:FOUC_TEST_STUNT_ADVANCE_EVENT = if ($stuntVideoPeer -or $stuntVideoHostCheck) { "Local\FlatOut-Test-Stunt-Advance-$run" } else { $null }
     $env:FOUC_TEST_TOURNAMENT_TIE = if ($ForceTournamentTie) { '1' } else { $null }
     $env:FOUC_TEST_DERBY_GRID = if ($LoopbackDerbyLevel -or $Scenario -eq 'SteamPeer') { '1' } else { $null }
@@ -485,6 +486,7 @@ function Invoke-TestProcess {
         $lastVideoAdvance = $null
         $videoSeenAt = $null
         $videoResultsSince = $null
+        $videoPromptCaptured = $false
         $markers = @()
         $lobby = $null
         $nextStatus = 15
@@ -644,6 +646,10 @@ function Invoke-TestProcess {
                             $mismatch = $mismatch -or (Select-String -LiteralPath $probeLog -SimpleMatch 'stunt video loopback failed' -Quiet)
                         }
                         if ($stuntVideoHostCheck) {
+                            if (-not $videoPromptCaptured -and $log.Contains('stunt video: first-attempt start prompt ready')) {
+                                [void]$captureFrame.Set()
+                                $videoPromptCaptured = $true
+                            }
                             if ($log.Contains('stunt video: between-attempt results ready')) {
                                 if ($null -eq $videoResultsSince) {
                                     $videoResultsSince = $watch.Elapsed.TotalSeconds
@@ -705,10 +711,10 @@ function Invoke-TestProcess {
                     }
                 }
                 if ($stuntVideoPeer -and -not $steamPassed -and 'steam-peer-racing' -in $markers) {
-                    if (-not $videoReceived -and $log -match 'stunt video: first picture') {
+                    if (-not $videoReceived -and $log -match 'stunt video: first picture \d+ from \d+ before first attempt') {
                         [void]$captureFrame.Set()
                         $videoReceived = $true
-                        Write-ProgressLine 'Host displayed the laptop video.'
+                        Write-ProgressLine 'Host displayed the laptop video before its own first attempt.'
                     }
                     if (-not $videoResumed -and $videoReceived -and $log -match 'stunt video: closed target') {
                         [void]$advanceStunt.Set()
@@ -716,15 +722,15 @@ function Invoke-TestProcess {
                         $videoResumeLogLength = $log.Length
                         $lastVideoAdvance = $watch.Elapsed.TotalSeconds
                         $stepTime = $watch.Elapsed.TotalSeconds
-                        Write-ProgressLine 'Host displayed laptop video and is continuing its own stunt.'
+                        Write-ProgressLine 'Host left the spectator view and is starting its first attempt.'
                     }
-                    $secondAttempt = $samples | Where-Object { $_[1] -eq 2 -and $_[4] -eq 47 -and $_[15] -eq 2 } | Select-Object -First 1
-                    if ($videoResumed -and -not $secondAttempt -and $watch.Elapsed.TotalSeconds - $lastVideoAdvance -ge 2) {
-                        # The first confirm may coincide with the game incorporating the remote result.
+                    $firstAttempt = $samples | Where-Object { $_[1] -eq 2 -and $_[2] -eq 8 -and $_[4] -eq 47 -and $_[15] -eq 1 } | Select-Object -First 1
+                    if ($videoResumed -and -not $firstAttempt -and $watch.Elapsed.TotalSeconds - $lastVideoAdvance -ge 2) {
+                        # Retry if the first confirm coincided with a state transition.
                         [void]$advanceStunt.Set()
                         $lastVideoAdvance = $watch.Elapsed.TotalSeconds
                     }
-                    if ($videoResumed -and $log.Substring($videoResumeLogLength) -match 'stunt video: peer \d+ displayed picture' -and $secondAttempt) {
+                    if ($videoResumed -and $log.Substring($videoResumeLogLength) -match 'stunt video: peer \d+ displayed picture' -and $firstAttempt) {
                         if ($null -eq $videoSeenAt) {
                             $videoSeenAt = $watch.Elapsed.TotalSeconds
                             Write-ProgressLine 'Laptop confirmed rendering the host video.'
@@ -878,6 +884,16 @@ function Invoke-TestProcess {
             }
             if ($stuntVideoHostCheck -and $log -match 'stunt video: (source started|effect capture attached)') {
                 throw 'The host started capturing media without a spectator.'
+            }
+            if ($stuntVideoHostCheck) {
+                $stuntSamples = @(Get-ProbeSamples -Tail 1000)
+                $countdown = $stuntSamples | Where-Object { $_[1] -eq 2 -and $_[2] -eq 7 -and $_[4] -eq 47 } | Select-Object -First 1
+                if (-not $countdown) { throw 'The first-attempt countdown was not observed.' }
+                $waiting = @($stuntSamples | Where-Object { $_[0] -lt $countdown[0] -and $_[1] -eq 2 -and $_[2] -eq 6 -and $_[4] -eq 47 })
+                if (-not $videoPromptCaptured -or $waiting.Count -lt 4 -or
+                    @($waiting | Where-Object { $_[3] -ne -3000 -or $_[15] -ne 1 }).Count) {
+                    throw 'The first-attempt spectator prompt or its stationary timer and attempt could not be verified.'
+                }
             }
             $range = [regex]::Match($log, "flatout-test:${run}:mode range (\d+) (\d+)")
             $returns = @([regex]::Matches($log, "flatout-test:${run}:mode return (\d+)") | ForEach-Object { [int]$_.Groups[1].Value })

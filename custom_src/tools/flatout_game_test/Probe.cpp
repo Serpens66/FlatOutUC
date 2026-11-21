@@ -680,7 +680,7 @@ static void RecordStuntPose(void* device, ULONGLONG now) {
         replay.Begin(1);
     }
     const auto elapsed = static_cast<uint32_t>(now - started);
-    const uint32_t startDelay = peer && recordedAttempt == 2 ? 5000 : 0;
+    const uint32_t startDelay = peer ? 5000 : 0;
     if (!moving && elapsed >= startDelay) {
         moving = true;
         // Give the local test car an initial speed along its own forward axis. No global input is used.
@@ -770,12 +770,20 @@ static void __fastcall EndScene(void* self, void*) {
     const int activeRules = *reinterpret_cast<int*>(flow + 0x514);
     static ULONGLONG introStarted = 0;
     static int introState = 0;
+    static const bool videoPeer = GetEnvironmentVariableW(L"FOUC_TEST_STUNT_VIDEO_PEER_HOST", nullptr, 0) != 0;
+    static const bool videoHost = GetEnvironmentVariableW(L"FOUC_TEST_STUNT_VIDEO_HOST_PROMPT", nullptr, 0) != 0;
     if (mode == 2 && (state == 2 || state == 6)) {
         if (introState != state) {
             introState = state;
             introStarted = now;
         }
-        if (introStarted && now - introStarted >= 600) {
+        const auto score = *reinterpret_cast<uintptr_t*>(0x846514);
+        const bool firstStuntPrompt = state == 6 && activeRules == 2 && score &&
+            *reinterpret_cast<uintptr_t*>(score) == 0x6E3E4C && *reinterpret_cast<int*>(score + 0x34) == 1;
+        const auto confirmDelay = firstStuntPrompt && videoHost ? 2500u : 600u;
+        const bool confirm = firstStuntPrompt && videoPeer ?
+            WaitForSingleObject(advanceStunt, 0) == WAIT_OBJECT_0 : now - introStarted >= confirmDelay;
+        if (introStarted && confirm) {
             // GameFlow uses the same confirm action for the track intro and
             // the explicit start prompt before a stunt or offline derby.
             PostGameEvent(0x1389, 0x0b);
@@ -795,7 +803,7 @@ static void __fastcall EndScene(void* self, void*) {
         stunt = *reinterpret_cast<int*>(flow + 0x520);
         const auto score = *reinterpret_cast<uintptr_t*>(0x846514);
         const auto host = *reinterpret_cast<uintptr_t*>(flow + 0x2820);
-        if (host && (state == 7 || state == 8 || state == 9)) {
+        if (host && (state == 6 || state == 7 || state == 8 || state == 9)) {
             time = *reinterpret_cast<int*>(host + 0x2099C);
             track = *reinterpret_cast<int*>(host + 0x2098C);
             const auto begin = *reinterpret_cast<uintptr_t*>(host + 0x14);
