@@ -2,11 +2,14 @@
 
 A free, unofficial adaptation of **Chloe’s Collection 1.83** for the current Windows Steam version of **FlatOut: Ultimate Carnage Collector’s Edition**. It builds on Chloe’s quality-of-life improvements and multiplayer, with a focus on Ultimate Carnage and FlatOut 2 content. [Original mod and credits](https://gaycoderprincess.github.io/project/chloe-collection) · [Chloe’s main plugin source](https://github.com/gaycoderprincess/FlatOutUCChloeCollection)
 
-## What’s different
+## What’s different (to chloe modpack)
 
-- **Steam multiplayer.** Host with **Create Game** and find Steam lobbies with **Join Game** in Chloe’s multiplayer menu. Steam lobbies work without manual port forwarding. You can race against AI, run tournaments, and try experimental stunt events with synchronized scores and visible, non-colliding ghosts of other players.
-- **Original single-player progression.** The original Career and Carnage events and driver portraits are restored. Single Race offers additional FlatOut 2 tracks, and the car dealer offers FlatOut 2 cars and variants.
-- **Music and display.** Pick from revised playlists, including a combined FlatOut 2 and Ultimate Carnage soundtrack. DisplayFix addresses a startup issue on some multi-monitor or dual-GPU systems.
+- **Steam multiplayer:** Host with **Create Game** and find Steam lobbies with **Join Game** in Chloe’s multiplayer menu. Steam lobbies work without manual port forwarding. You can race against AI, run tournaments, and try experimental stunt events with synchronized scores and visible, non-colliding ghosts of other players.
+- **MP Stunts and Tournaments**: In multiplayer you can now also do simultaneous stunts and tournaments.
+- **Fixed some bugs**: Eg. correct timer in multiplayer derbies and a few more.
+- **Original single-player progression:** The original Career and Carnage events and driver portraits are restored. Single Race offers additional FlatOut 2 tracks, and the car dealer offers FlatOut 2 cars and variants.
+- **Music** Removed most new tracks, so you only have Flatout 2, Flatout UC and Modern (also mixed in a playlist)
+- **Display** DisplayFix addresses a startup issue on some multi-monitor or dual-GPU systems.
 
 ## Install or update
 
