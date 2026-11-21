@@ -202,13 +202,14 @@ t = replace(t, '\tif gameRules == GR_STUNT and ChloeNet_GetCarClass() >= CARCLAS
 \tend
 \tif gameRules == GR_STUNT and ChloeNet_GetCarClass() >= CARCLASS_SAMEASHOST and not IsStuntCar(ChloeNet_GetLocalPlayerCar()) then
 '''))
-# defaults for a new hosted game: handling FLATOUT 2 and AI class SAME AS HOST (once per hosted game)
+# Defaults for a new hosted game: FLATOUT 2 handling, SAME AS HOST AI class, and 0.5x damage.
 t = replace(t, '\tif ChloeNet_IsServer() then\r\n\t\tif ChloeNet_IsUsingZMenu() or Settings["Network"]["AllowCheats"] then\r\n',
-            crlf('''\t-- ChloeCustom: defaults for a new hosted game (handling FLATOUT 2, AI class SAME AS HOST)
+            crlf('''\t-- ChloeCustom: defaults for a new hosted game (handling FLATOUT 2, AI class SAME AS HOST, 0.5x damage)
 \tif ChloeNet_IsServer() and ChloeCustom_GetPersistent("hostdefaults") == nil then
 \t\tChloeCustom_SetPersistent("hostdefaults", "1")
 \t\tChloeNet_Host_SetHandlingMode(HANDLING_NORMAL_FO2DOWNFORCE)
 \t\tChloeNet_Host_SetAIClass(4)
+\t\tChloeNet_Host_SetDamageMult(0.5)
 \tend
 \tif ChloeNet_IsServer() then
 \t\tif ChloeNet_IsUsingZMenu() or Settings["Network"]["AllowCheats"] then

@@ -172,6 +172,7 @@ wrap(menu_chloemultiplayer_lobby, function(current)
 	if current == "steam-racing" then
 		-- The Lua VM is recreated on return from the race.
 		if FlatOutTest_StartedInThisMenu then return end
+		assert(ChloeNet_GetDamageMult() == 1.0, "host damage multiplier was reset after the race")
 		log("steam-return")
 		advance("steam-leaving")
 		ChloeNet_Disconnect()
@@ -185,6 +186,9 @@ wrap(menu_chloemultiplayer_lobby, function(current)
 		FlatOutTest_ChangeHostCar()
 		return
 	end
+	assert(ChloeNet_GetDamageMult() == 0.5, "new host lobby damage multiplier must be 0.5x")
+	ChloeNet_Host_SetDamageMult(1.0)
+	assert(ChloeNet_GetDamageMult() == 1.0, "host damage multiplier could not be changed to 1x")
 	assert(Levels[19] and Levels[19].Name == "MIDWEST RANCH 1")
 	for slot = 1, 12 do
 		local driver = 0

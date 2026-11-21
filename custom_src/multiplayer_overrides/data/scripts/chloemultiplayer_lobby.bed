@@ -1479,11 +1479,12 @@ function menu_chloemultiplayer_lobby.init(self)
 		ChloeNet_SetJoinNotifs(0)
 	end
 	
-	-- ChloeCustom: defaults for a new hosted game (handling FLATOUT 2, AI class SAME AS HOST)
+	-- ChloeCustom: defaults for a new hosted game (handling FLATOUT 2, AI class SAME AS HOST, 0.5x damage)
 	if ChloeNet_IsServer() and ChloeCustom_GetPersistent("hostdefaults") == nil then
 		ChloeCustom_SetPersistent("hostdefaults", "1")
 		ChloeNet_Host_SetHandlingMode(HANDLING_NORMAL_FO2DOWNFORCE)
 		ChloeNet_Host_SetAIClass(4)
+		ChloeNet_Host_SetDamageMult(0.5)
 	end
 	if ChloeNet_IsServer() then
 		if ChloeNet_IsUsingZMenu() or Settings["Network"]["AllowCheats"] then

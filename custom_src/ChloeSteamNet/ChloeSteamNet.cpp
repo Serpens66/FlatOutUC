@@ -27,6 +27,13 @@
 #include <map>
 #include <string>
 #include <vector>
+#include "StuntGhostRender.h"
+#include "StuntGhostAssets.h"
+#include "StuntGhostDriver.h"
+#include "StuntGhostSession.h"
+#ifdef STUNT_GHOST_CAPTURE
+#include "StuntFrameCapture.h"
+#endif
 
 // ------------------------------------------------------------------------------------------------------------
 // constants
@@ -46,6 +53,7 @@ static const uint8_t  kTypeName      = 0x4E;   // profile name of the sender (wc
 static const uint8_t  kTypeStunt     = 0x54;   // stunt round record of the sender (srcPort = level, dstPort = round)
 static const uint8_t  kTypeRaceStatus = 0x53;  // racing PC -> lobby members: progress for the lobby (5 x int32)
 static const uint8_t  kTypeStuntResult = 0x52; // client -> host: result of a multiplayer stunt (narrow string, tournament)
+static const uint8_t  kTypeStuntMotion = 0x4D;
 static const DWORD    kConnectTimeout = 20000; // ms for the Steam connection to the host before joining with ENet
 static const size_t   kMaxQueue      = 2048;                      // packets per local port
 
@@ -361,6 +369,7 @@ static void PollCalls() {
 
 static void LeaveJoinedLobby();
 static void StoreStuntRecord(uint64_t from, const uint8_t* data, int len);
+static void StoreStuntMotion(uint64_t from, const uint8_t* data, int len);
 static void StoreStuntName(uint64_t from, const uint8_t* data, int len);
 static void StoreHostAIDrivers(uint64_t from, const uint8_t* data, int len);
 static void StoreAIDamage(uint64_t from, const uint8_t* data, int len);
@@ -394,6 +403,7 @@ static void Pump() {
 				Log("Steam connection to host %llu ready after %lu ms", gJoinHost, GetTickCount() - gJoinConnectStart);
 			}
 			if (from->eType == kIdentitySteamID && len >= 5 && data[0] == kTypeStunt) StoreStuntRecord(from->steamID64, data, len);
+			if (from->eType == kIdentitySteamID && len >= 5 && data[0] == kTypeStuntMotion) StoreStuntMotion(from->steamID64, data + 5, len - 5);
 			if (from->eType == kIdentitySteamID && len >= 5 && data[0] == kTypeName) StoreStuntName(from->steamID64, data, len);
 			if (from->eType == kIdentitySteamID && len >= 5 && data[0] == kTypeAIDrivers) StoreHostAIDrivers(from->steamID64, data, len);
 			if (from->eType == kIdentitySteamID && len >= 5 && data[0] == kTypeAIDamage) StoreAIDamage(from->steamID64, data, len);
@@ -1662,10 +1672,18 @@ static void RaceTick() {
 // her time trial flag is set (it is reset before other races, ChloeCollection_ReinitHooks). Our value is written
 // last to be safe; the actual cause of wrong stunt start points was Chloe's MP plugin (see PatchChloeStartPosition).
 static void StuntTick();
+static void StuntGhostTick();
+#ifdef STUNT_GHOST_CAPTURE
+static void CaptureStuntGhost(void* renderer);
+#endif
 static HRESULT __fastcall EndSceneHook(void* self, void*) {
 	HRESULT r = gEndSceneOrig(self);
 	FixStuntStartPositions();
 	StuntTick();
+	StuntGhostTick();
+#ifdef STUNT_GHOST_CAPTURE
+	CaptureStuntGhost(self);
+#endif
 	RaceTick();
 	return r;
 }
@@ -1746,6 +1764,383 @@ static std::vector<uint64_t> LobbyPeers() {   // caller holds gLock
 	return peers;
 }
 
+static constexpr char kStuntGhostEventKey[] = "cc_stunt_ghost_event";
+static uint64_t gGhostLobby = 0, gGhostEvent = 0, gGhostConsumed = 0;
+static uint64_t gGhostAttemptStart = 0, gGhostLastSend = 0;
+static uint64_t gGhostLastUpdate = 0;
+static uint32_t gGhostSequence = 0;
+static uint16_t gGhostAttempt = 0;
+static bool gGhostResultsOpen = false;
+static bool gGhostHasFlight = false;
+static stunt_ghost::DriverPacket gGhostLastFlight;
+static stunt_ghost::Session gGhostSession; // guarded by gLock
+struct GhostAssetSlot {
+	uint16_t folder = 0, skin = 0;
+	bool logged = false, driverLogged = false;
+	stunt_ghost::CarAsset asset;
+	stunt_ghost::DriverAsset driver;
+};
+static std::array<GhostAssetSlot, 7> gGhostAssets;
+
+#ifdef STUNT_GHOST_CAPTURE
+static bool gGhostCaptureHasPose = false;
+
+static void CaptureStuntGhost(void* renderer) {
+	static unsigned next = 0;
+	static uint64_t capturedAt = 0;
+	if (next >= 4 || !gGhostCaptureHasPose || !gGhostEvent) return;
+	if (!next && std::none_of(gGhostAssets.begin(), gGhostAssets.end(), [](const auto& slot) {
+		return slot.asset.Frames() != 0;
+	})) return;
+#ifndef STUNT_GHOST_TEST
+	// Reserve the final paired-test image for the received driver.
+	if (next == 3 && std::none_of(gGhostAssets.begin(), gGhostAssets.end(), [](const auto& slot) {
+		return slot.driver.Frames() >= 8;
+	})) return;
+#endif
+	const auto flow = GameFlowPtr();
+	if (!flow || *reinterpret_cast<const int*>(flow + 0x2738) != 8) return;
+	const auto now = GetTickCount64();
+	if (next && now - capturedAt < 1500) return;
+	wchar_t path[MAX_PATH];
+	const auto count = GetModuleFileNameW(nullptr, path, _countof(path));
+	if (!count || count >= _countof(path)) return;
+	auto* slash = wcsrchr(path, L'\\');
+	if (!slash) return;
+	++next;
+	swprintf_s(slash + 1, _countof(path) - (slash + 1 - path), L"FlatOutGhostView%u.bmp", next);
+	const bool saved = stunt_ghost::CaptureBackBuffer(renderer, path, 0);
+	capturedAt = now;
+	Log("stunt ghost: native-resolution frame %u %s", next, saved ? "saved" : "unavailable");
+}
+#endif
+static void ReleaseGhostAssets() {
+	unsigned released = 0, drivers = 0;
+	for (auto& slot : gGhostAssets) {
+		if (slot.driver.Unload()) ++drivers;
+		slot.driverLogged = false;
+		slot.asset.Hide();
+		if (!slot.folder) continue;
+		if (slot.asset.Unload()) {
+			slot.folder = slot.skin = 0;
+			slot.logged = false;
+			++released;
+		}
+	}
+	if (released) Log("stunt ghost: released %u independent car resources", released);
+	if (drivers) Log("stunt ghost: released %u independent driver resources", drivers);
+}
+
+static void StartGhostEvent(uint64_t event) { // caller holds gLock
+	gGhostEvent = event;
+	gGhostConsumed = event;
+	gGhostSession.Begin(event);
+	ReleaseGhostAssets();
+	Log("stunt ghost: event %llu on level %d", event, CurrentLevel());
+}
+
+static void PrepareStuntGhost() { // caller holds gLock
+	const uint64_t lobby = gHostLobby ? gHostLobby : gJoinedLobby;
+	if (gGhostLobby != lobby) gGhostConsumed = 0;
+	gGhostLobby = lobby;
+	gGhostEvent = 0;
+	gGhostSession.Begin(0);
+	gGhostAttempt = 0;
+	gGhostHasFlight = false;
+	gGhostResultsOpen = false;
+	if (!gHostLobby || !SteamReady()) return;
+	static uint64_t previous = 0;
+	LARGE_INTEGER counter{};
+	QueryPerformanceCounter(&counter);
+	const auto event = (std::max)(previous + 1, static_cast<uint64_t>(counter.QuadPart));
+	previous = event;
+	char value[48];
+	sprintf_s(value, "%llu:%d", event, CurrentLevel());
+	if (S.SetLobbyData(gMM, lobby, kStuntGhostEventKey, value)) StartGhostEvent(event);
+}
+
+static void StoreStuntMotion(uint64_t from, const uint8_t* data, int len) { // caller holds gLock
+	if (!gGhostEvent || (len != sizeof(stunt_ghost::MotionPacket) && len != sizeof(stunt_ghost::DriverPacket)) ||
+		std::find(gStuntPeers.begin(), gStuntPeers.end(), from) == gStuntPeers.end()) return;
+	gGhostSession.Receive(from, data, len, GetTickCount64());
+}
+
+static uintptr_t GhostLocalCar(const uint8_t* gf) {
+	const auto host = *reinterpret_cast<const uintptr_t*>(gf + 0x2820);
+	if (!host) return 0;
+	const auto players = *reinterpret_cast<const uintptr_t* const*>(host + 0x14);
+	if (!players || players == *reinterpret_cast<const uintptr_t* const*>(host + 0x18) ||
+		!players[0] || *reinterpret_cast<const int*>(players[0] + 0x2C8) != 1) return 0;
+	return *reinterpret_cast<const uintptr_t*>(players[0] + 0x294);
+}
+
+static uint16_t GhostCarFolder(uintptr_t car) {
+	if (!car) return 0;
+	const auto nativePath = reinterpret_cast<const char*>(car + 0x7C);
+	const char* path = *reinterpret_cast<const unsigned*>(car + 0x90) < 16
+		? nativePath : *reinterpret_cast<const char* const*>(nativePath);
+	static constexpr char prefix[] = "data/cars/car_";
+	constexpr size_t prefixLength = sizeof(prefix) - 1;
+	const auto length = *reinterpret_cast<const unsigned*>(car + 0x8C);
+	if (!path || length < prefixLength + 2 || length > prefixLength + 4 ||
+		_strnicmp(path, prefix, prefixLength) || path[length - 1] != '/') return 0;
+	unsigned folder = 0;
+	for (size_t i = prefixLength; i < length - 1; ++i) {
+		if (path[i] < '0' || path[i] > '9') return 0;
+		folder = folder * 10 + static_cast<unsigned>(path[i] - '0');
+	}
+	if (!folder || (folder > 99 && (folder < 201 || folder > 299))) return 0;
+	return static_cast<uint16_t>(folder);
+}
+
+static void ShowGhostAsset(size_t index, uintptr_t car, const stunt_ghost::Pose& pose,
+	const stunt_ghost::MotionPacket& visual, const stunt_ghost::DriverPose& driver) {
+#ifdef STUNT_GHOST_CAPTURE
+	gGhostCaptureHasPose = true;
+#endif
+	auto& slot = gGhostAssets[index];
+	const auto position = driver.character >= 0 ? driver.joints[0].position : pose.position;
+	const auto* own = reinterpret_cast<const float*>(car + 0x1F0);
+	const stunt_ghost::Vec3 offset{position.x - own[0], position.y - own[1], position.z - own[2]};
+	const float distance = std::sqrt(stunt_ghost::Dot(offset, offset));
+	const float t = (std::clamp)((distance - 1.8f) / 3.2f, 0.0f, 1.0f);
+	const float opacity = 0.55f + 0.15f * t * t * (3.0f - 2.0f * t);
+	if (driver.character >= 0) {
+		if (slot.driver.Show(index, driver, opacity) && !slot.driverLogged && slot.driver.Frames() >= 8) {
+			slot.driverLogged = true;
+			Log("stunt ghost: rendered independent driver %d skin %u for event %llu (11 joints)",
+				driver.character, driver.skin, gGhostEvent);
+		}
+		return;
+	}
+	if (slot.folder && (slot.folder != visual.modelKey || slot.skin != visual.skin)) return;
+	if (!slot.folder) {
+		slot.folder = visual.modelKey;
+		slot.skin = visual.skin;
+	}
+	if (slot.asset.Load(slot.folder, slot.skin) && slot.asset.PaintedSurfaces() && slot.asset.Attach())
+		slot.asset.Show(car, stunt_ghost::WorldMatrix(pose), opacity);
+}
+
+static bool ReadGhostDriver(uintptr_t car, stunt_ghost::DriverPacket& flight) {
+	const auto body = *reinterpret_cast<const uint8_t* const*>(car + 0x3570);
+	const auto player = *reinterpret_cast<const uint8_t* const*>(car + 0x469C);
+	if (!body || !player || *reinterpret_cast<const unsigned*>(car + 0x3574) != stunt_ghost::kDriverJoints)
+		return false;
+	const auto character = *reinterpret_cast<const unsigned*>(player + 0x2A4);
+	const auto skin = *reinterpret_cast<const unsigned*>(player + 0x2A8);
+	if (character >= 6 || !skin || skin > 32) return false;
+	flight.character = static_cast<uint16_t>(character);
+	flight.skin = static_cast<uint16_t>(skin);
+	for (size_t i = 0; i < flight.joints.size(); ++i) {
+		const auto joint = body + i * 0x180;
+		memcpy(flight.joints[i].position.data(), joint + 0x30, sizeof(flight.joints[i].position));
+		memcpy(flight.joints[i].rotation.data(), joint + 0xC0, sizeof(flight.joints[i].rotation));
+	}
+	stunt_ghost::DriverPose checked;
+	return stunt_ghost::ReadDriverPose(flight, checked);
+}
+
+#ifdef STUNT_GHOST_TEST
+static void InjectGhostTestPoses(uintptr_t car, stunt_ghost::DriverPacket flight, size_t payloadSize, uint64_t now) {
+	auto& motion = flight.motion;
+	if (payloadSize == sizeof(flight)) {
+		motion.rotation = {};
+		const auto matrix = reinterpret_cast<const float*>(car + 0x1C0);
+		for (size_t axis = 0; axis < 3; ++axis) {
+			motion.position[axis] -= 120.0f * matrix[8 + axis];
+			for (auto& joint : flight.joints) joint.position[axis] += 25.0f * matrix[8 + axis];
+		}
+		for (auto& joint : flight.joints) joint.position[0] += 2.0f;
+		gGhostSession.Receive(1, &flight, sizeof(flight), now);
+		for (size_t axis = 0; axis < 3; ++axis)
+			for (auto& joint : flight.joints) joint.position[axis] -= 25.0f * matrix[8 + axis];
+		for (auto& joint : flight.joints) joint.position[0] -= 4.0f;
+		flight.character = 1;
+		flight.skin = 1;
+		motion.modelKey = 39;
+		gGhostSession.Receive(2, &flight, sizeof(flight), now);
+		return;
+	}
+	if (payloadSize != sizeof(motion)) return;
+	const auto matrix = reinterpret_cast<const float*>(car + 0x1C0);
+	const auto origin = motion.position;
+	for (size_t i = 0; i < 3; ++i)
+		motion.position[i] += motion.ms < 500 ? 0.75f * matrix[i] : 2.5f * matrix[i] + 7.0f * matrix[8 + i];
+	gGhostSession.Receive(1, &motion, sizeof(motion), now);
+	for (size_t i = 0; i < 3; ++i) motion.position[i] = origin[i] - 2.5f * matrix[i] + 4.0f * matrix[8 + i];
+	motion.modelKey = 39;
+	const auto facing = motion.rotation;
+	constexpr float quarterTurn = 0.70710678f;
+	motion.rotation = {quarterTurn * (facing[0] + facing[2]), quarterTurn * (facing[1] + facing[3]),
+		quarterTurn * (facing[2] - facing[0]), quarterTurn * (facing[3] - facing[1])};
+	gGhostSession.Receive(2, &motion, sizeof(motion), now);
+	for (size_t i = 0; i < 3; ++i) motion.position[i] += 7.0f * matrix[8 + i];
+	motion.modelKey = 201;
+	motion.rotation = facing;
+	motion.skin = 1;
+	gGhostSession.Receive(3, &motion, sizeof(motion), now);
+}
+#endif
+
+static void StuntGhostTick() {
+	const auto gf = GameFlowPtr();
+	if (!gStuntActive || !gf || *reinterpret_cast<const int*>(gf + 0x4A4) != 2) {
+		ReleaseGhostAssets();
+		if (!gGhostEvent) return;
+		EnterCriticalSection(&gLock);
+		if (gGhostEvent) gGhostSession.Begin(0);
+		gGhostEvent = 0;
+		LeaveCriticalSection(&gLock);
+		return;
+	}
+	const auto now = GetTickCount64();
+	const int state = *reinterpret_cast<const int*>(gf + 0x2738);
+	if (state < 8) gGhostResultsOpen = false;
+	if (gGhostResultsOpen && gGhostHasFlight) {
+		gGhostHasFlight = false;
+#ifdef STUNT_GHOST_TEST
+		Log("stunt ghost: stopped holding the driver when the results opened");
+#endif
+	}
+	const bool running = (state == 8 || state == 9) && !gGhostResultsOpen;
+	if (!running || now - gGhostLastUpdate > 100)
+		for (auto& slot : gGhostAssets) {
+			slot.asset.Hide();
+			slot.driver.Hide();
+		}
+#ifdef STUNT_GHOST_TEST
+	// The sender thread can hold the lock on a rendered frame. Exercise
+	// that path without making the test depend on Steam thread scheduling.
+	static bool skipLock = false;
+	static bool holdVerified = false;
+	static unsigned framesAtSkip = 0;
+	skipLock = !skipLock;
+	const auto frames = gGhostAssets[1].asset.Frames();
+	if (skipLock) {
+		framesAtSkip = frames;
+		return;
+	}
+	if (!holdVerified && framesAtSkip && frames > framesAtSkip) {
+		holdVerified = true;
+		Log("stunt ghost: drawn after skipped update");
+	}
+#endif
+	if (!TryEnterCriticalSection(&gLock)) return;
+	gGhostLastUpdate = now;
+	for (auto& slot : gGhostAssets) {
+		slot.asset.Hide();
+		slot.driver.Hide();
+	}
+	const uint64_t lobby = gHostLobby ? gHostLobby : gJoinedLobby;
+	if (lobby && lobby == gGhostLobby && SteamReady()) {
+		if (!gHostLobby) {
+			const char* value = S.GetLobbyData(gMM, lobby, kStuntGhostEventKey);
+			uint64_t event = 0;
+			int level = 0;
+			char trailing{};
+			if (value && sscanf_s(value, "%llu:%d%c", &event, &level, &trailing, 1u) == 2 &&
+				event > gGhostConsumed && level == CurrentLevel()) StartGhostEvent(event);
+		}
+		const auto sm = *reinterpret_cast<const uint8_t* const*>(0x846514);
+		if (gGhostEvent && running && sm && *reinterpret_cast<const uintptr_t*>(sm) == 0x6E3E4C) {
+			const auto car = GhostLocalCar(gf);
+			const int attempt = state == 9 && gGhostAttempt ? gGhostAttempt : *reinterpret_cast<const int*>(sm + 0x34);
+			const auto modelKey = GhostCarFolder(car);
+			const int skin = *reinterpret_cast<const int*>(gf + 0x4DC);
+			if (car && attempt >= 1 && attempt <= 10 && modelKey && skin > 0 && skin <= 255) {
+				if (gGhostAttempt != attempt) {
+					gGhostAttempt = static_cast<uint16_t>(attempt);
+					gGhostAttemptStart = now;
+					gGhostLastSend = 0;
+					gGhostSequence = 0;
+					gGhostHasFlight = false;
+				}
+				const auto currentMembers = LobbyPeers();
+				bool ejected = *reinterpret_cast<const int*>(car + 0x3590) != 0;
+#ifdef STUNT_GHOST_TEST
+				const bool forceHold = gStuntPeers.empty() && now - gGhostAttemptStart >= 3000;
+				if (forceHold) ejected = false;
+#endif
+				const uint64_t period = ejected ? 50 : gGhostHasFlight ? 100 : 25;
+				if (now - gGhostLastSend >= period) {
+					gGhostLastSend = now;
+					stunt_ghost::DriverPacket flight{};
+					if (ejected && ReadGhostDriver(car, flight)) {
+						gGhostLastFlight = flight;
+						gGhostHasFlight = true;
+					} else if (gGhostHasFlight) {
+						flight = gGhostLastFlight;
+					}
+					auto& packet = flight.motion;
+					const auto payloadSize = gGhostHasFlight ? sizeof(flight) : ejected ? 0 : sizeof(packet);
+					packet.event = gGhostEvent;
+					packet.sequence = ++gGhostSequence;
+					packet.ms = static_cast<uint32_t>(now - gGhostAttemptStart);
+					packet.attempt = gGhostAttempt;
+					packet.modelKey = modelKey;
+					packet.skin = static_cast<uint16_t>(skin);
+					packet.version = gGhostHasFlight ? 2 : 1;
+					memcpy(packet.position.data(), reinterpret_cast<const void*>(car + 0x1F0), sizeof(packet.position));
+					memcpy(packet.rotation.data(), reinterpret_cast<const void*>(car + 0x280), sizeof(packet.rotation));
+					if (payloadSize) {
+						for (auto peer : gStuntPeers)
+							if (std::binary_search(currentMembers.begin(), currentMembers.end(), peer))
+								SendRaw(peer, kTypeStuntMotion, 0, 0, reinterpret_cast<const uint8_t*>(&flight), payloadSize);
+					}
+#ifdef STUNT_GHOST_TEST
+					if (gStuntPeers.empty()) InjectGhostTestPoses(car, flight, payloadSize, now);
+#endif
+				}
+				stunt_ghost::Pose pose;
+				stunt_ghost::MotionPacket visual;
+				stunt_ghost::DriverPose driver;
+				for (size_t i = 0; i < gStuntPeers.size(); ++i) {
+					const auto peer = gStuntPeers[i];
+					if (!std::binary_search(currentMembers.begin(), currentMembers.end(), peer) ||
+						!gGhostSession.Sample(peer, now, pose, visual, &driver)) continue;
+					ShowGhostAsset(i, car, pose, visual, driver);
+				}
+#ifdef STUNT_GHOST_TEST
+				if (gStuntPeers.empty()) {
+					static bool overlapVerified = false;
+					static bool distantDriverVerified = false;
+					static unsigned framesAtHold = 0;
+					if (now - gGhostAttemptStart < 3000) framesAtHold = gGhostAssets[0].driver.Frames();
+					for (size_t i = 0; i < 3; ++i)
+						if (gGhostSession.Sample(i + 1, now, pose, visual, &driver)) {
+							ShowGhostAsset(i, car, pose, visual, driver);
+							if (!distantDriverVerified && i == 0 && driver.character >= 0 &&
+								now - gGhostAttemptStart >= 3900 && gGhostAssets[0].driver.Frames() >= framesAtHold + 8) {
+								const stunt_ghost::Vec3 source{visual.position[0], visual.position[1], visual.position[2]};
+								const auto delta = driver.joints[0].position - source;
+								if (stunt_ghost::Dot(delta, delta) >= 10000.0f) {
+									distantDriverVerified = true;
+									Log("stunt ghost: drew driver over 100 m from its car after live pose updates stopped");
+								}
+							}
+							if (!overlapVerified && i == 0 && visual.ms < 400 && gGhostAssets[0].asset.Frames()) {
+								overlapVerified = true;
+								Log("stunt ghost: overlapping startup pose rendered");
+							}
+						}
+				}
+#endif
+				for (auto& slot : gGhostAssets) {
+					if (slot.logged || !slot.folder || !slot.asset.Frames() || !slot.asset.PaintTechniqueBound()) continue;
+					slot.logged = true;
+					Log("stunt ghost: rendered independent car_%u skin %u for event %llu (%u wheels)",
+						slot.folder, slot.skin, gGhostEvent, slot.asset.Wheels());
+#ifdef STUNT_GHOST_TEST
+					Log("stunt ghost: diffuse texture %s (uploaded %d)", slot.asset.DiffusePath(), slot.asset.DiffuseReady());
+#endif
+				}
+			}
+		}
+	}
+	LeaveCriticalSection(&gLock);
+}
+
 static void PrepareStuntPlayers() {
 	auto gf = GameFlowPtr();
 	EnterCriticalSection(&gLock);
@@ -1753,6 +2148,8 @@ static void PrepareStuntPlayers() {
 	// stunt that arrived before (other players faster) are sent again by their PCs every 2 s
 	gStuntRecords.clear();
 	gStuntPeers = LobbyPeers();
+	if (gStuntPeers.size() > 7) gStuntPeers.resize(7);
+	PrepareStuntGhost();
 	std::vector<std::wstring> names;
 	void* friends = S.Friends ? S.Friends() : nullptr;
 	for (auto id : gStuntPeers) {
@@ -1761,7 +2158,6 @@ static void PrepareStuntPlayers() {
 	}
 	SendOwnStuntName();
 	LeaveCriticalSection(&gLock);
-	if (gStuntPeers.size() > 7) gStuntPeers.resize(7);
 	gStuntPending.clear();
 	for (size_t k = 0; k < 32; k++) {
 		uint8_t* pi = gf + 0xAE8 + k * 0x50;                  // PlayerInfo[k]: name wchar[16] +0, type +0x2C
@@ -1912,10 +2308,18 @@ static void __fastcall StuntResultsHook(void* self, void*, void* a) {
 // the attempts of the local player. In a multiplayer stunt its draw method [3] (slot 0x6E7878) runs the one of
 // IngameMenuTabMultiplayerStuntResults (0x4B7CC0), which lists every score entry with the PlayerInfo names.
 static const uintptr_t kSingleStuntTabDrawSlot = 0x6E7878;
+static const uintptr_t kMultiplayerStuntTabDrawSlot = 0x6E78A0;
 static void(__thiscall* gSingleStuntTabDrawOrig)(void*, int) = nullptr;
 static auto MultiplayerStuntTabDraw = (void(__thiscall*)(void*, int))0x4B7CC0;
+static void __fastcall MultiplayerStuntTabDrawHook(void* self, void*, int time) {
+	if (gStuntActive) gGhostResultsOpen = true;
+	MultiplayerStuntTabDraw(self, time);
+}
 static void __fastcall SingleStuntTabDrawHook(void* self, void*, int time) {
-	if (gStuntActive) MultiplayerStuntTabDraw(self, time);
+	if (gStuntActive) {
+		gGhostResultsOpen = true;
+		MultiplayerStuntTabDraw(self, time);
+	}
 	else gSingleStuntTabDrawOrig(self, time);
 }
 
@@ -1939,6 +2343,8 @@ static void PlaceStuntHooks() {
 	if (*(uintptr_t*)kSingleStuntTabDrawSlot == 0x4B71C0)
 		patch(kSingleStuntTabDrawSlot, (void*)SingleStuntTabDrawHook, (void**)&gSingleStuntTabDrawOrig);
 	else Log("stunt results hook skipped: unexpected vtable");
+	if (*(uintptr_t*)kMultiplayerStuntTabDrawSlot == reinterpret_cast<uintptr_t>(MultiplayerStuntTabDraw))
+		patch(kMultiplayerStuntTabDrawSlot, (void*)MultiplayerStuntTabDrawHook, (void**)&MultiplayerStuntTabDraw);
 }
 
 static void PlaceEndSceneHook() {

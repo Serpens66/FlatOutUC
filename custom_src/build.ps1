@@ -52,6 +52,18 @@ $musicRemove = @(Get-Content (Join-Path $custom 'music_remove.txt') | Where-Obje
 # Never edit hardlinked files in place - that would change the original too.
 $hardlinkThreshold = 50MB
 
+# Chloe 1.83 stores the initial Network.DefaultTickRate index in the settings table's backing variable.
+# Change the initial value for runs without a saved setting. The game still loads saved values normally.
+$chloePlugin = 'FlatOutUCChloeCollection_gcp.asi'
+$chloeBytes = [IO.File]::ReadAllBytes((Join-Path $src $chloePlugin))
+$chloeHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($chloeBytes))
+$tickRateOffset = 0x49C640
+if ($chloeHash -ne '2D40C7311B95BE36ED2796F35C650E46EDD41DC55CA2E2F7902B94F35707DEEE' -or
+    [BitConverter]::ToUInt32($chloeBytes, $tickRateOffset) -ne 1) {
+    throw "Unexpected Chloe 1.83 plugin or tickrate default in $chloePlugin"
+}
+$chloeBytes[$tickRateOffset] = 2 # zero-based index for 30 updates per second
+
 function Invoke-BfsTool([string[]]$toolArgs) {
     & dotnet run $bfsTool -- @toolArgs
     if ($LASTEXITCODE -ne 0) { throw "BfsTool failed: $($toolArgs -join ' ')" }
@@ -65,7 +77,7 @@ New-Item -ItemType Directory $work | Out-Null
 # 1. copy / hardlink the original
 Get-ChildItem $src -Recurse -File | ForEach-Object {
     $rel = [IO.Path]::GetRelativePath($src, $_.FullName)
-    if ($rebuilt -contains $rel -or $dropped -contains $rel -or $filtered.Contains($rel)) { return }
+    if ($rel -eq $chloePlugin -or $rebuilt -contains $rel -or $dropped -contains $rel -or $filtered.Contains($rel)) { return }
     if ($rel -match $looseExclude) { return }
     if ($musicRemove -contains $rel.ToLowerInvariant()) { return }
     $target = Join-Path $dst $rel
@@ -73,6 +85,7 @@ Get-ChildItem $src -Recurse -File | ForEach-Object {
     if ($_.Length -ge $hardlinkThreshold) { New-Item -ItemType HardLink -Path $target -Target $_.FullName | Out-Null }
     else { Copy-Item $_.FullName $target }
 }
+[IO.File]::WriteAllBytes((Join-Path $dst $chloePlugin), $chloeBytes)
 
 # 2. misc archive = original content + script overrides
 $miscDir = Join-Path $work 'misc'

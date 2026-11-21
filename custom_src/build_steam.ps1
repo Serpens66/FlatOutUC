@@ -70,6 +70,7 @@ else { New-Item -ItemType Directory $dst | Out-Null }
 
 # 1. copy / hardlink the GFWL build
 Get-ChildItem $src -Recurse -File | ForEach-Object {
+    if ($_.DirectoryName -eq $src -and $_.Name -like '*_gcp.asi') { return }
     $rel = [IO.Path]::GetRelativePath($src, $_.FullName)
     if ($rel -eq 'xlive.dll') { $rel = 'winmm.dll' }   # Ultimate ASI Loader under a name that does not clash with ZOOM's xlive.dll
     $target = Join-Path $dst $rel
@@ -78,8 +79,8 @@ Get-ChildItem $src -Recurse -File | ForEach-Object {
     else { Copy-Item $_.FullName $target }
 }
 
-# 2. neutralise the ZOOM version check in every plugin
-foreach ($asi in Get-ChildItem $dst -File -Filter '*_gcp.asi') {
+# 2. neutralise the ZOOM version check before writing each plugin to the output
+foreach ($asi in Get-ChildItem $src -File -Filter '*_gcp.asi') {
     $data = [IO.File]::ReadAllBytes($asi.FullName)
     foreach ($p in $asiPatches) {
         $hits = Find-Bytes $data $p.Old
@@ -102,7 +103,7 @@ foreach ($asi in Get-ChildItem $dst -File -Filter '*_gcp.asi') {
             }
         }
     }
-    [IO.File]::WriteAllBytes($asi.FullName, $data)
+    [IO.File]::WriteAllBytes((Join-Path $dst $asi.Name), $data)
     Write-Host "Patched $($asi.Name)"
 }
 

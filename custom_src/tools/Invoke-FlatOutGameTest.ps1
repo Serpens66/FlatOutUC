@@ -6,6 +6,8 @@ param(
     [Parameter(ParameterSetName = 'Run')]
     [ValidatePattern('^[A-Za-z0-9 _-]{1,23}$')][string]$SteamPeerName = 'Laptop',
     [Parameter(ParameterSetName = 'Run')]
+    [string]$SteamGhostPeerDir,
+    [Parameter(ParameterSetName = 'Run')]
     [ValidateRange(1, 10000)][int]$SkinFrom = 1,
     [Parameter(ParameterSetName = 'Run')]
     [ValidateRange(1, 10000)][int]$SkinThrough = 10000,
@@ -50,13 +52,17 @@ param(
     [Parameter(ParameterSetName = 'Run')]
     [switch]$StuntPose,
     [Parameter(ParameterSetName = 'Run')]
-    [switch]$StuntGhost,
-    [Parameter(ParameterSetName = 'Run')]
     [switch]$StuntGhostProps,
     [Parameter(ParameterSetName = 'Run')]
     [switch]$StuntGhostAsset,
+    [Parameter(ParameterSetName = 'Run')]
+    [switch]$StuntGhostSteam,
+    [Parameter(ParameterSetName = 'Run')]
+    [switch]$StuntGhostCapture,
     [Parameter(Mandatory, ParameterSetName = 'Restore')]
     [ValidatePattern('^[0-9a-f]{12}$')][string]$RestoreRun,
+    [Parameter(ParameterSetName = 'Restore')]
+    [switch]$RestoreSteamGhostPeer,
     [string]$GameDir = 'E:\ProgrammeE\Steam\steamapps\common\FlatOut Ultimate Carnage CE'
 )
 
@@ -70,6 +76,35 @@ $files = @('patch', 'FlatOutGameTest.bfs', 'zz_FlatOutGameTest.asi', 'FlatOutGam
 $directories = @('Savegame', 'Profiles', 'Ghosts')
 $run = if ($RestoreRun) { $RestoreRun } else { [guid]::NewGuid().ToString('N').Substring(0, 12) }
 $work = Join-Path $runRoot $run
+$ghostFiles = @('ChloeSteamNet.asi')
+if ($RestoreRun) {
+    $restoreDirectory = if ($RestoreSteamGhostPeer) { Join-Path $work 'steam-ghost-peer' } else { $work }
+    $rollback = Join-Path $restoreDirectory 'rollback.json'
+    if ((Test-Path -LiteralPath $rollback) -and
+        'Config/StuntGhostPreview.enabled' -in (Get-Content -LiteralPath $rollback -Raw | ConvertFrom-Json).Files) {
+        $ghostFiles += 'Config/StuntGhostPreview.enabled'
+    }
+}
+$ghostViews = @('FlatOutGhostView1.bmp', 'FlatOutGhostView2.bmp')
+if (-not $RestoreRun -or (Test-Path -LiteralPath (Join-Path $work 'stunt-ghost-capture4'))) {
+    $ghostViews += @('FlatOutGhostView3.bmp', 'FlatOutGhostView4.bmp')
+}
+$captureGhostViews = $StuntGhostCapture -or $SteamGhostPeerDir -or
+    ($RestoreRun -and (Test-Path -LiteralPath (Join-Path $work 'stunt-ghost-capture')))
+if ($StuntGhostSteam -or $SteamGhostPeerDir -or ($RestoreRun -and (Test-Path -LiteralPath (Join-Path $work 'stunt-ghost-steam')))) {
+    $files += $ghostFiles
+}
+$peerWork = Join-Path $work 'steam-ghost-peer'
+$peerFiles = @('patch', 'FlatOutGameTest.bfs') + $ghostFiles
+if ($captureGhostViews) {
+    $files += $ghostViews
+    $peerFiles += $ghostViews
+}
+if ($SteamGhostPeerDir -or ($RestoreSteamGhostPeer -and
+    'ChloeSteamNet.log' -in (Get-Content -LiteralPath (Join-Path $peerWork 'rollback.json') -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json).Files)) {
+    $peerFiles += 'ChloeSteamNet.log'
+}
+$peerStaged = $false
 $profileFiles = @('player{0:000}.sav', 'customsave{0:000}.sav', 'customsave{0:000}.ach', 'customsave{0:000}.cht') |
     ForEach-Object { 'Savegame/' + ($_ -f $ProfileSlot) }
 
@@ -82,6 +117,60 @@ function Write-ProgressLine([string]$Message) {
 function Assert-GameIdle {
     if (Get-Process -Name Fouc -ErrorAction SilentlyContinue) {
         throw 'BLOCKED: FlatOut is already running.'
+    }
+}
+
+function Assert-SteamGhostPeerIdle([string]$Directory) {
+    foreach ($name in @('Fouc.exe', 'ChloeSteamNet.asi', 'patch')) {
+        $path = Get-TestPath $Directory $name
+        $handle = [IO.File]::Open($path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::None)
+        $handle.Dispose()
+    }
+}
+
+function Restore-SteamGhostPeer([string]$Directory) {
+    Assert-SteamGhostPeerIdle $Directory
+    if ($captureGhostViews) {
+        foreach ($name in $ghostViews + @('ChloeSteamNet.log')) {
+            $path = Get-TestPath $Directory $name
+            if (Test-Path -LiteralPath $path) { Copy-Item -LiteralPath $path -Destination (Join-Path $peerWork $name) -Force }
+        }
+    }
+    Restore-FlatOutTestState $Directory $peerWork $peerFiles @()
+    Write-ProgressLine 'Restored the client files and verified their hashes.'
+}
+
+function Stage-SteamGhostPeer([string]$Directory, [string]$Plugin) {
+    Assert-SteamGhostPeerIdle $Directory
+    foreach ($name in 'Fouc.exe', 'patch', 'foucpack_gcp_multiplayer.bfs', 'foucpack_chloecustom_steam.bfs') {
+        if ((Get-FileHash -LiteralPath (Get-TestPath $Directory $name)).Hash -ne
+            (Get-FileHash -LiteralPath (Get-TestPath $GameDir $name)).Hash) {
+            throw "BLOCKED: The host and client have different $name files."
+        }
+    }
+    foreach ($name in @('FlatOutGameTest.bfs') + $ghostViews) {
+        if (Test-Path -LiteralPath (Get-TestPath $Directory $name)) {
+            throw "BLOCKED: The client already contains $name."
+        }
+    }
+    Save-FlatOutTestState $Directory $peerWork $peerFiles @()
+    try {
+        $sources = @{
+            'FlatOutGameTest.bfs' = (Join-Path $work 'FlatOutGameTest.bfs')
+            'ChloeSteamNet.asi' = $Plugin
+        }
+        foreach ($name in $sources.Keys) {
+            $target = Get-TestPath $Directory $name
+            Copy-Item -LiteralPath $sources[$name] -Destination $target -Force
+            if ((Get-FileHash -LiteralPath $target).Hash -ne (Get-FileHash -LiteralPath $sources[$name]).Hash) {
+                throw "The staged client file $name failed verification."
+            }
+        }
+        [IO.File]::AppendAllText((Get-TestPath $Directory 'patch'), "`nFlatOutGameTest.bfs")
+        Write-ProgressLine 'Installed and verified the matching Steam ghost test files on the client.'
+    } catch {
+        Restore-SteamGhostPeer $Directory
+        throw
     }
 }
 
@@ -169,6 +258,7 @@ FlatOutTest_LoopbackDerbyLevel = $LoopbackDerbyLevel
 FlatOutTest_LoopbackDerbyAI = $LoopbackDerbyAI
 FlatOutTest_LoopbackDamage = $LoopbackDamage
 FlatOutTest_SteamPeerName = "$SteamPeerName"
+FlatOutTest_SteamGhostPeer = $(([bool]$SteamGhostPeerDir).ToString().ToLowerInvariant())
 FlatOutTest_DerbyHud = "$DerbyHud"
 FlatOutTest_StuntGhostProps = $($StuntGhostProps.IsPresent.ToString().ToLowerInvariant())
 dofile("data/scripts/flatout_test_scenario.bed")
@@ -416,14 +506,15 @@ function Invoke-TestProcess {
     $env:FOUC_TEST_PROBE_LOG = $probeLog
     $env:FOUC_TEST_LEAVE_EVENT = "Local\FlatOut-Test-Leave-$run"
     $env:FOUC_TEST_FRAME_EVENT = "Local\FlatOut-Test-Frame-$run"
+    $env:FOUC_TEST_EJECT_EVENT = if ($SteamGhostPeerDir) { "Local\FlatOut-Test-Eject-$run" } else { $null }
     $env:FOUC_TEST_MUSIC = if ($VerifySteamMusic) { '1' } else { $null }
     $env:FOUC_TEST_STUNT_INPUT = if ($MixedTournament) { '1' } else { $null }
     $env:FOUC_TEST_TOURNAMENT_TIE = if ($ForceTournamentTie) { '1' } else { $null }
     $env:FOUC_TEST_DERBY_GRID = if ($LoopbackDerbyLevel -or $Scenario -eq 'SteamPeer') { '1' } else { $null }
     $env:FOUC_TEST_DERBY_HUD = if ($DerbyHud) { '1' } else { $null }
     $env:FOUC_TEST_DERBY_IMPACT = if ($DerbyImpact) { '1' } else { $null }
-    $env:FOUC_TEST_STUNT_POSE = if ($StuntPose) { '1' } else { $null }
-    $env:FOUC_TEST_STUNT_GHOST = if ($StuntGhost) { '1' } else { $null }
+    $env:FOUC_TEST_STUNT_POSE = if ($StuntPose -or $StuntGhostSteam) { '1' } else { $null }
+    $env:FOUC_TEST_STUNT_GHOST_RESULTS = if ($StuntGhostSteam) { '1' } else { $null }
     $env:FOUC_TEST_STUNT_GHOST_PROPS = if ($StuntGhostProps) { '1' } else { $null }
     $env:FOUC_TEST_STUNT_GHOST_ASSET = if ($StuntGhostAsset) { '1' } else { $null }
     $leaveRace = [Threading.EventWaitHandle]::new($false, [Threading.EventResetMode]::AutoReset, $env:FOUC_TEST_LEAVE_EVENT)
@@ -432,6 +523,12 @@ function Invoke-TestProcess {
         [Threading.EventWaitHandle]::new($false, [Threading.EventResetMode]::AutoReset, $clientLeaveName)
     }
     $captureFrame = [Threading.EventWaitHandle]::new($false, [Threading.EventResetMode]::AutoReset, $env:FOUC_TEST_FRAME_EVENT)
+    $ejectStunt = if ($SteamGhostPeerDir) {
+        [Threading.EventWaitHandle]::new($false, [Threading.EventResetMode]::AutoReset, $env:FOUC_TEST_EJECT_EVENT)
+    }
+    $clientSteamLog = if ($SteamGhostPeerDir) { Join-Path $SteamGhostPeerDir 'ChloeSteamNet.log' }
+    $ghostEvent = $null
+    $bothDriversAt = $null
     $instance = $null
     $second = $null
     $secondWindow = $false
@@ -533,6 +630,9 @@ function Invoke-TestProcess {
                     $stepTime = $watch.Elapsed.TotalSeconds
                     $capturedStall = $false
                     if ('main-menu' -in $markers -and $Scenario -eq 'Smoke') { [void]$captureFrame.Set() }
+                    if ($SteamGhostPeerDir -and $lastStep -eq 'steam-peer-lobby') {
+                        Write-ProgressLine 'High Jump Steam lobby ready for the client.'
+                    }
                 }
                 if ($log -match 'Steam lobby (\d+) created') { $lobby = $Matches[1] }
                 if ($markers -match '^ERROR ') { throw ($markers -match '^ERROR ' | Select-Object -Last 1) }
@@ -599,13 +699,33 @@ function Invoke-TestProcess {
                         }
                         $passed = $matching.Count -ge 2 -and $matching[-1][3] - $matching[0][3] -ge 1700
                         $mismatch = $live.Count -ge 2 -and $live[-1][3] - $live[0][3] -ge 5000
-                        if ($StuntPose -or $StuntGhost -or $StuntGhostAsset) {
+                        if ($StuntGhostSteam) {
+                            $passed = $passed -and $log -match 'stunt ghost: rendered independent car_37 skin 1 for event \d+ \(4 wheels\)' -and
+                                $log -match 'stunt ghost: rendered independent car_39 skin 1 for event \d+ \(4 wheels\)' -and
+                                $log -match 'stunt ghost: rendered independent car_201 skin 1 for event \d+ \(4 wheels\)' -and
+                                $log.Contains('stunt ghost: diffuse texture data/cars/car_39/skin1.tga (uploaded 1)') -and
+                                $log.Contains('stunt ghost: diffuse texture data/cars/car_201/skin1.tga (uploaded 1)') -and
+                                $log.Contains('stunt ghost: overlapping startup pose rendered') -and
+                                $log.Contains('stunt ghost: drawn after skipped update') -and
+                                $log.Contains('stunt ghost: drew driver over 100 m from its car after live pose updates stopped') -and
+                                $log.Contains('stunt ghost: stopped holding the driver when the results opened') -and
+                                $log -match 'stunt ghost: rendered independent driver 1 skin 1 for event \d+ \(11 joints\)'
+                        }
+                        if ($StuntGhostCapture) {
+                            $passed = $passed -and $log.Contains('stunt ghost: native-resolution frame 4 saved')
+                            $mismatch = $live.Count -ge 2 -and $live[-1][3] - $live[0][3] -ge 9000
+                        }
+                        if ($StuntPose -or $StuntGhostAsset) {
                             $passed = $passed -and (Select-String -LiteralPath $probeLog -SimpleMatch 'stunt pose replay complete' -Quiet)
                             $mismatch = Select-String -LiteralPath $probeLog -SimpleMatch 'stunt pose replay failed' -Quiet
                         }
-                        if ($StuntGhost -or $StuntGhostAsset) {
+                        if ($StuntGhostAsset) {
                             $passed = $passed -and (Select-String -LiteralPath $probeLog -SimpleMatch 'stunt ghost rendered and crossed' -Quiet)
                             $mismatch = $mismatch -or (Select-String -LiteralPath $probeLog -SimpleMatch 'stunt ghost overlap failed' -Quiet)
+                        }
+                        if ($StuntGhostAsset) {
+                            $passed = $passed -and (Select-String -LiteralPath $probeLog -SimpleMatch 'stunt ghost asset lifecycle: passed' -Quiet)
+                            $mismatch = $mismatch -or (Select-String -LiteralPath $probeLog -SimpleMatch 'stunt ghost asset lifecycle: failed' -Quiet)
                         }
                         if ($StuntGhostProps) {
                             $passed = $passed -and (Select-String -LiteralPath $probeLog -SimpleMatch 'stunt ghost bowling pin unchanged' -Quiet)
@@ -658,13 +778,31 @@ function Invoke-TestProcess {
                     }
                 }
                 if ($Scenario -eq 'SteamPeer' -and -not $steamPassed -and 'steam-peer-racing' -in $markers) {
-                    $proof = $samples | Where-Object {
-                        $_[1] -eq 2 -and $_[2] -eq 8 -and $_[3] -ge 12000 -and $_[4] -eq 31 -and
-                            $_[7] -eq 1 -and ($_[8] + $_[9]) -eq 5
-                    } | Select-Object -Last 1
+                    if ($SteamGhostPeerDir) {
+                        if (-not $ghostEvent -and $log -match 'stunt ghost: rendered independent driver \d+ skin \d+ for event (\d+) \(11 joints\)') {
+                            $ghostEvent = $Matches[1]
+                            Write-ProgressLine 'Host rendered the client driver. Triggering the host launch for the return direction.'
+                            [void]$ejectStunt.Set()
+                        }
+                        if ($ghostEvent -and (Test-Path -LiteralPath $clientSteamLog)) {
+                            $clientLog = Read-TestSteamLog $clientSteamLog
+                            if ($null -eq $bothDriversAt -and
+                                $clientLog -match "stunt ghost: rendered independent driver \d+ skin \d+ for event $ghostEvent \(11 joints\)") {
+                                $bothDriversAt = $watch.Elapsed.TotalSeconds
+                                Write-ProgressLine "Both computers rendered the remote Steam driver for event $ghostEvent. Letting the flights continue."
+                            }
+                            $proof = $null -ne $bothDriversAt -and $watch.Elapsed.TotalSeconds - $bothDriversAt -ge 5
+                        }
+                    } else {
+                        $proof = $samples | Where-Object {
+                            $_[1] -eq 2 -and $_[2] -eq 8 -and $_[3] -ge 12000 -and $_[4] -eq 31 -and
+                                $_[7] -eq 1 -and ($_[8] + $_[9]) -eq 5
+                        } | Select-Object -Last 1
+                    }
                     if ($proof) {
                         $steamPassed = $true
-                        Write-ProgressLine 'Steam Derby simulated with one remote driver and four AI.'
+                        if ($SteamGhostPeerDir) { Write-ProgressLine 'The paired stunt observation window is complete.' }
+                        else { Write-ProgressLine 'Steam Derby simulated with one remote driver and four AI.' }
                         [void]$captureFrame.Set()
                         [void]$leaveRace.Set()
                     }
@@ -674,10 +812,12 @@ function Invoke-TestProcess {
                 [void]$captureFrame.Set()
                 $capturedStall = $true
             }
-            $currentBudget = if ($Scenario -eq 'SteamPeer' -and $lastStep -eq 'steam-peer-lobby') { 900 } else { $stepBudget }
+            $currentBudget = if ($Scenario -eq 'SteamPeer' -and $lastStep -eq 'steam-peer-lobby') { 900 }
+                elseif ($SteamGhostPeerDir -and $lastStep -eq 'steam-peer-racing') { 75 }
+                else { $stepBudget }
             if ($watch.Elapsed.TotalSeconds - $stepTime -ge $currentBudget) {
                 $latest = @(Get-ProbeSamples) | Select-Object -Last 1
-                throw "No progress for $stepBudget s. Last step: $lastStep. Latest sample: $latest"
+                throw "No progress for $currentBudget s. Last step: $lastStep. Latest sample: $latest"
             }
             if ($watch.Elapsed.TotalSeconds -ge $nextStatus) {
                 if ($Scenario -eq 'Skins') {
@@ -696,6 +836,15 @@ function Invoke-TestProcess {
             if ($log -match 'accepted Steam session from') { throw 'A remote Steam participant connected.' }
         }
         if ($instance.ExitCode -ne 0) { throw "FlatOut exited with code $($instance.ExitCode). Last step: $lastStep." }
+        if ($StuntGhostSteam -and -not $log.Contains('stunt ghost: released 3 independent car resources')) {
+            throw 'FlatOut did not release all three independent ghost models after returning from the stunt.'
+        }
+        if ($StuntGhostSteam -and -not $log.Contains('stunt ghost: released 2 independent driver resources')) {
+            throw 'FlatOut did not release both independent ghost drivers after returning from the stunt.'
+        }
+        if ($captureGhostViews -and -not $log.Contains('stunt ghost: native-resolution frame 1 saved')) {
+            throw 'The native-resolution host ghost capture is missing.'
+        }
         if ($ParallelLaunch) {
             if (-not $secondWindow -or -not (Test-Path -LiteralPath $secondLog) -or
                 @(Get-Content -LiteralPath $secondLog | Where-Object { $_ -match '^\d+(?: -?\d+){16}$' }).Count -lt 2) {
@@ -767,7 +916,10 @@ function Invoke-TestProcess {
                 throw 'Steam race or lobby shutdown proof is missing.'
             }
         }
-        if ($Scenario -eq 'SteamPeer') {
+        if ($SteamGhostPeerDir) {
+            $required += @('steam-browser-ready', 'steam-peer-returned', 'steam-disconnected')
+            if (-not $steamPassed) { throw 'Bidirectional Steam driver rendering was not confirmed.' }
+        } elseif ($Scenario -eq 'SteamPeer') {
             $required += @('steam-browser-ready', 'steam-peer-returned', 'steam-disconnected')
             $grid = Get-Content -LiteralPath $probeLog | Where-Object { $_ -like 'derby-grid 31 0.1000 *' } | Select-Object -First 1
             if (-not $steamPassed -or -not $grid) { throw 'Steam Derby progress or 0.1x damage proof is missing.' }
@@ -846,6 +998,7 @@ function Invoke-TestProcess {
         if ($clientLeaveRace) { $clientLeaveRace.Dispose() }
         if ($second) { $second.Dispose() }
         $captureFrame.Dispose()
+        if ($ejectStunt) { $ejectStunt.Dispose() }
         $leaveRace.Dispose()
         if ($instance) { $instance.Dispose() }
     }
@@ -862,10 +1015,24 @@ try {
     if (-not $locked) { throw 'BLOCKED: Another FlatOut test owns the installation.' }
     Assert-GameIdle
     if ($RestoreRun) {
-        Restore-FlatOutTestState $GameDir $work $files $directories
+        if ($RestoreSteamGhostPeer) { Restore-SteamGhostPeer $GameDir }
+        else { Restore-FlatOutTestState $GameDir $work $files $directories }
         $status = 'PASS'
         $message = 'Restored interrupted run and verified hashes.'
     } else {
+        if ($StuntGhostCapture -and -not ($StuntGhostSteam -or $SteamGhostPeerDir)) {
+            throw 'BLOCKED: Ghost capture requires a Steam ghost scenario.'
+        }
+        if ($SteamGhostPeerDir -and $Scenario -ne 'SteamPeer') {
+            throw 'BLOCKED: The multiplayer ghost check requires SteamPeer.'
+        }
+        if ($SteamGhostPeerDir) {
+            $SteamGhostPeerDir = [IO.Path]::GetFullPath($SteamGhostPeerDir).TrimEnd('\')
+            if ($SteamGhostPeerDir -eq $GameDir) { throw 'BLOCKED: The client shares the host installation.' }
+            if (Get-ChildItem -LiteralPath $runRoot -Filter rollback.json -Recurse | Where-Object DirectoryName -like '*\steam-ghost-peer') {
+                throw 'BLOCKED: Restore the previous Steam ghost test on the client first.'
+            }
+        }
         if ($VerifySteamMusic -and $Scenario -ne 'SinglePlayer') {
             throw 'BLOCKED: The Steam music check requires SinglePlayer.'
         }
@@ -886,13 +1053,16 @@ try {
         if ($DerbyImpact -and ($LoopbackDerbyLevel -ne 31 -or $LoopbackDerbyAI -ne 4)) {
             throw 'BLOCKED: The controlled Derby impact requires Gas Station Derby with four AI.'
         }
-        if (($StuntPose -or $StuntGhost -or $StuntGhostProps -or $StuntGhostAsset) -and
+        if (($StuntPose -or $StuntGhostProps -or $StuntGhostAsset) -and
             ($Scenario -ne 'LocalModes' -or $ModeFrom -ne 4 -or $ModeThrough -ne 4 -or $TrackSweep -or $FullCarnage)) {
             throw 'BLOCKED: The stunt pose and ghost tests require LocalModes case 4.'
         }
-        if (@($StuntGhost, $StuntGhostProps, $StuntGhostAsset | Where-Object { $_ }).Count -gt 1 -or
+        if (($StuntGhostProps -and $StuntGhostAsset) -or
             ($StuntGhostProps -and $StuntPose)) {
             throw 'BLOCKED: Select one ghost fixture per run.'
+        }
+        if ($StuntGhostSteam -and ($Scenario -ne 'Modes' -or $ModeFrom -ne 13 -or $ModeThrough -ne 13)) {
+            throw 'BLOCKED: The Steam stunt ghost test requires Modes case 13.'
         }
         if ($DerbyHud -and ($Scenario -ne 'LocalModes' -or $ModeFrom -ne 5 -or $ModeThrough -ne 5 -or $TrackSweep -or $FullCarnage)) {
             throw 'BLOCKED: Derby HUD testing requires LocalModes case 5.'
@@ -952,7 +1122,9 @@ try {
         foreach ($name in $required) {
             if (-not (Test-Path -LiteralPath (Get-TestPath $GameDir $name) -PathType Leaf)) { throw "BLOCKED: Missing $name." }
         }
-        foreach ($name in @('FlatOutGameTest.bfs', 'zz_FlatOutGameTest.asi', 'fullscreen')) {
+        $exclusiveFiles = @('FlatOutGameTest.bfs', 'zz_FlatOutGameTest.asi', 'fullscreen')
+        if ($captureGhostViews) { $exclusiveFiles += $ghostViews }
+        foreach ($name in $exclusiveFiles) {
             if (Test-Path -LiteralPath (Get-TestPath $GameDir $name)) { throw "BLOCKED: Existing $name in the installation." }
         }
         $cloud = Get-CloudRoot (Split-Path $steam.Path -Parent)
@@ -965,9 +1137,26 @@ try {
         if ($desktopName -ne 'Default') { throw "BLOCKED: The input desktop is $desktopName." }
         New-TestBfs
         New-TestProbe
+        if ($StuntGhostSteam -or $SteamGhostPeerDir) {
+            $candidate = Join-Path $work 'ghost-plugin'
+            & (Join-Path $repo 'custom_src/ChloeSteamNet/build.ps1') -OutputDir $candidate -StuntGhostTest:$StuntGhostSteam -StuntGhostCapture:$captureGhostViews
+            New-Item -ItemType File -Path (Join-Path $work 'stunt-ghost-steam') | Out-Null
+            if ($captureGhostViews) {
+                foreach ($marker in 'stunt-ghost-capture', 'stunt-ghost-capture4') {
+                    New-Item -ItemType File -Path (Join-Path $work $marker) | Out-Null
+                }
+            }
+        }
         Assert-GameIdle
         Save-FlatOutTestState $GameDir $work $files $directories
         $staged = $true
+        if ($SteamGhostPeerDir) {
+            Stage-SteamGhostPeer $SteamGhostPeerDir (Join-Path $candidate 'ChloeSteamNet.asi')
+            $peerStaged = $true
+        }
+        if ($StuntGhostSteam -or $SteamGhostPeerDir) {
+            Copy-Item -LiteralPath (Join-Path $candidate 'ChloeSteamNet.asi') -Destination (Get-TestPath $GameDir 'ChloeSteamNet.asi') -Force
+        }
         foreach ($profileFile in $stagedProfileFiles) {
             Copy-Item -LiteralPath $profileFile.Source -Destination $profileFile.Target
         }
@@ -1039,7 +1228,9 @@ try {
     if ($staged) {
         try {
             Assert-GameIdle
-            foreach ($name in @('ChloeSteamNet.log', 'Fouc_d3d9.log', 'FlatOutGameTest.attach')) {
+            $proofFiles = @('ChloeSteamNet.log', 'Fouc_d3d9.log', 'FlatOutGameTest.attach')
+            if ($captureGhostViews) { $proofFiles += $ghostViews }
+            foreach ($name in $proofFiles) {
                 $path = Join-Path $GameDir $name
                 if (Test-Path -LiteralPath $path) { Copy-Item -LiteralPath $path -Destination (Join-Path $work $name) }
             }
@@ -1058,9 +1249,14 @@ try {
             $message += " Cloud check: $($_.Exception.Message)"
         }
     }
+    if ($peerStaged) {
+        try { Restore-SteamGhostPeer $SteamGhostPeerDir }
+        catch { Write-ProgressLine "Client restoration pending until its files are available. Run $run. $($_.Exception.Message)" }
+    }
     if (Test-Path -LiteralPath $work -PathType Container) {
+        $resultFile = if ($RestoreSteamGhostPeer) { 'client-restore-result.json' } else { 'result.json' }
         @{ result = $status; run = $run; scenario = $Scenario; message = $message } |
-            ConvertTo-Json | Set-Content -LiteralPath (Join-Path $work 'result.json') -Encoding utf8
+            ConvertTo-Json | Set-Content -LiteralPath (Join-Path $work $resultFile) -Encoding utf8
         Write-ProgressLine "$status $message"
     } else {
         Write-Host "$status $message"
