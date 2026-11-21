@@ -1,110 +1,29 @@
 #pragma once
 
 #include <d3d9.h>
-#include <wincodec.h>
 #include <wrl/client.h>
 #include <condition_variable>
 #include <mutex>
 #include <optional>
 #include <thread>
 #include <utility>
+#include "StuntStream.h"
 
 namespace stunt_video {
 using Microsoft::WRL::ComPtr;
-constexpr UINT Width = 512, Height = 288;
-constexpr size_t MaxJpeg = 24 * 1024;
-
-enum Kind : uint8_t { Available = 1, Subscribe, Unsubscribe, Picture, PictureSeen };
-#pragma pack(push, 1)
-struct Message {
-	uint64_t event;
-	uint64_t subscription;
-	uint32_t sequence;
-	uint8_t kind;
-};
-#pragma pack(pop)
-static_assert(sizeof(Message) == 21);
-
-inline bool Parse(const void* data, size_t bytes, Message& message) {
-	if (bytes < sizeof(message) || bytes > sizeof(message) + MaxJpeg) return false;
-	memcpy(&message, data, sizeof(message));
-	if (!message.event) return false;
-	switch (message.kind) {
-	case Available: return bytes == sizeof(message) && !message.subscription && message.sequence <= 1;
-	case Subscribe: case Unsubscribe: return bytes == sizeof(message) && message.subscription && !message.sequence;
-	case Picture: return bytes > sizeof(message) && message.subscription && message.sequence;
-	case PictureSeen: return bytes == sizeof(message) && message.subscription && message.sequence;
-	default: return false;
-	}
-}
-
-inline bool AcceptPicture(const Message& message, uint64_t event, uint64_t subscription, uint32_t previous) {
-	return message.kind == Picture && message.event == event && message.subscription == subscription &&
-		message.sequence > previous;
-}
-
 struct Frame {
 	uint64_t event = 0, subscription = 0;
 	uint32_t sequence = 0;
 	UINT width = 0, height = 0;
 	std::vector<uint8_t> bytes;
+	uint32_t stamp = 0;
+	uint8_t quality = 0;
+	bool key = false;
 };
 
-inline bool Encode(IWICImagingFactory* factory, Frame& frame) {
-	for (float quality : {0.70f, 0.44f, 0.24f}) {
-		ComPtr<IStream> stream;
-		ComPtr<IWICBitmapEncoder> encoder;
-		ComPtr<IWICBitmapFrameEncode> image;
-		ComPtr<IPropertyBag2> options;
-		if (FAILED(CreateStreamOnHGlobal(nullptr, TRUE, &stream)) ||
-			FAILED(factory->CreateEncoder(GUID_ContainerFormatJpeg, nullptr, &encoder)) ||
-			FAILED(encoder->Initialize(stream.Get(), WICBitmapEncoderNoCache)) ||
-			FAILED(encoder->CreateNewFrame(&image, &options))) return false;
-		PROPBAG2 property{};
-		property.pstrName = const_cast<wchar_t*>(L"ImageQuality");
-		VARIANT value{};
-		value.vt = VT_R4;
-		value.fltVal = quality;
-		if (FAILED(options->Write(1, &property, &value)) || FAILED(image->Initialize(options.Get())) ||
-			FAILED(image->SetSize(frame.width, frame.height))) return false;
-		WICPixelFormatGUID format = GUID_WICPixelFormat24bppBGR;
-		if (FAILED(image->SetPixelFormat(&format)) || format != GUID_WICPixelFormat24bppBGR ||
-			FAILED(image->WritePixels(frame.height, frame.width * 3, static_cast<UINT>(frame.bytes.size()), frame.bytes.data())) ||
-			FAILED(image->Commit()) || FAILED(encoder->Commit())) return false;
-		STATSTG stat{};
-		if (FAILED(stream->Stat(&stat, STATFLAG_NONAME))) return false;
-		if (stat.cbSize.QuadPart > MaxJpeg) continue;
-		std::vector<uint8_t> jpeg(static_cast<size_t>(stat.cbSize.QuadPart));
-		LARGE_INTEGER start{};
-		ULONG read = 0;
-		if (FAILED(stream->Seek(start, STREAM_SEEK_SET, nullptr)) ||
-			FAILED(stream->Read(jpeg.data(), static_cast<ULONG>(jpeg.size()), &read)) || read != jpeg.size()) return false;
-		frame.bytes = std::move(jpeg);
-		return true;
-	}
-	return false;
 }
-
-inline bool Decode(IWICImagingFactory* factory, Frame& frame) {
-	if (frame.bytes.empty() || frame.bytes.size() > MaxJpeg) return false;
-	ComPtr<IWICStream> stream;
-	ComPtr<IWICBitmapDecoder> decoder;
-	ComPtr<IWICBitmapFrameDecode> image;
-	ComPtr<IWICFormatConverter> converter;
-	if (FAILED(factory->CreateStream(&stream)) ||
-		FAILED(stream->InitializeFromMemory(frame.bytes.data(), static_cast<DWORD>(frame.bytes.size()))) ||
-		FAILED(CoCreateInstance(CLSID_WICJpegDecoder, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&decoder))) ||
-		FAILED(decoder->Initialize(stream.Get(), WICDecodeMetadataCacheOnDemand)) ||
-		FAILED(decoder->GetFrame(0, &image)) || FAILED(image->GetSize(&frame.width, &frame.height)) ||
-		!frame.width || !frame.height || frame.width > Width || frame.height > Height ||
-		FAILED(factory->CreateFormatConverter(&converter)) ||
-		FAILED(converter->Initialize(image.Get(), GUID_WICPixelFormat32bppBGRA, WICBitmapDitherTypeNone,
-			nullptr, 0, WICBitmapPaletteTypeCustom))) return false;
-	std::vector<uint8_t> pixels(frame.width * frame.height * 4);
-	if (FAILED(converter->CopyPixels(nullptr, frame.width * 4, static_cast<UINT>(pixels.size()), pixels.data()))) return false;
-	frame.bytes = std::move(pixels);
-	return true;
-}
+#include "StuntH264.h"
+namespace stunt_video {
 
 class Codec {
 public:
@@ -129,29 +48,47 @@ public:
 		return std::exchange(output_[decode], std::nullopt);
 	}
 
+	void Clear() {
+		std::lock_guard<std::mutex> lock(mutex_);
+		++generation_;
+		for (auto& frame : input_) frame.reset();
+		for (auto& frame : output_) frame.reset();
+		ready_.notify_one();
+	}
+
 private:
 	void Run() {
 		if (FAILED(CoInitializeEx(nullptr, COINIT_MULTITHREADED))) return;
-		{
-			ComPtr<IWICImagingFactory> factory;
-			if (SUCCEEDED(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&factory)))) {
-				bool decode = false;
-				for (;;) {
-					std::unique_lock<std::mutex> lock(mutex_);
-					ready_.wait(lock, [&] { return stop_ || input_[0] || input_[1]; });
-					if (stop_) break;
-					if (!input_[decode]) decode = !decode;
-					Frame frame = std::move(*input_[decode]);
-					input_[decode].reset();
+		const bool mediaFoundation = SUCCEEDED(MFStartup(MF_VERSION, MFSTARTUP_LITE));
+		if (mediaFoundation) {
+			std::optional<H264> encoder, decoder;
+			uint64_t generation = 0;
+			bool decode = false;
+			for (;;) {
+				std::unique_lock<std::mutex> lock(mutex_);
+				ready_.wait(lock, [&] { return stop_ || generation != generation_ || input_[0] || input_[1]; });
+				if (stop_) break;
+				if (generation != generation_) {
+					generation = generation_;
 					lock.unlock();
-					if (decode ? Decode(factory.Get(), frame) : Encode(factory.Get(), frame)) {
-						lock.lock();
-						output_[decode] = std::move(frame);
-					}
-					decode = !decode;
+					encoder.reset();
+					decoder.reset();
+					continue;
 				}
+				if (!input_[decode]) decode = !decode;
+				Frame frame = std::move(*input_[decode]);
+				input_[decode].reset();
+				lock.unlock();
+				auto& transform = decode ? decoder : encoder;
+				if (!transform) transform.emplace(!decode);
+				if (transform->Transform(frame)) {
+					lock.lock();
+					if (generation == generation_) output_[decode] = std::move(frame);
+				}
+				decode = !decode;
 			}
 		}
+		if (mediaFoundation) MFShutdown();
 		CoUninitialize();
 	}
 
@@ -159,18 +96,9 @@ private:
 	std::condition_variable ready_;
 	std::optional<Frame> input_[2], output_[2];
 	bool stop_ = false;
+	uint64_t generation_ = 0;
 	std::thread worker_;
 };
-
-inline void Fit(UINT w, UINT h, UINT& resultWidth, UINT& resultHeight) {
-	if (w * Height > h * Width) {
-		resultWidth = Width;
-		resultHeight = (std::max)(1u, h * Width / w);
-	} else {
-		resultWidth = (std::max)(1u, w * Height / h);
-		resultHeight = Height;
-	}
-}
 
 inline bool Capture(IDirect3DDevice9* device, Frame& frame) {
 	ComPtr<IDirect3DSurface9> back, scaled, cpu;
@@ -179,7 +107,17 @@ inline bool Capture(IDirect3DDevice9* device, Frame& frame) {
 	if (!device || FAILED(device->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &back)) ||
 		FAILED(back->GetDesc(&desc)) || !desc.Width || !desc.Height ||
 		(desc.Format != D3DFMT_X8R8G8B8 && desc.Format != D3DFMT_A8R8G8B8)) return false;
-	Fit(desc.Width, desc.Height, frame.width, frame.height);
+	const auto& q = stunt_stream::Levels[frame.quality];
+	if (desc.Width * q.height > desc.Height * q.width) {
+		frame.width = q.width;
+		frame.height = desc.Height * q.width / desc.Width;
+	} else {
+		frame.width = desc.Width * q.height / desc.Height;
+		frame.height = q.height;
+	}
+	frame.width &= ~1u;
+	frame.height &= ~1u;
+	if (!frame.width || !frame.height) return false;
 	if (FAILED(device->CreateRenderTarget(frame.width, frame.height, desc.Format, D3DMULTISAMPLE_NONE, 0, FALSE, &scaled, nullptr)) ||
 		FAILED(device->StretchRect(back.Get(), nullptr, scaled.Get(), nullptr, D3DTEXF_LINEAR)) ||
 		FAILED(device->CreateOffscreenPlainSurface(frame.width, frame.height, desc.Format, D3DPOOL_SYSTEMMEM, &cpu, nullptr)) ||

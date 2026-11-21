@@ -10,6 +10,7 @@
 #include <share.h>
 #include "StuntPosePreview.h"
 #include "../../ChloeSteamNet/StuntVideo.h"
+#include "../../ChloeSteamNet/StuntAudio.h"
 
 // Only staged by Invoke-FlatOutGameTest.ps1 after checking the executable hash.
 // Offsets and layouts are from nya-common-fouc's DeviceD3d, GameFlow,
@@ -421,12 +422,13 @@ static bool ResetStuntVideoDevice(const stunt_video::Frame& frame) {
         if (d3d && SUCCEEDED(d3d->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, window,
             D3DCREATE_SOFTWARE_VERTEXPROCESSING | D3DCREATE_FPU_PRESERVE, &params, &device))) {
             Frame before, after;
+            before.quality = after.quality = frame.quality;
             if (Draw(device.Get(), frame) && Capture(device.Get(), before)) {
                 params.BackBufferWidth = 800;
                 params.BackBufferHeight = 600;
                 passed = SUCCEEDED(device->Reset(&params)) && Draw(device.Get(), frame) &&
-                    Capture(device.Get(), after) && before.width == 512 && before.height == 288 &&
-                    after.width == 384 && after.height == 288;
+                    Capture(device.Get(), after) && before.width == 1280 && before.height == 720 &&
+                    after.width == 960 && after.height == 720;
             }
         }
     }
@@ -434,32 +436,135 @@ static bool ResetStuntVideoDevice(const stunt_video::Frame& frame) {
     return passed;
 }
 
+static bool VerifyStuntTransport() {
+    using namespace stunt_stream;
+    constexpr uint64_t driver = 1;
+    Chain chain{1, {}};
+    if (chain.Next(driver, driver)) return false;
+    for (uint64_t count = 1; count <= 3; ++count) {
+        chain.viewers.push_back(count + 1);
+        unsigned sourceCopies = 0, delivered = 0;
+        for (auto next = chain.Next(driver, driver); next; next = chain.Next(driver, next)) {
+            sourceCopies += chain.Previous(driver, next) == driver;
+            ++delivered;
+        }
+        if (sourceCopies != 1 || delivered != count) return false;
+    }
+    chain = {2, {3, 4}};
+    if (chain.Next(driver, driver) != 3 || chain.Previous(driver, 3) != driver ||
+        chain.Next(driver, 3) != 4 || chain.Previous(driver, 2)) return false;
+    const auto adapt = [](unsigned upload, unsigned download, unsigned expected) {
+        Adaptation controller;
+        // Account for the video fragments and 50 audio packets each second.
+        for (uint64_t time = 500; time <= 17000; time += 500) {
+            const auto& quality = Levels[controller.level];
+            const unsigned wireKbps = quality.videoKbps * 106 / 100 + quality.audioKbps + 22;
+            controller.Observe(wireKbps > (std::min)(upload, download), time);
+        }
+        if (controller.level != expected) return false;
+        for (uint64_t time = 17500; time <= 65000; time += 500) controller.Observe(false, time);
+        return controller.level == 4;
+    };
+    if (!adapt(1000, 3100, 2) || !adapt(3100, 1000, 2) ||
+        !adapt(256, 3100, 0) || !adapt(3100, 256, 0)) return false;
+    Packet picture{1, driver, 2};
+    picture.type = stunt_stream::Picture;
+    picture.sequence = 1;
+    picture.width = 960;
+    picture.height = 540;
+    picture.quality = 2;
+    picture.size = FragmentBytes + 1;
+    std::array<uint8_t, FragmentBytes> bytes{};
+    Assembly assembly;
+    if (!Valid(picture, bytes.size()) || assembly.Add(picture, bytes.data(), bytes.size(), 100)) return false;
+    picture.fragment = 1;
+    if (assembly.Add(picture, bytes.data(), 1, 351)) return false; // expired first fragment
+    picture.sequence = 2;
+    if (assembly.Add(picture, bytes.data(), 1, 352) || assembly.Add(picture, bytes.data(), 1, 353)) return false;
+    picture.fragment = 0;
+    return assembly.Add(picture, bytes.data(), bytes.size(), 354) && assembly.packet.sequence == 2;
+}
+
+#ifdef STUNT_STREAM_OPUS
+static bool VerifyOpusRoundTrip() {
+    using namespace stunt_audio;
+    Encoder encoder;
+    for (const unsigned channels : {2u, 1u}) {
+        std::array<float, Samples * 2> input;
+        for (unsigned i = 0; i < Samples; ++i)
+            input[i * 2] = input[i * 2 + 1] = std::sin(static_cast<float>(i) * 0.08f) * 0.25f;
+        const auto packet = encoder.Encode(input, channels);
+        int error = 0;
+        auto* decoder = opus_decoder_create(Rate, channels, &error);
+        if (error || !decoder) return false;
+        std::array<float, Samples * 2> output{};
+        const int decoded = opus_decode_float(decoder, packet.data(), static_cast<opus_int32>(packet.size()),
+            output.data(), Samples, 0);
+        opus_decoder_destroy(decoder);
+        float peak = 0;
+        for (float value : output) peak = (std::max)(peak, std::abs(value));
+        if (decoded != static_cast<int>(Samples) || peak < 0.1f || packet.size() != (channels == 2 ? 160u : 80u)) return false;
+    }
+    return true;
+}
+#endif
+
 static void VerifyStuntVideo(void* renderer, uint32_t elapsed, uint32_t airborne, uintptr_t host) {
     using namespace stunt_video;
     static unsigned streams = 0, shown = 0;
     static bool finished = false;
     static uint64_t waitingSince = 0, lastCapture = 0, copyMicros = 0;
     static uint32_t received = 0, sent = 0, milestone = 0, copies = 0;
+    static stunt_stream::Assembly assembly;
     if (!verifyStuntVideo || finished) return;
+#ifdef STUNT_STREAM_OPUS
+    static auto* effects = new stunt_audio::Capture;
+    static bool audioStarted = false, audioAttempted = false;
+    static unsigned audioBlocks = 0;
+    static float effectsPeak = 0;
+    if (!audioAttempted && elapsed >= 300) {
+        audioAttempted = true;
+        audioStarted = effects->Start(*reinterpret_cast<void**>(0x7640FC), stunt_audio::EffectGroups());
+    }
+    if (audioStarted) {
+        std::array<float, stunt_audio::Samples * 2> pcm;
+        uint32_t stamp = 0;
+        if (effects->ReadBlock(pcm, stamp, GetTickCount64())) {
+            ++audioBlocks;
+            for (float value : pcm) effectsPeak = (std::max)(effectsPeak, std::abs(value));
+        }
+    }
+#endif
     static Codec* codec = new Codec();
     auto device = *reinterpret_cast<IDirect3DDevice9**>(static_cast<char*>(renderer) + 0x60);
     const uint64_t now = GetTickCount64();
     const unsigned target = shown % 2 + 1;
     const uint64_t event = shown < 2 ? 40 : 41;
     auto report = [&](bool success) {
+#ifdef STUNT_STREAM_OPUS
+        if (audioStarted) effects->Stop();
+        const bool audioCodec = VerifyOpusRoundTrip();
+        success = success && audioCodec && audioStarted && audioBlocks;
+#endif
         if (FILE* log = _wfsopen(logPath, L"a", _SH_DENYNO)) {
             fprintf(log, "stunt video loopback %s (%u snapshots, %u frames displayed, %u captured, mean copy %llu us)\n",
                 success ? "complete" : "failed", shown, streams, copies, copies ? copyMicros / copies : 0);
+#ifdef STUNT_STREAM_OPUS
+            fprintf(log, "stunt audio: Opus %s, FMOD tap %s, %u blocks, peak %.6f\n",
+                audioCodec ? "passed" : "failed", audioStarted ? "attached" : "unavailable", audioBlocks, effectsPeak);
+#endif
             fclose(log);
         }
         finished = true;
     };
     if (milestone && now - waitingSince > 900) { report(false); return; }
-    if (elapsed >= 120 && now - lastCapture >= 67) {
+    if (elapsed >= 120 && now - lastCapture >= 42) {
         const bool phase = shown == 0 ? elapsed >= 350 : shown == 1 ? airborne >= 180 :
             shown == 2 ? airborne >= 960 : airborne >= 3280;
         lastCapture = now;
-        Frame captured{event, target, ++sent * 2, 0, 0, {}};
+        Frame captured{event, target, ++sent, 0, 0, {}};
+        captured.quality = 4;
+        captured.key = !received || elapsed / 1000 != (elapsed - 42) / 1000;
         LARGE_INTEGER before{}, after{}, frequency{};
         QueryPerformanceFrequency(&frequency);
         QueryPerformanceCounter(&before);
@@ -478,24 +583,25 @@ static void VerifyStuntVideo(void* renderer, uint32_t elapsed, uint32_t airborne
         codec->Submit(false, std::move(captured));
     }
     if (auto encoded = codec->Take(false)) {
-        // Pack the same envelope as Steam, then feed it through a lossy local link.
-        Message message{encoded->event, encoded->subscription, encoded->sequence, Picture};
-        std::vector<uint8_t> packet(sizeof(message) + encoded->bytes.size());
-        memcpy(packet.data(), &message, sizeof(message));
-        memcpy(packet.data() + sizeof(message), encoded->bytes.data(), encoded->bytes.size());
-        if (!Parse(packet.data(), packet.size(), message)) { report(false); return; }
-        if (message.event == event && message.subscription == target && (
-            AcceptPicture(message, event + 1, target, received) ||
-            AcceptPicture(message, event, target + 1, received) ||
-            AcceptPicture(message, event, target, message.sequence) ||
-            Parse(packet.data(), sizeof(Message) - 1, message) ||
-            !AcceptPicture(message, event, target, received))) {
-            report(false);
-            return;
-        }
-        if (AcceptPicture(message, event, target, received)) {
-            received = message.sequence;
-            codec->Submit(true, std::move(*encoded));
+        using namespace stunt_stream;
+        if (encoded->event != event || encoded->subscription != target || encoded->sequence <= received) return;
+        stunt_stream::Packet packet{encoded->event, 1, encoded->subscription};
+        packet.type = stunt_stream::Picture;
+        packet.sequence = encoded->sequence;
+        packet.size = static_cast<uint32_t>(encoded->bytes.size());
+        packet.width = static_cast<uint16_t>(encoded->width);
+        packet.height = static_cast<uint16_t>(encoded->height);
+        packet.quality = encoded->quality;
+        packet.key = encoded->key;
+        for (size_t offset = 0; offset < packet.size; offset += FragmentBytes, ++packet.fragment) {
+            const auto length = (std::min)(FragmentBytes, packet.size - offset);
+            const auto* payload = encoded->bytes.data() + offset;
+            if (!Valid(packet, length)) { report(false); return; }
+            if (assembly.Add(packet, payload, length, now)) {
+                received = packet.sequence;
+                encoded->bytes = std::move(assembly.data);
+                codec->Submit(true, std::move(*encoded));
+            }
         }
     }
     if (auto decoded = codec->Take(true)) {
@@ -515,14 +621,17 @@ static void VerifyStuntVideo(void* renderer, uint32_t elapsed, uint32_t airborne
             return;
         }
         if (snapshot) {
+            if (decoded->width != 1280 || decoded->height != 720) { report(false); return; }
             milestone = 0;
             if (++shown == 4) {
                 const bool reset = ResetStuntVideoDevice(*decoded);
+                const bool transport = VerifyStuntTransport();
                 if (FILE* log = _wfsopen(logPath, L"a", _SH_DENYNO)) {
                     fprintf(log, "stunt video device reset %s\n", reset ? "passed" : "failed");
+                    fprintf(log, "stunt video routing and capped link fixtures %s\n", transport ? "passed" : "failed");
                     fclose(log);
                 }
-                report(streams >= 20 && reset);
+                report(streams >= 20 && reset && transport);
                 return;
             }
             return;

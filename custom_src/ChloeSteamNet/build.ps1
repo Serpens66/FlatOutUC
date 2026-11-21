@@ -4,7 +4,9 @@
 param(
     [string]$OutputDir = (Join-Path (Split-Path -Parent $PSScriptRoot) 'plugins_steam'),
     [switch]$StuntVideoPreview,
-    [string]$BfsToolDll
+    [string]$BfsToolDll,
+    [string]$OpusSourceDir,
+    [string]$OpusLibrary
 )
 
 $ErrorActionPreference = 'Stop'
@@ -23,10 +25,20 @@ if ($StuntVideoPreview) {
 }
 New-Item -ItemType Directory -Force $outDir | Out-Null
 $out = Join-Path $outDir 'ChloeSteamNet.asi'
-cmd /c "`"$vcvars`" >nul && cl /nologo /O2 /MT /LD /W4 /EHsc /GS- /std:c++17 `"$src`" /Fo`"$obj\\`" /Fe`"$out`" /link /DLL /NOLOGO ws2_32.lib user32.lib kernel32.lib gdi32.lib ole32.lib windowscodecs.lib xinput.lib /IMPLIB:`"$obj\ChloeSteamNet.lib`""
+if ([bool]$OpusSourceDir -ne [bool]$OpusLibrary) { throw 'Supply both OpusSourceDir and the x86 static OpusLibrary.' }
+$audioCompile = ''
+$audioLink = ''
+if ($OpusSourceDir) {
+    $OpusSourceDir = (Resolve-Path -LiteralPath $OpusSourceDir).Path
+    $opusInclude = Join-Path $OpusSourceDir 'include'
+    $audioCompile = "/DSTUNT_STREAM_OPUS /I`"$opusInclude`""
+    $audioLink = "`"$((Resolve-Path -LiteralPath $OpusLibrary).Path)`" winmm.lib"
+}
+cmd /c "`"$vcvars`" >nul && cl /nologo /O2 /MT /LD /W4 /EHsc /GS- /std:c++17 $audioCompile `"$src`" /Fo`"$obj\\`" /Fe`"$out`" /link /DLL /NOLOGO ws2_32.lib user32.lib kernel32.lib gdi32.lib ole32.lib xinput.lib mfplat.lib mfuuid.lib wmcodecdspuuid.lib strmiids.lib $audioLink /IMPLIB:`"$obj\ChloeSteamNet.lib`""
 if ($LASTEXITCODE -ne 0) { throw "Build failed ($LASTEXITCODE)" }
 Remove-Item (Join-Path $outDir 'ChloeSteamNet.exp') -ErrorAction SilentlyContinue
 Write-Host "Built $out"
+if ($OpusSourceDir) { Copy-Item -LiteralPath (Join-Path $OpusSourceDir 'COPYING') -Destination (Join-Path $outDir 'Opus-LICENSE.txt') -Force }
 if ($StuntVideoPreview) {
     $overlay = Join-Path $obj 'stunt-video/data/scripts'
     New-Item -ItemType Directory -Force $overlay, (Join-Path $outDir 'Config') | Out-Null

@@ -137,6 +137,18 @@ Ein Szenariostart prüft die ersten Sekunden und den Menü-Rückweg. Vollständi
 
 ### Stunt-Livebild
 
+Am 21.11.2026 bestand Lauf `381e38ac00bb` mit der adaptiven H.264- und Opus-Vorschau. Im inaktiven Desktop wurden 94 echte High-Jump-Bilder in 1280 × 720 erfasst, in Fragmente zerlegt, dekodiert und im Spiel angezeigt. Die vier Aufnahmen zeigen Anfahrt, Abschuss, Flug und Landung. Die D3D9-Bildkopie dauerte in diesem Lauf im Mittel 6,34 ms. Darstellung und erneute Bildkopie gelangen nach einem Reset des Testgeräts. Beim Zeichnen blieben der eigene Timer und die Stunt-Wertungsfelder unverändert. Der lokale Stunt kehrte regulär ins Menü zurück.
+
+Die Transportprüfung simuliert getrennt Upload- und Downloadlimits von 1 Mbit/s und 256 kbit/s, fehlende oder doppelte Fragmente sowie bis zu drei Zuschauer. Sie prüft eine einzige ausgehende Strecke vom Fahrer, die Weitergabe beim Zuschauer und die neue Route nach Ausfall des ersten Empfängers. Alle fünf H.264-Stufen bestanden zusätzlich die lokale Kodierung und Wiederaufnahme ab einem Schlüsselbild. Opus bestand den Mono- und Stereo-Rundlauf mit Testsignalen. Die FMOD-Effektabgriffe lieferten im stummgeschalteten Spiel 210 PCM-Blöcke. Der reale Steam-Transport, der Tonabgleich mit Bild und lokaler Musik sowie die Verteilung an mehrere echte Zuschauer stehen für diesen Build noch aus.
+
+Der Steam-Host-Lauf `6ae3abbd319e` erreichte die High-Jump-Ergebnisliste und startete Versuch 2. Ohne Zuschauer startete weder die Bildschirm- noch die FMOD-Aufnahme. Der Runner schloss die Lobby regulär und verifizierte die Wiederherstellung per Dateihash.
+
+Der Wiederholungslauf `71d203bcc9fc` bestand nach Verkürzung der Wartezeit für das Hochschalten. Er zeigte 93 Bilder in 1280 × 720 und bestätigte die Wiederherstellung erneut.
+
+Der Opus-Build lässt sich mit `-StuntOpusSource <Opus-Quellordner> -StuntOpusLibrary <x86-opus.lib>` zusätzlich zu `-StuntVideo` testen. Der Runner legt Audio- und Bildnachweise im `probe.log` ab.
+
+#### Frühere JPEG-Vorschau
+
 `-Scenario LocalModes -ModeFrom 4 -ModeThrough 4 -StuntVideo` überträgt High-Jump-Aufnahmen im Testprozess über das Bildpaketformat des Steam-Plugins. Der Test nutzt denselben D3D9-Bildzugriff, JPEG-Worker und Zuschauer-Renderer wie die Vorschau. Er verwirft Bildpakete mit einer alten Eventkennung, einem anderen Ziel, doppelter Bildnummer oder einem unvollständigen Header. Beim Zeichnen werden der lokale Timer und die Stunt-Wertungsfelder verglichen. Lauf `9092ee371422` zeigte 57 Bilder mit Aufnahmen von Anfahrt, Abschuss, Flug und Landung. Die Bildkopie dauerte im Mittel 1,56 ms. In diesem High-Jump-Abschnitt erreichten der Referenzlauf `1a76ba5397e7` und der Videolauf jeweils rund 100 Spielbilder pro Sekunde. Bildkopie und Darstellung bestanden auch nach dem Reset eines separaten D3D9-Testgeräts.
 
 `-Scenario Modes -ModeFrom 13 -ModeThrough 13 -StuntVideoPreviewPackage <Paketordner>` lädt die Vorschau vorübergehend in der bestehenden Steam-Installation. Der Host vergibt die Eventkennung beim regulären High-Jump-Start. Lauf `47b463de2dfa` bestätigte die Kennung, die echte Ergebnisliste nach Versuch 1 und den Start von Versuch 2 über den Controllerpfad. Die Testdateien wurden anschließend per Hash zurückgesetzt.

@@ -54,6 +54,10 @@ param(
     [Parameter(ParameterSetName = 'Run')]
     [string]$StuntVideoPreviewPackage,
     [Parameter(ParameterSetName = 'Run')]
+    [string]$StuntOpusSource,
+    [Parameter(ParameterSetName = 'Run')]
+    [string]$StuntOpusLibrary,
+    [Parameter(ParameterSetName = 'Run')]
     [ValidatePattern('^[0-9a-f]{12}$')][string]$ReuseSteamPeerArchive,
     [Parameter(Mandatory, ParameterSetName = 'Restore')]
     [ValidatePattern('^[0-9a-f]{12}$')][string]$RestoreRun,
@@ -347,12 +351,18 @@ function New-TestProbe {
     $env:FOUC_TEST_VCVARS = Join-Path $vs 'VC\Auxiliary\Build\vcvars32.bat'
     $env:FOUC_TEST_PROBE_SOURCE = Join-Path $support 'Probe.cpp'
     $env:FOUC_TEST_BUILD = $work
+    $env:FOUC_TEST_OPUS_INCLUDE = if ($StuntOpusSource) { (Resolve-Path -LiteralPath (Join-Path $StuntOpusSource 'include')).Path } else { $null }
+    $env:FOUC_TEST_OPUS_LIBRARY = if ($StuntOpusLibrary) { (Resolve-Path -LiteralPath $StuntOpusLibrary).Path } else { $null }
     $batch = Join-Path $work 'build-probe.cmd'
     @'
 @echo off
 call "%FOUC_TEST_VCVARS%" >nul
 if errorlevel 1 exit /b 1
-cl /nologo /O2 /MT /LD /W4 /EHsc /std:c++17 "%FOUC_TEST_PROBE_SOURCE%" /Fo"%FOUC_TEST_BUILD%\Probe.obj" /Fe"%FOUC_TEST_BUILD%\zz_FlatOutGameTest.asi" /link user32.lib gdi32.lib ole32.lib windowscodecs.lib /IMPLIB:"%FOUC_TEST_BUILD%\Probe.lib"
+set OPUS_COMPILE=
+set OPUS_LINK=
+if defined FOUC_TEST_OPUS_INCLUDE set OPUS_COMPILE=/DSTUNT_STREAM_OPUS /I"%FOUC_TEST_OPUS_INCLUDE%"
+if defined FOUC_TEST_OPUS_LIBRARY set OPUS_LINK="%FOUC_TEST_OPUS_LIBRARY%" winmm.lib
+cl /nologo /O2 /MT /LD /W4 /EHsc /std:c++17 %OPUS_COMPILE% "%FOUC_TEST_PROBE_SOURCE%" /Fo"%FOUC_TEST_BUILD%\Probe.obj" /Fe"%FOUC_TEST_BUILD%\zz_FlatOutGameTest.asi" /link user32.lib gdi32.lib ole32.lib mfplat.lib mfuuid.lib wmcodecdspuuid.lib strmiids.lib %OPUS_LINK% /IMPLIB:"%FOUC_TEST_BUILD%\Probe.lib"
 exit /b %errorlevel%
 '@ | Set-Content -LiteralPath $batch -Encoding ascii
     & $env:ComSpec /d /c ('"{0}"' -f $batch)
@@ -866,6 +876,9 @@ function Invoke-TestProcess {
                     throw 'Steam lobby shutdown proof is missing.'
                 }
             }
+            if ($stuntVideoHostCheck -and $log -match 'stunt video: (source started|effect capture attached)') {
+                throw 'The host started capturing media without a spectator.'
+            }
             $range = [regex]::Match($log, "flatout-test:${run}:mode range (\d+) (\d+)")
             $returns = @([regex]::Matches($log, "flatout-test:${run}:mode return (\d+)") | ForEach-Object { [int]$_.Groups[1].Value })
             if (-not $range.Success) { throw 'The multiplayer modes plan is missing.' }
@@ -972,6 +985,9 @@ try {
         }
         if ($StuntPose -and ($Scenario -ne 'LocalModes' -or $ModeFrom -ne 4 -or $ModeThrough -ne 4 -or $TrackSweep -or $FullCarnage)) {
             throw 'BLOCKED: Stunt pose recording requires LocalModes case 4.'
+        }
+        if (($StuntOpusSource -or $StuntOpusLibrary) -and (-not $StuntVideo -or -not $StuntOpusSource -or -not $StuntOpusLibrary)) {
+            throw 'BLOCKED: The Opus fixture requires StuntVideo, StuntOpusSource and StuntOpusLibrary.'
         }
         if ($DerbyHud -and ($Scenario -ne 'LocalModes' -or $ModeFrom -ne 5 -or $ModeThrough -ne 5 -or $TrackSweep -or $FullCarnage)) {
             throw 'BLOCKED: Derby HUD testing requires LocalModes case 5.'

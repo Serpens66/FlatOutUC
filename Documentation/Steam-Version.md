@@ -95,9 +95,21 @@ Er läuft über Steam statt über direktes UDP, deshalb ist keine Portfreigabe n
 
 ### Stunt-Livebild in der Testvorschau
 
-Die Vorschau zeigt aus der Ergebnisliste zwischen eigenen Versuchen das stumme Spielbild des ausgewählten Mitspielers. `V` oder `X` am Controller öffnen die Ansicht. Links und rechts wechseln das Ziel. `V`, Rücktaste oder `LB` kehren zur Ergebnisliste zurück. Die Ansicht verwendet die Mitspieler-Kamera samt Spiel-HUD.
+Die Vorschau zeigt zwischen eigenen Versuchen das Spielbild des ausgewählten Mitspielers mit dessen Kamera und HUD. `V` oder `X` am Controller öffnen die Ansicht. Links und rechts wechseln das Ziel. `V`, Rücktaste oder `LB` kehren zur Ergebnisliste zurück.
 
-Die Vorschau wird separat mit `pwsh -File custom_src/ChloeSteamNet/build.ps1 -StuntVideoPreview -OutputDir .work/t/stunt-video-preview` gebaut. Mit `-BfsToolDll` lässt sich eine bereits gebaute BfsTool-DLL wiederverwenden. Der Host-Runner lädt das Paket temporär. Auf dem Laptop installiert `custom_src/tools/Set-FlatOutStuntVideoPreview.ps1 -Package <Paketordner>` die drei Vorschau-Dateien und sichert die bisherige Konfiguration. `-Restore` stellt sie hashgeprüft wieder her. Die Vorschau hat eine eigene Steam-Lobby-Protokollkennung. Der Menüpunkt bleibt bis zur Zwei-PC-Abnahme in der regulären Version deaktiviert. [Tests](Spieltests.md#stunt-livebild)
+Der Stream nutzt Windows Media Foundation für H.264 und steigt bei stabiler Verbindung bis auf 1280 × 720 bei 24 Bildern pro Sekunde. Bei Verlusten oder wachsender Verzögerung sinken Bitrate, Bildrate und Auflösung stufenweise bis auf 240p bei 8 Bildern pro Sekunde. Ohne Zuschauer gibt es keine Bild- oder Tonerfassung. Bei mehreren Zuschauern lädt der Fahrer an den ersten Zuschauer hoch. Jeder Empfänger gibt den Stream an höchstens einen weiteren Zuschauer weiter. Der Host aktualisiert die Reihenfolge bei Zu- und Abgängen.
+
+Der Audiobuild überträgt FMOD-Gruppen für Motor, Fahrbahn und allgemeine Spieleffekte per Opus. Die Musik wird weiterhin lokal abgespielt. Für diesen Build Opus 1.6.1 mit Visual Studio als statische x86-Bibliothek und `-DOPUS_STATIC_RUNTIME=ON` bauen. Der Download hat SHA-256 `6FFCB593207BE92584DF15B32466ED64BBEC99109F007C82205F0194572411A1`. [Opus-Downloads](https://opus-codec.org/downloads/)
+
+Die Vorschau wird separat gebaut. Mit `-BfsToolDll` lässt sich eine bereits gebaute BfsTool-DLL wiederverwenden.
+
+```powershell
+pwsh -File custom_src/ChloeSteamNet/build.ps1 -StuntVideoPreview `
+    -OutputDir .work/t/stunt-video-preview -OpusSourceDir <Opus-Quellordner> `
+    -OpusLibrary <Pfad-zur-x86-opus.lib>
+```
+
+Der Host-Runner lädt das Paket temporär. Auf dem Laptop installiert `custom_src/tools/Set-FlatOutStuntVideoPreview.ps1 -Package <Paketordner>` die Vorschau und sichert die bisherige Konfiguration. `-Restore` stellt sie hashgeprüft wieder her. Alle Teilnehmer brauchen dieselbe Vorschau mit der neuen Steam-Lobby-Protokollkennung. Die Freigabe im regulären Steam-Paket wartet auf die Abnahme mit echten Steam-Teilnehmern. [Tests](Spieltests.md#stunt-livebild)
 
 ### Turnier (seit 19.11.2026, im Test)
 
