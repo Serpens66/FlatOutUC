@@ -1,6 +1,9 @@
 # Alles ignorieren, nur die freigegebenen Ordner aufnehmen
 /*
 !/.gitignore
+!/README.md
+!/LICENSE
+!/THIRD-PARTY-NOTICES.md
 !/FlatOutUCChloeCollection_1.83_custom/
 !/FlatOutUCChloeCollection_1.83_custom_steam/
 !/custom_src/
