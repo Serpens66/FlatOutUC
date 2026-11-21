@@ -136,3 +136,15 @@ Am 20.11.2026 bestanden die Hintergrundläufe mit je 73 Auto- und 54 Fahrerposen
 Ein Szenariostart prüft die ersten Sekunden und den Menü-Rückweg. Vollständige Rennen, Effektprüfungen während des Fahrens, Freischaltungen und alle Karriere- sowie Carnage-Events benötigen gezielte Läufe. Die Hostprüfung belegt die lokale Hostseite. Ein Loopback-Test setzt zwei regulär parallel laufende Instanzen voraus. Für Steam-Beitritt und Synchronisation zwischen Spielern braucht es einen zweiten Steam-Teilnehmer.
 
 Die Steam-Vorschau zur Bild- und Tonübertragung wurde am 21.11.2026 entfernt. Host und Laptop erhielten dieselbe bereinigte Plugin-Datei und bytegleich das reguläre Multiplayer-Archiv. High Jump in der Steam-Host-Lobby bestand im Hintergrundlauf `2d08e06d5a48`. Der lokale Stunt-Pose-Test `ba478472dde8` zeichnete 73 Fahrzeug- und 54 Fahrerposen auf und spielte sie erfolgreich ab.
+
+### Lokaler Fahrzeug-Ghost
+
+```powershell
+pwsh -NoProfile -File custom_src/tools/Invoke-FlatOutGameTest.ps1 -Scenario LocalModes -ModeFrom 4 -ModeThrough 4 -StuntGhost
+pwsh -NoProfile -File custom_src/tools/Invoke-FlatOutGameTest.ps1 -Scenario LocalModes -ModeFrom 4 -ModeThrough 4 -StuntGhostProps
+pwsh -NoProfile -File custom_src/tools/Invoke-FlatOutGameTest.ps1 -Scenario LocalModes -ModeFrom 4 -ModeThrough 4 -StuntGhostAsset
+```
+
+Am 21.11.2026 zeigte High Jump im Lauf `e3faaf874a79` die aufgezeichnete Bewegung mit Rockets nativem Modell und Skin. Die Renderaufnahmen belegen die Darstellung neben dem lokalen Wagen und die Überlappung. Der lokale Wagen fuhr dabei mit 22,95 bis 21,04 m/s weiter. Der Schaden blieb null und der lokale Stunt-Datensatz unverändert. In Bowling blieben Position und Ausrichtung des echten Pins sowie der lokale Stunt-Datensatz über je 17 gerenderte Überlappungsframes unverändert. Das bestand mit Rocket (Lauf `086d810a9814`, Fahrzeug-ID 37) und mit einem zweiten Stuntwagen (Lauf `fffdd0c9a529`, Fahrzeug-ID 34). Beide verwendeten die jeweils verfügbare Lackierung 1. Alle drei Läufe stellten die Installation hashgeprüft wieder her. [Renderpfad und Grenzen der Vorschau](Reverse-Engineering.md#fahrzeug-ghost-im-nativen-renderer)
+
+Im Lauf `5b2d337165b2` fuhr der Rocket neben dem separat aus dem Spielarchiv geladenen Fahrzeug `car_1` mit Skin 2. Die Probe zeigte 38 Frames des Ghosts, der aus lokal serialisierten Fahrzeugposen animiert wurde. Die Renderaufnahme `probe.log.002.bmp` zeigt Modell und Lackierung. Ein zweiter Test prüft Interpolation über ein fehlendes Paket, das Verwerfen verspäteter und doppelter Updates, ungültige Drehungen, abgelaufene Posen und eine neue Eventkennung. Beim Überlappen blieben Fahrzeugschaden und Stunt-Datensatz unverändert. Die Übertragung über Steam bleibt offen.

@@ -2,7 +2,7 @@ local localModes = {
 	{"Single-Race", TRACKTYPE_FIELDS, GR_RACE, 19, GR_RACE, 0, 2},
 	{"Time-Knockout", TRACKTYPE_FIELDS, GR_KNOCKOUT, 19, GR_RACE, 0, 2},
 	{"Lap-Knockout", TRACKTYPE_FIELDS, GR_LAPKNOCKOUT, 19, GR_RACE, 0, 2},
-	{"Single-Stunt", TRACKTYPE_STUNT, GR_STUNT, 47, GR_STUNT, 0, 0},
+	{"Single-Stunt", TRACKTYPE_STUNT, GR_STUNT, FlatOutTest_StuntGhostProps and 48 or 47, GR_STUNT, 0, 0},
 	{"Single-Derby", TRACKTYPE_DERBY, GR_DERBY, 31, GR_DERBY, DERBY_WRECKING, 2},
 	{"Time-Trial", TRACKTYPE_FIELDS, GR_TIME_TRIAL, 19, GR_DEFAULT, 0, 2},
 	{"Speedtrap", TRACKTYPE_FIELDS, GR_SPEEDTRAP, 19, GR_ARCADE_RACE, 0, 2},
@@ -129,7 +129,18 @@ wrap(menu_singleplayer_trackselection, function(current, menu)
 		-- TimeTrialGhosts creates its own pair of opponent slots.
 		if mode[7] > 0 and mode[3] ~= GR_TIME_TRIAL then ChloeArcade_ForceAICarCount(mode[7]) end
 		local car = mode[3] == GR_STUNT and CarIndex.Rocket or CarIndex.Insetta
-		FlatOutTest_StartSingleRace(mode[4], car, 1, mode[6] > 0 and mode[6] or nil, mode[10])
+		local skin = 1
+		if FlatOutTest_StuntGhostProps then
+			for _, candidate in ipairs(CarlistStuntCars()) do
+				local skins = ChloeSkins_GetNumSkinsForCar(candidate.index)
+				if candidate.index ~= CarIndex.Rocket and skins >= 1 then
+					car, skin = candidate.index, math.min(skins, 2)
+					break
+				end
+			end
+			assert(car ~= CarIndex.Rocket, "the bowling ghost fixture needs a second stunt vehicle")
+		end
+		FlatOutTest_StartSingleRace(mode[4], car, skin, mode[6] > 0 and mode[6] or nil, mode[10])
 	end)
 end)
 

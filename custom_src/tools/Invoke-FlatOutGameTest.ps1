@@ -49,6 +49,12 @@ param(
     [switch]$DerbyImpact,
     [Parameter(ParameterSetName = 'Run')]
     [switch]$StuntPose,
+    [Parameter(ParameterSetName = 'Run')]
+    [switch]$StuntGhost,
+    [Parameter(ParameterSetName = 'Run')]
+    [switch]$StuntGhostProps,
+    [Parameter(ParameterSetName = 'Run')]
+    [switch]$StuntGhostAsset,
     [Parameter(Mandatory, ParameterSetName = 'Restore')]
     [ValidatePattern('^[0-9a-f]{12}$')][string]$RestoreRun,
     [string]$GameDir = 'E:\ProgrammeE\Steam\steamapps\common\FlatOut Ultimate Carnage CE'
@@ -164,6 +170,7 @@ FlatOutTest_LoopbackDerbyAI = $LoopbackDerbyAI
 FlatOutTest_LoopbackDamage = $LoopbackDamage
 FlatOutTest_SteamPeerName = "$SteamPeerName"
 FlatOutTest_DerbyHud = "$DerbyHud"
+FlatOutTest_StuntGhostProps = $($StuntGhostProps.IsPresent.ToString().ToLowerInvariant())
 dofile("data/scripts/flatout_test_scenario.bed")
 "@
         'singleracemenu.bed' = @'
@@ -416,6 +423,9 @@ function Invoke-TestProcess {
     $env:FOUC_TEST_DERBY_HUD = if ($DerbyHud) { '1' } else { $null }
     $env:FOUC_TEST_DERBY_IMPACT = if ($DerbyImpact) { '1' } else { $null }
     $env:FOUC_TEST_STUNT_POSE = if ($StuntPose) { '1' } else { $null }
+    $env:FOUC_TEST_STUNT_GHOST = if ($StuntGhost) { '1' } else { $null }
+    $env:FOUC_TEST_STUNT_GHOST_PROPS = if ($StuntGhostProps) { '1' } else { $null }
+    $env:FOUC_TEST_STUNT_GHOST_ASSET = if ($StuntGhostAsset) { '1' } else { $null }
     $leaveRace = [Threading.EventWaitHandle]::new($false, [Threading.EventResetMode]::AutoReset, $env:FOUC_TEST_LEAVE_EVENT)
     $clientLeaveName = $env:FOUC_TEST_LEAVE_EVENT + '-client'
     $clientLeaveRace = if ($LoopbackRace) {
@@ -589,9 +599,17 @@ function Invoke-TestProcess {
                         }
                         $passed = $matching.Count -ge 2 -and $matching[-1][3] - $matching[0][3] -ge 1700
                         $mismatch = $live.Count -ge 2 -and $live[-1][3] - $live[0][3] -ge 5000
-                        if ($StuntPose) {
+                        if ($StuntPose -or $StuntGhost -or $StuntGhostAsset) {
                             $passed = $passed -and (Select-String -LiteralPath $probeLog -SimpleMatch 'stunt pose replay complete' -Quiet)
                             $mismatch = Select-String -LiteralPath $probeLog -SimpleMatch 'stunt pose replay failed' -Quiet
+                        }
+                        if ($StuntGhost -or $StuntGhostAsset) {
+                            $passed = $passed -and (Select-String -LiteralPath $probeLog -SimpleMatch 'stunt ghost rendered and crossed' -Quiet)
+                            $mismatch = $mismatch -or (Select-String -LiteralPath $probeLog -SimpleMatch 'stunt ghost overlap failed' -Quiet)
+                        }
+                        if ($StuntGhostProps) {
+                            $passed = $passed -and (Select-String -LiteralPath $probeLog -SimpleMatch 'stunt ghost bowling pin unchanged' -Quiet)
+                            $mismatch = $mismatch -or (Select-String -LiteralPath $probeLog -SimpleMatch 'stunt ghost bowling pin failed' -Quiet)
                         }
                         if ($passed -or $mismatch) {
                             $lastMode = $step
@@ -868,8 +886,13 @@ try {
         if ($DerbyImpact -and ($LoopbackDerbyLevel -ne 31 -or $LoopbackDerbyAI -ne 4)) {
             throw 'BLOCKED: The controlled Derby impact requires Gas Station Derby with four AI.'
         }
-        if ($StuntPose -and ($Scenario -ne 'LocalModes' -or $ModeFrom -ne 4 -or $ModeThrough -ne 4 -or $TrackSweep -or $FullCarnage)) {
-            throw 'BLOCKED: Stunt pose recording requires LocalModes case 4.'
+        if (($StuntPose -or $StuntGhost -or $StuntGhostProps -or $StuntGhostAsset) -and
+            ($Scenario -ne 'LocalModes' -or $ModeFrom -ne 4 -or $ModeThrough -ne 4 -or $TrackSweep -or $FullCarnage)) {
+            throw 'BLOCKED: The stunt pose and ghost tests require LocalModes case 4.'
+        }
+        if (@($StuntGhost, $StuntGhostProps, $StuntGhostAsset | Where-Object { $_ }).Count -gt 1 -or
+            ($StuntGhostProps -and $StuntPose)) {
+            throw 'BLOCKED: Select one ghost fixture per run.'
         }
         if ($DerbyHud -and ($Scenario -ne 'LocalModes' -or $ModeFrom -ne 5 -or $ModeThrough -ne 5 -or $TrackSweep -or $FullCarnage)) {
             throw 'BLOCKED: Derby HUD testing requires LocalModes case 5.'

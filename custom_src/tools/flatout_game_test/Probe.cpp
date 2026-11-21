@@ -9,6 +9,8 @@
 #include <cmath>
 #include <share.h>
 #include "StuntPosePreview.h"
+#include "../../ChloeSteamNet/StuntGhostRender.h"
+#include "StuntGhostAssetProbe.h"
 
 // Only staged by Invoke-FlatOutGameTest.ps1 after checking the executable hash.
 // Offsets and layouts are from nya-common-fouc's DeviceD3d, GameFlow,
@@ -23,6 +25,7 @@ static bool forceTournamentTie;
 static bool verifyDerbyGrid;
 static bool verifyDerbyImpact;
 static bool recordStuntPose;
+static bool verifyStuntGhost, verifyStuntGhostProps, verifyStuntGhostAsset;
 static uintptr_t drawDerbyNitro;
 
 // Give the renderer a repeatable half-full nitro bar with the flame active.
@@ -382,6 +385,196 @@ static bool CheckStuntReplay(void* self, stunt_preview::Replay& replay, uint32_t
         std::equal(before.begin(), before.end(), scoreFields);
 }
 
+static stunt_ghost::NativeRenderer nativeGhost;
+static stunt_ghost::AssetProbe ghostAsset;
+static stunt_ghost::MotionTrack ghostMotion;
+using StuntRecord = std::array<uint8_t, 0x114>;
+
+static bool VerifyGhostMotion() {
+    using namespace stunt_ghost;
+    MotionTrack track;
+    track.Begin(100, 1);
+    MotionPacket packet{100, 1, 100, 1, 1, 2, 1, {10, 0, 0}, {0, 0, 0, 1}};
+    if (track.Receive(&packet, sizeof(packet) - 1, 100) ||
+        !track.Receive(&packet, sizeof(packet), 100)) return false;
+    const auto first = packet;
+    // The second update is lost, and the third arrives before a delayed copy of the first.
+    packet.sequence = 3;
+    packet.ms = 200;
+    packet.position[0] = 14;
+    packet.rotation[3] = -1;
+    if (!track.Receive(&packet, sizeof(packet), 215) ||
+        track.Receive(&first, sizeof(first), 220) || track.Receive(&packet, sizeof(packet), 240)) return false;
+    Pose pose;
+    if (!track.Sample(150, 250, pose) || std::abs(pose.position.x - 12.0f) > 0.01f ||
+        std::abs(std::abs(pose.rotation[3]) - 1.0f) > 0.01f || track.Sample(210, 516, pose)) return false;
+    packet.sequence = 4;
+    packet.ms = 300;
+    packet.rotation = {};
+    if (track.Receive(&packet, sizeof(packet), 300)) return false;
+    track.Begin(101, 1);
+    return !track.Sample(200, 250, pose) && !track.Receive(&first, sizeof(first), 320);
+}
+
+static const StuntRecord* LocalStuntRecord() {
+    const auto score = *reinterpret_cast<const uintptr_t*>(0x846514);
+    if (!score || *reinterpret_cast<const uintptr_t*>(score) != 0x6E3E4C) return nullptr;
+    const auto players = *reinterpret_cast<const uintptr_t* const*>(score + 8);
+    if (!players || players == *reinterpret_cast<const uintptr_t* const*>(score + 0xC) || !players[0]) return nullptr;
+    return reinterpret_cast<const StuntRecord*>(players[0] + 0x38);
+}
+
+static void DrawStuntGhost(void* renderer, uintptr_t host, uintptr_t car, const stunt_preview::Replay& replay, uint32_t elapsed) {
+    static unsigned lastDraws = 0;
+    static bool separated = false, crossed = false, finished = false;
+    static float startingDamage = 0, startingSpeed = 0;
+    static uintptr_t playerListEnd = 0;
+    static stunt_ghost::Matrix previousTarget{};
+    static StuntRecord startingScore{};
+    if (finished) return;
+    const auto drawn = verifyStuntGhostAsset ? ghostAsset.Frames() : nativeGhost.Draws();
+    const auto* live = reinterpret_cast<const float*>(car + 0x1C0);
+    const auto& velocity = *reinterpret_cast<const stunt_preview::Vec3*>(car + 0x290);
+    const float speed = std::sqrt(stunt_preview::Dot(velocity, velocity));
+    const float damage = *reinterpret_cast<const float*>(car + 0x7AB8);
+    const auto playerEnd = *reinterpret_cast<const uintptr_t*>(host + 0x18);
+    if (drawn != lastDraws) {
+        if (!separated && elapsed >= 350 && elapsed < 550) {
+            separated = CaptureFrame(renderer);
+            startingDamage = damage;
+            startingSpeed = speed;
+            playerListEnd = playerEnd;
+            if (const auto* record = LocalStuntRecord()) startingScore = *record;
+            else separated = false;
+        }
+        if (!crossed && elapsed >= 630 && elapsed < 755) {
+            const float x = previousTarget[12] - live[12], z = previousTarget[14] - live[14];
+            crossed = x * x + z * z < 6.25f && CaptureFrame(renderer);
+        }
+        if (separated && crossed) {
+            const auto* record = LocalStuntRecord();
+            const bool unaffected = record && *record == startingScore && (!verifyStuntGhostAsset || ghostAsset.PaintTechniqueBound()) &&
+                damage == startingDamage && speed > startingSpeed * 0.65f && playerEnd == playerListEnd;
+            if (FILE* log = _wfsopen(logPath, L"a", _SH_DENYNO)) {
+                fprintf(log, "stunt ghost %s: %u render submissions, speed %.2f -> %.2f, damage %.4f -> %.4f\n",
+                    unaffected ? "rendered and crossed" : "overlap failed", drawn, startingSpeed, speed, startingDamage, damage);
+                if (verifyStuntGhostAsset) {
+                    fprintf(log, "stunt ghost paint technique: %s\n", ghostAsset.PaintTechniqueBound() ? "bound" : "unavailable");
+                }
+                fclose(log);
+            }
+            finished = true;
+            nativeGhost.Detach();
+            ghostAsset.Detach();
+            return;
+        }
+    }
+    lastDraws = drawn;
+    nativeGhost.ClearTarget();
+    ghostAsset.Hide();
+    if (elapsed < 300) return;
+    if (elapsed >= 1000) {
+        if (FILE* log = _wfsopen(logPath, L"a", _SH_DENYNO)) {
+            fprintf(log, "stunt ghost overlap failed: missing render or overlap (%u draws, %u queue calls)\n",
+                drawn, ghostAsset.Calls());
+            fclose(log);
+        }
+        finished = true;
+        nativeGhost.Detach();
+        ghostAsset.Detach();
+        return;
+    }
+    stunt_preview::Frame frame{};
+    if (verifyStuntGhostAsset) {
+        if (!ghostMotion.Sample(elapsed - 20, elapsed, frame.car)) return;
+    } else if (!replay.Sample(0, elapsed - 20, frame)) return;
+    const bool separateAsset = verifyStuntGhostAsset && elapsed < 550;
+    const float lateral = separateAsset ? 2.3f :
+        (std::clamp)((static_cast<float>(elapsed) - 685.0f) / 90.0f, -2.9f, 2.9f);
+    const float forward = separateAsset ? 6.0f : 0.0f;
+    stunt_ghost::Matrix target{};
+    const stunt_preview::Vec3 basis[] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+    for (unsigned axis = 0; axis < 3; ++axis) {
+        const auto rotated = stunt_preview::Rotate(frame.car, basis[axis]);
+        target[axis * 4] = rotated.x;
+        target[axis * 4 + 1] = rotated.y;
+        target[axis * 4 + 2] = rotated.z;
+    }
+    target[12] = frame.car.position.x + live[0] * lateral + live[8] * forward;
+    target[13] = frame.car.position.y + live[9] * forward;
+    target[14] = frame.car.position.z + live[2] * lateral + live[10] * forward;
+    target[15] = 1;
+    previousTarget = target;
+    if (verifyStuntGhostAsset) ghostAsset.Show(car, target);
+    else if (nativeGhost.Attach(*reinterpret_cast<void**>(0x84665C))) nativeGhost.SetTarget(car, target);
+}
+
+// Bowling's score manager indexes the native pin bodies by their object IDs.
+static void CheckGhostAgainstBowlingPin(ULONGLONG now) {
+    static ULONGLONG started = 0;
+    static uintptr_t pin = 0;
+    static unsigned lastDraws = 0, intersectingFrames = 0;
+    static bool finished = false, intersects = false, changed = false;
+    static stunt_preview::Vec3 origin{};
+    static stunt_ghost::Matrix initial{};
+    static StuntRecord startingScore{};
+    if (finished) return;
+    const auto flow = *reinterpret_cast<uintptr_t*>(0x9298FAC);
+    if (!flow || *reinterpret_cast<int*>(flow + 0x4A4) != 2 || *reinterpret_cast<int*>(flow + 0x514) != 2 ||
+        *reinterpret_cast<int*>(flow + 0x4CC) != 48 || *reinterpret_cast<int*>(flow + 0x2738) != 8) {
+        nativeGhost.Detach();
+        return;
+    }
+    const auto host = *reinterpret_cast<uintptr_t*>(flow + 0x2820);
+    const auto score = *reinterpret_cast<uintptr_t*>(0x846514);
+    if (!host || !score || *reinterpret_cast<uintptr_t*>(score) != 0x6E3E4C) return;
+    const auto players = *reinterpret_cast<const uintptr_t**>(host + 0x14);
+    if (!players || players == *reinterpret_cast<const uintptr_t**>(host + 0x18) || !players[0]) return;
+    const auto car = *reinterpret_cast<uintptr_t*>(players[0] + 0x294);
+    const auto firstPin = *reinterpret_cast<uintptr_t*>(score + 0x1EF8 + 0xFE * sizeof(uintptr_t));
+    const auto* record = LocalStuntRecord();
+    if (!car || !firstPin || !record) return;
+    const auto& pose = *reinterpret_cast<const stunt_ghost::Matrix*>(firstPin + 0x30);
+    const stunt_preview::Vec3 position{pose[12], pose[13], pose[14]};
+    if (!started) {
+        started = now;
+        return;
+    }
+    const auto elapsed = now - started;
+    if (elapsed < 500) return;
+    if (!pin) {
+        pin = firstPin;
+        origin = position;
+        initial = pose;
+        startingScore = *record;
+    }
+    const auto delta = position - origin;
+    changed = changed || pin != firstPin || *record != startingScore || stunt_preview::Dot(delta, delta) > 0.0004f;
+    for (unsigned i = 0; i < 12; ++i)
+        changed = changed || std::abs(pose[i] - initial[i]) > 0.01f;
+    const auto drawn = nativeGhost.Draws();
+    if (intersects && drawn > lastDraws) ++intersectingFrames;
+    lastDraws = drawn;
+    if (elapsed >= 1800) {
+        if (FILE* log = _wfsopen(logPath, L"a", _SH_DENYNO)) {
+            fprintf(log, "stunt ghost bowling pin %s: %u overlapping frames, pin at %.3f %.3f %.3f\n",
+                !changed && intersectingFrames >= 4 ? "unchanged" : "failed",
+                intersectingFrames, origin.x, origin.y, origin.z);
+            fclose(log);
+        }
+        nativeGhost.Detach();
+        finished = true;
+        return;
+    }
+    auto target = *reinterpret_cast<const stunt_ghost::Matrix*>(car + 0x1C0);
+    const float shift = (static_cast<float>(elapsed) - 1150.0f) / 100.0f;
+    target[12] = origin.x + shift;
+    target[13] = origin.y;
+    target[14] = origin.z;
+    intersects = std::abs(shift) < 0.85f;
+    if (nativeGhost.Attach(*reinterpret_cast<void**>(0x84665C))) nativeGhost.SetTarget(car, target);
+}
+
 static void RecordStuntPose(void* device, ULONGLONG now) {
     static ULONGLONG started = 0, last = 0, launched = 0;
     static bool complete = false, launchSent = false;
@@ -402,6 +595,23 @@ static void RecordStuntPose(void* device, ULONGLONG now) {
     const auto matrix = reinterpret_cast<const float*>(car + 0x1C0);
     last = now;
     if (!started) {
+        if (verifyStuntGhostAsset) {
+            const bool motion = VerifyGhostMotion();
+            const bool ready = motion && ghostAsset.Load() && ghostAsset.Attach() && ghostAsset.PaintedSurfaces() != 0;
+            if (FILE* log = _wfsopen(logPath, L"a", _SH_DENYNO)) {
+                fprintf(log, "stunt ghost %s: car_1 skin 2, %u parts, %u painted materials\n",
+                    ready ? "independent model loaded" : "overlap failed", ghostAsset.Parts(), ghostAsset.PaintedSurfaces());
+                fprintf(log, "stunt ghost motion packets: %s\n", motion ? "passed" : "failed");
+                fclose(log);
+            }
+            if (!ready) {
+                ghostAsset.Detach();
+                complete = true;
+                return;
+            }
+            ghostMotion.Begin(1, 1);
+            now = GetTickCount64();
+        }
         started = now;
         replay.Begin(1);
         // Give the local test car an initial speed along its own forward axis. No global input is used.
@@ -454,11 +664,18 @@ static void RecordStuntPose(void* device, ULONGLONG now) {
     }
     fclose(file);
     if (validCar) {
+        if (verifyStuntGhostAsset && carFrames != 4) {
+            const auto& p = frame.car.position;
+            const stunt_ghost::MotionPacket packet{1, carFrames, frame.ms, 1, 1, 2, 1, {p.x, p.y, p.z}, frame.car.rotation};
+            ghostMotion.Receive(&packet, sizeof(packet), elapsed);
+        }
         replay.Record(1, 0, frame);
         // The second fixture replays the clip 350 ms behind the first.
         frame.ms += 350;
         replay.Record(1, 1, frame);
     }
+
+    if (verifyStuntGhost || verifyStuntGhostAsset) DrawStuntGhost(device, host, car, replay, elapsed);
 
     if (launched && now - launched >= 3300 && driverFrames >= 35) {
         CaptureFrame(device);
@@ -479,7 +696,8 @@ static void __fastcall EndScene(void* self, void*) {
     static ULONGLONG lastSample = 0;
     ++frames;
     const auto now = GetTickCount64();
-    if (recordStuntPose) RecordStuntPose(self, now);
+    if (recordStuntPose || verifyStuntGhost || verifyStuntGhostAsset) RecordStuntPose(self, now);
+    if (verifyStuntGhostProps) CheckGhostAgainstBowlingPin(now);
     if (now - lastSample < 200) return;
     lastSample = now;
     if (WaitForSingleObject(captureFrame, 0) == WAIT_OBJECT_0 && !CaptureFrame(self))
@@ -588,6 +806,9 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID) {
         verifyDerbyImpact = GetEnvironmentVariableW(L"FOUC_TEST_DERBY_IMPACT", eventName, _countof(eventName)) != 0 &&
             !wcsstr(GetCommandLineW(), L"-flatouttestclient");
         recordStuntPose = GetEnvironmentVariableW(L"FOUC_TEST_STUNT_POSE", eventName, _countof(eventName)) != 0;
+        verifyStuntGhost = GetEnvironmentVariableW(L"FOUC_TEST_STUNT_GHOST", eventName, _countof(eventName)) != 0;
+        verifyStuntGhostProps = GetEnvironmentVariableW(L"FOUC_TEST_STUNT_GHOST_PROPS", eventName, _countof(eventName)) != 0;
+        verifyStuntGhostAsset = GetEnvironmentVariableW(L"FOUC_TEST_STUNT_GHOST_ASSET", eventName, _countof(eventName)) != 0;
         if (GetEnvironmentVariableW(L"FOUC_TEST_DERBY_HUD", eventName, _countof(eventName)))
             LogAttach(InstallDerbyHudFixture() ? L"Derby HUD fixture installed" : L"Derby HUD fixture unavailable");
         if (GetEnvironmentVariableW(L"FOUC_TEST_STUNT_INPUT", eventName, _countof(eventName)))

@@ -5,25 +5,19 @@
 #include <cmath>
 #include <cstdint>
 #include <vector>
+#include "../../ChloeSteamNet/StuntGhostMotion.h"
 
 namespace stunt_preview {
 constexpr unsigned MaxJoints = 11;
 
-struct Vec3 {
-    float x, y, z;
-    Vec3 operator+(Vec3 b) const { return {x + b.x, y + b.y, z + b.z}; }
-    Vec3 operator-(Vec3 b) const { return {x - b.x, y - b.y, z - b.z}; }
-    Vec3 operator*(float k) const { return {x * k, y * k, z * k}; }
-};
-
-inline float Dot(Vec3 a, Vec3 b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
-inline Vec3 Cross(Vec3 a, Vec3 b) { return {a.y*b.z - a.z*b.y, a.z*b.x - a.x*b.z, a.x*b.y - a.y*b.x}; }
-inline Vec3 Unit(Vec3 a) { return a * (1.0f / std::sqrt(Dot(a, a))); }
-
-struct Pose {
-    Vec3 position;
-    std::array<float, 4> rotation;
-};
+using stunt_ghost::Vec3;
+using stunt_ghost::Dot;
+using stunt_ghost::Cross;
+using stunt_ghost::Unit;
+using stunt_ghost::Pose;
+using stunt_ghost::ReadPose;
+using stunt_ghost::Blend;
+using stunt_ghost::Rotate;
 
 struct Frame {
     uint32_t ms;
@@ -31,32 +25,6 @@ struct Frame {
     unsigned jointCount;
     std::array<Pose, MaxJoints> joints;
 };
-
-inline bool ReadPose(Pose& pose, const float* p, const float* q) {
-    for (int i = 0; i < 3; ++i) if (!std::isfinite(p[i])) return false;
-    float magnitude = 0;
-    for (int i = 0; i < 4; ++i) magnitude += q[i] * q[i];
-    if (!std::isfinite(magnitude) || magnitude < 0.5f || magnitude > 1.5f) return false;
-    pose.position = {p[0], p[1], p[2]};
-    const float scale = 1.0f / std::sqrt(magnitude);
-    for (int i = 0; i < 4; ++i) pose.rotation[i] = q[i] * scale;
-    return true;
-}
-
-inline Pose Blend(const Pose& a, const Pose& b, float t) {
-    float dot = 0;
-    for (int i = 0; i < 4; ++i) dot += a.rotation[i] * b.rotation[i];
-    const float sign = dot < 0 ? -1.0f : 1.0f;
-    Pose result{a.position * (1.0f - t) + b.position * t, {}};
-    float norm = 0;
-    for (int i = 0; i < 4; ++i) {
-        result.rotation[i] = a.rotation[i] * (1.0f - t) + b.rotation[i] * (sign * t);
-        norm += result.rotation[i] * result.rotation[i];
-    }
-    const float scale = 1.0f / std::sqrt(norm);
-    for (float& component : result.rotation) component *= scale;
-    return result;
-}
 
 class Replay {
 public:
@@ -97,13 +65,6 @@ private:
     uint64_t event_ = 0;
     std::array<std::vector<Frame>, 2> tracks_;
 };
-
-inline Vec3 Rotate(const Pose& pose, Vec3 offset) {
-    const auto& q = pose.rotation;
-    const Vec3 axis{q[0], q[1], q[2]};
-    const Vec3 cross = Cross(axis, offset);
-    return offset + (cross * q[3] + Cross(axis, cross)) * 2.0f;
-}
 
 // Diagnostic drawing only. It consumes the captured poses and creates no game-world objects.
 inline bool DrawFrame(IDirect3DDevice9* device, const Frame& frame) {
