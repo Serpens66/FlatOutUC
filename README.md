@@ -32,4 +32,6 @@ Für das Originalspiel mit getrennten Spielständen bei geöffnetem Steam `FlatO
 
 Chloe (gaycoderprincess) created the original overhaul. Thanks to Chloe and the contributors credited in the original project. The Steam adaptation is maintained by Serpens66. [Chloe’s full credits](https://gaycoderprincess.github.io/project/chloe-collection#credits)
 
+The FlatOut 2 cars, track assets and soundtrack selections come from the original game by Bugbear Entertainment and are used here through Chloe’s Collection. The original game assets and music belong to their respective rights holders. Our contributions include the Steam adaptation and the playlist edits.
+
 Original source code contributed to this Steam adaptation is available under the [Mozilla Public License 2.0](LICENSE). See the [third-party notices](THIRD-PARTY-NOTICES.md) for upstream sources, local modifications and separate terms for bundled components.
