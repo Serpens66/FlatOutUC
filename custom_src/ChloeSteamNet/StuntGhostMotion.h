@@ -68,6 +68,10 @@ struct MotionPacket {
     std::array<float, 3> position;
     std::array<float, 4> rotation;
 };
+struct CarPacket {
+    MotionPacket motion;
+    std::array<float, 3> velocity;
+};
 constexpr unsigned kDriverJoints = 11;
 struct JointPacket {
     std::array<float, 3> position;
@@ -80,7 +84,12 @@ struct DriverPacket {
 };
 #pragma pack(pop)
 static_assert(sizeof(MotionPacket) == 52);
+static_assert(sizeof(CarPacket) == 64);
 static_assert(sizeof(DriverPacket) == 364);
+
+inline bool IsMotionSize(size_t size) {
+    return size == sizeof(MotionPacket) || size == sizeof(CarPacket) || size == sizeof(DriverPacket);
+}
 
 struct DriverPose {
     int character = -1;
@@ -123,10 +132,13 @@ public:
             const double elapsed = static_cast<double>(now - lastPlayed_);
             const double target = newest + (std::min)(now - lastReceived_, buffer) - buffer;
             const double rate = (std::clamp)(1.0 + (target - cursor_ - elapsed) / 250.0, 0.9, 1.1);
-            cursor_ = (std::clamp)(cursor_ + elapsed * rate, oldest, newest);
+            const double limit = newest + (At(count_ - 1).hasVelocity ? kPredictionMs : 0);
+            cursor_ = (std::clamp)(cursor_ + elapsed * rate, oldest, limit);
         }
         lastPlayed_ = now;
-        return Sample(cursor_, now, pose, driver);
+        if (!Sample(cursor_, now, pose, driver)) return false;
+        if (At(count_ - 1).driver.character < 0) pose.position = pose.position + Correction();
+        return true;
     }
 
     void Begin(uint64_t event, uint16_t attempt) {
@@ -135,13 +147,15 @@ public:
         count_ = 0;
         next_ = 0;
         playing_ = false;
+        correction_ = {};
     }
 
     bool Receive(const void* bytes, size_t size, uint64_t now) {
-        if (!bytes || (size != sizeof(MotionPacket) && size != sizeof(DriverPacket))) return false;
+        if (!bytes || !IsMotionSize(size)) return false;
         MotionPacket packet;
         memcpy(&packet, bytes, sizeof(packet));
-        if (packet.version != (size == sizeof(DriverPacket) ? 2 : 1) ||
+        const unsigned version = size == sizeof(CarPacket) ? 3 : size == sizeof(DriverPacket) ? 2 : 1;
+        if (packet.version != version ||
             !event_ || !attempt_ || packet.event != event_ || packet.attempt != attempt_ ||
             !packet.sequence || !packet.modelKey || !packet.skin) return false;
         const auto* newest = Latest();
@@ -159,11 +173,32 @@ public:
         } else if (!ReadPose(pose, packet.position.data(), packet.rotation.data()) ||
             std::abs(pose.position.x) > 32768 || std::abs(pose.position.y) > 32768 ||
             std::abs(pose.position.z) > 32768) return false;
+        Vec3 velocity{};
+        const bool hasVelocity = size == sizeof(CarPacket);
+        if (hasVelocity) {
+            CarPacket car;
+            memcpy(&car, bytes, sizeof(car));
+            velocity = {car.velocity[0], car.velocity[1], car.velocity[2]};
+            const float speedSquared = Dot(velocity, velocity);
+            if (!std::isfinite(speedSquared) || speedSquared > 200.0f * 200.0f) return false;
+        }
+        // Reconcile the visible position if a packet arrives after playback
+        // has already advanced beyond the last known transform.
+        const bool reconcile = hasVelocity && newest && playing_ && cursor_ > newest->ms;
+        Vec3 predicted{};
+        if (reconcile) predicted = Predict(At(count_ - 1), cursor_) + Correction();
         if (!count_) firstReceived_ = now;
-        samples_[next_] = {packet, pose, driver};
+        samples_[next_] = {packet, pose, driver, velocity, hasVelocity};
         next_ = (next_ + 1) % samples_.size();
         if (count_ < samples_.size()) ++count_;
         lastReceived_ = now;
+        if (reconcile) {
+            Pose revised;
+            if (Sample(cursor_, now, revised)) {
+                correction_ = predicted - revised.position;
+                correctionStart_ = cursor_;
+            }
+        }
         return true;
     }
 
@@ -172,6 +207,7 @@ public:
         const auto& newest = At(count_ - 1);
         if (ms >= newest.packet.ms) {
             pose = newest.pose;
+            pose.position = Predict(newest, ms);
             if (driver) *driver = newest.driver;
             return true;
         }
@@ -194,7 +230,15 @@ public:
     }
 
 private:
-    struct SamplePoint { MotionPacket packet; Pose pose; DriverPose driver; };
+    static constexpr double kPredictionMs = 80;
+    struct SamplePoint { MotionPacket packet; Pose pose; DriverPose driver; Vec3 velocity; bool hasVelocity; };
+    static Vec3 Predict(const SamplePoint& frame, double ms) {
+        const auto elapsed = (std::min)(ms - frame.packet.ms, kPredictionMs);
+        return frame.pose.position + frame.velocity * static_cast<float>(elapsed / 1000.0);
+    }
+    Vec3 Correction() const {
+        return correction_ * static_cast<float>((std::max)(0.0, 1.0 - (cursor_ - correctionStart_) / 100.0));
+    }
     const SamplePoint& At(size_t index) const {
         return samples_[(next_ + samples_.size() - count_ + index) % samples_.size()];
     }
@@ -205,6 +249,8 @@ private:
     size_t count_ = 0, next_ = 0;
     bool playing_ = false;
     double cursor_ = 0;
+    double correctionStart_ = 0;
+    Vec3 correction_{};
     std::array<SamplePoint, 12> samples_{};
 };
 

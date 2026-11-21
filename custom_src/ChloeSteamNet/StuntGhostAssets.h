@@ -25,8 +25,10 @@ public:
         skin_ = skin;
         paintedSurfaces_ = 0;
         paintedMaterials_.clear();
+#ifdef FLATOUT_GHOST_RENDER_TEST
         paintTechniqueBound_ = false;
         frames_ = calls_ = 0;
+#endif
         auto& materialCache = *reinterpret_cast<std::array<uintptr_t, 3>*>(0x849F34);
         auto& primaryFolder = *reinterpret_cast<std::array<char, 264>*>(0x845B78);
         auto& secondaryFolder = *reinterpret_cast<std::array<char, 264>*>(0x845C80);
@@ -95,7 +97,9 @@ public:
         items_.clear();
         paintedMaterials_.clear();
         diffuse_ = damaged_ = specular_ = 0;
+#ifdef FLATOUT_GHOST_RENDER_TEST
         wheels_ = 0;
+#endif
         attempted_ = false;
         return true;
     }
@@ -167,14 +171,12 @@ public:
     }
     void Hide() { visible_ = false; }
     unsigned Parts() const { return static_cast<unsigned>(parts_.size()); }
+    unsigned PaintedSurfaces() const { return paintedSurfaces_; }
+#ifdef FLATOUT_GHOST_RENDER_TEST
     unsigned Frames() const { return frames_; }
     unsigned Calls() const { return calls_; }
     bool PaintTechniqueBound() const { return paintTechniqueBound_; }
-    unsigned PaintedSurfaces() const { return paintedSurfaces_; }
     unsigned Wheels() const { return wheels_; }
-#ifdef STUNT_GHOST_TEST
-    const char* DiffusePath() const { return diffuse_ ? TexturePath(diffuse_) : ""; }
-    bool DiffuseReady() const { return TextureReady(diffuse_); }
 #endif
 
 private:
@@ -230,7 +232,11 @@ private:
                 if (!name || _stricmp(name, names[wheel]) != 0) continue;
                 Matrix local = *reinterpret_cast<const Matrix*>(part + 0x40);
                 std::copy_n(reinterpret_cast<const float*>(mount + 0x70), 3, local.begin() + 12);
+#ifdef FLATOUT_GHOST_RENDER_TEST
                 if (AddPart(part, local)) ++wheels_;
+#else
+                AddPart(part, local);
+#endif
                 break;
             }
         }
@@ -298,7 +304,9 @@ private:
             return;
         }
         auto& probe = **visible;
+#ifdef FLATOUT_GHOST_RENDER_TEST
         ++probe.calls_;
+#endif
         auto& bucket = queue[pass];
         const auto saved = bucket;
         if (!saved.begin || !saved.end || saved.end <= saved.begin || saved.end - saved.begin > 768) {
@@ -346,7 +354,9 @@ private:
                 textures[3] = specular_;
                 memcpy(reinterpret_cast<void*>(material + 0x10), reinterpret_cast<const void*>(paint + 0x10), 0x64);
                 memcpy(reinterpret_cast<void*>(material + 0x94), reinterpret_cast<const void*>(paint + 0x94), 8);
+#ifdef FLATOUT_GHOST_RENDER_TEST
                 paintTechniqueBound_ = true;
+#endif
             }
         }
         // The native screen-door shader preserves the original RGB values
@@ -361,19 +371,23 @@ private:
             matrices_[i] = PlacePart(part.local, target_);
             items.push_back({part.surface, &matrices_[i], reference.sort, reference.flags});
         }
+#ifdef FLATOUT_GHOST_RENDER_TEST
         ++frames_;
+#endif
     }
 
     inline static std::array<CarAsset*, 7> assets_{};
     inline static Queue original_ = nullptr;
     inline static CarAsset* loading_ = nullptr;
     bool attempted_ = false, attached_ = false, visible_ = false;
+#ifdef FLATOUT_GHOST_RENDER_TEST
     bool paintTechniqueBound_ = false;
-    float opacity_ = 0.70f;
     unsigned frames_ = 0, calls_ = 0;
+    unsigned wheels_ = 0;
+#endif
+    float opacity_ = 0.70f;
     uintptr_t car_ = 0;
     unsigned skin_ = 1, paintedSurfaces_ = 0;
-    unsigned wheels_ = 0;
     uintptr_t diffuse_ = 0, damaged_ = 0, specular_ = 0;
     Resource resource_{}, wheelResource_{};
     std::array<uintptr_t, 3> privateMaterials_{};

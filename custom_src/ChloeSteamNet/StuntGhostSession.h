@@ -12,7 +12,7 @@ public:
     }
 
     bool Receive(uint64_t sender, const void* data, size_t size, uint64_t now) {
-        if (!event_ || !sender || !data || (size != sizeof(MotionPacket) && size != sizeof(DriverPacket))) return false;
+        if (!event_ || !sender || !data || !IsMotionSize(size)) return false;
         MotionPacket packet;
         memcpy(&packet, data, sizeof(packet));
         if (packet.event != event_ || !packet.attempt || packet.attempt > 10) return false;

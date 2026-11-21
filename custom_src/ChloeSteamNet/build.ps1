@@ -2,9 +2,7 @@
 # from where build_steam.ps1 copies it into the Steam package (not into the GFWL package).
 #   pwsh -File custom_src/ChloeSteamNet/build.ps1
 param(
-    [string]$OutputDir = (Join-Path (Split-Path -Parent $PSScriptRoot) 'plugins_steam'),
-    [switch]$StuntGhostTest,
-    [switch]$StuntGhostCapture
+    [string]$OutputDir = (Join-Path (Split-Path -Parent $PSScriptRoot) 'plugins_steam')
 )
 
 $ErrorActionPreference = 'Stop'
@@ -17,9 +15,7 @@ New-Item -ItemType Directory -Force $obj | Out-Null
 $outDir = [IO.Path]::GetFullPath($OutputDir)
 New-Item -ItemType Directory -Force $outDir | Out-Null
 $out = Join-Path $outDir 'ChloeSteamNet.asi'
-$testDefine = if ($StuntGhostTest) { '/DSTUNT_GHOST_TEST' }
-if ($StuntGhostCapture) { $testDefine += ' /DSTUNT_GHOST_CAPTURE' }
-cmd /c "`"$vcvars`" >nul && cl /nologo /O2 /MT /LD /W4 /EHsc /GS- /std:c++17 $testDefine `"$src`" /Fo`"$obj\\`" /Fe`"$out`" /link /DLL /NOLOGO ws2_32.lib user32.lib kernel32.lib /IMPLIB:`"$obj\ChloeSteamNet.lib`""
+cmd /c "`"$vcvars`" >nul && cl /nologo /O2 /MT /LD /W4 /EHsc /GS- /std:c++17 `"$src`" /Fo`"$obj\\`" /Fe`"$out`" /link /DLL /NOLOGO ws2_32.lib user32.lib kernel32.lib /IMPLIB:`"$obj\ChloeSteamNet.lib`""
 if ($LASTEXITCODE -ne 0) { throw "Build failed ($LASTEXITCODE)" }
 Remove-Item (Join-Path $outDir 'ChloeSteamNet.exp') -ErrorAction SilentlyContinue
 Write-Host "Built $out"

@@ -142,8 +142,9 @@ Die Steam-Vorschau zur Bild- und Tonübertragung wurde am 21.11.2026 entfernt. H
 ```powershell
 pwsh -NoProfile -File custom_src/tools/Invoke-FlatOutGameTest.ps1 -Scenario LocalModes -ModeFrom 4 -ModeThrough 4 -StuntGhostProps
 pwsh -NoProfile -File custom_src/tools/Invoke-FlatOutGameTest.ps1 -Scenario LocalModes -ModeFrom 4 -ModeThrough 4 -StuntGhostAsset
-pwsh -NoProfile -File custom_src/tools/Invoke-FlatOutGameTest.ps1 -Scenario Modes -ModeFrom 13 -ModeThrough 13 -StuntGhostSteam
 ```
+
+Die beiden lokalen Prüfungen bleiben im separaten Test-Plugin. `-StuntGhostAsset` prüft auch Paketvalidierung, Interpolation, Vorhersage und Versuchswechsel. Für einen manuellen Steam-Test mit demselben Build auf beiden PCs High Jump starten und beide Richtungen prüfen. Erwartet werden farbige, durchscheinende Ghost-Autos, eine Figur nach dem Abschuss auch weit entfernt vom Auto sowie die letzte gültige Pose bis der sendende Spieler die Ergebnisliste öffnet. Beim nächsten Versuch muss wieder das Fahrzeug erscheinen. In Bowling kann derselbe Ablauf Gegenstände und Stunt-Wertung mit abdecken.
 
 Am 21.11.2026 zeigte High Jump im Lauf `e3faaf874a79` die aufgezeichnete Bewegung mit Rockets nativem Modell und Skin. Die Renderaufnahmen belegen die Darstellung neben dem lokalen Wagen und die Überlappung. Der lokale Wagen fuhr dabei mit 22,95 bis 21,04 m/s weiter. Der Schaden blieb null und der lokale Stunt-Datensatz unverändert. In Bowling blieben Position und Ausrichtung des echten Pins sowie der lokale Stunt-Datensatz über je 17 gerenderte Überlappungsframes unverändert. Das bestand mit Rocket (Lauf `086d810a9814`, Fahrzeug-ID 37) und mit einem zweiten Stuntwagen (Lauf `fffdd0c9a529`, Fahrzeug-ID 34). Beide verwendeten die jeweils verfügbare Lackierung 1. Alle drei Läufe stellten die Installation hashgeprüft wieder her. [Renderpfad und Grenzen der Vorschau](Reverse-Engineering.md#stunt-ghosts-im-nativen-renderer)
 
@@ -163,7 +164,7 @@ Beim erneuten Zwei-PC-Lauf `6ddf497c42f9` meldeten beide Rechner denselben Stunt
 
 Im Diagnoselauf `379b0b950620` wurden erstmals die Originalauflösungen beider Rechner erfasst. Die Aufnahmen zeigen transparente Fahrzeuge, die sich auf dem gemeinsamen Startplatz überlagern. Die zwei Aufnahmen im Abstand von 800 ms liegen noch vor dem ausreichenden Herausfahren des Clients. Der Nutzer beobachtete starkes Flackern auf dem Laptop. Beide Installationen wurden hashgeprüft wiederhergestellt.
 
-Die aktuelle Zwei-PC-Prüfung erfasst pro Rechner bis zu vier BMPs in Originalauflösung im Abstand von 1,5 Sekunden, beginnend beim ersten gerenderten Ghost. Sie schreibt sie lokal und sammelt sie bei der Rücksicherung unter dem jeweiligen Lauf im Workspace ein. Aufruf für die Ein-PC-Prüfung mit `-Scenario Modes -ModeFrom 13 -ModeThrough 13 -StuntGhostSteam -StuntGhostCapture`.
+Die damalige Vorschau erfasste pro Rechner bis zu vier `FlatOutGhostView*.bmp` in Originalauflösung im Abstand von 1,5 Sekunden. Das zeigte die Rastertransparenz auch nach dem Auseinanderfahren. Die Ein-PC-Variante speiste künstliche Posen für drei Autos und zwei Fahrer ein. Die Schalter `-StuntGhostSteam` und `-StuntGhostCapture` wurden für den Release entfernt. Der allgemeine Test-Probe kann weiterhin Bilder auf Anforderung speichern.
 
 Der Ein-PC-Lauf `5a1513703dda` bestätigte das Ausblenden bei überlappender Startpose und das fortgesetzte Zeichnen bei absichtlich ausgelassenem Steam-Update. Er erzeugte vier Bilder in 3840×2160 mit jeweils rund 1,5 Sekunden Abstand und stellte die Installation hashgeprüft wieder her. Die praktische Flackerprüfung am Client bleibt Teil der Zwei-PC-Abnahme.
 
@@ -195,7 +196,7 @@ Der Einzelspielerlauf `f76a910b744f` prüfte zusätzlich die Paketgrenzen, versp
 
 Alle zehn BFS-Archive des neu gebauten Steam-Pakets bestanden die Integritätsprüfung. Nach dem Update auf Host und Laptop stimmte der SHA-256-Hash beider installierten Plugins mit der Build-Ausgabe überein. Auf dem aktualisierten Host bestand der Hintergrundlauf `43f7cb4d554f` mit Einzelspieler, Steam-Lobby und KI-Rennen.
 
-Der Zweirechner-Test verwendet `-Scenario SteamPeer -SteamGhostPeerDir '\\LENOVO_SERP\common\FlatOut Ultimate Carnage CE'`. Der Laptop tritt bei, meldet sich bereit und schleudert den eigenen Fahrer in High Jump ab. Sobald der Host den empfangenen Fahrer gezeichnet hat, löst der Host-Probe seinen eigenen Abschuss aus. Für die Abnahme müssen beide Logs die gezeichnete Figur mit derselben Eventkennung und elf Gelenken bestätigen. Der Runner sammelt die Logs und Aufnahmen und stellt die Testdateien nach Spielende wieder her.
+Beim damaligen Zweirechner-Test mit `-SteamGhostPeerDir` trat der Laptop bei und schleuderte seinen Fahrer in High Jump ab. Nach dem ersten bestätigten Rendern löste der Host-Probe den eigenen Abschuss aus. Beide Logs mussten die Figur mit derselben Eventkennung und elf Gelenken melden. Die temporären Client-Dateien wurden nach Spielende zurückgesichert. Eine noch offene Rücksicherung aus einem alten Lauf lässt sich weiterhin mit `-RestoreRun <Lauf-ID> -RestoreSteamGhostPeer -GameDir <Client-Spielordner>` ausführen. Das reguläre `SteamPeer`-Szenario prüft weiterhin Derby mit einem Client und vier KI-Fahrern.
 
 Der Zweirechner-Lauf `4bd1cef8ed0c` bestätigte den echten Steam-Empfang und die gezeichnete Fahrerfigur auf beiden Rechnern mit Eventkennung `1164750241308`. Der frühe automatische Ausstieg des Hosts unterbrach seinen Flug kurz nach dem Nachweis. Der Runner wartet nach dem Nachweis jetzt fünf Sekunden. Beide Installationen wurden hashgeprüft wiederhergestellt.
 
@@ -203,4 +204,17 @@ Der Hintergrundlauf `4ff8fd7de800` prüfte einen Fahrer über 100 m von der übe
 
 Der manuelle Test am 21.11.2026 bestätigte in beiden Logs Ghost-Auto und Fahrerfigur für die High-Jump-Events `1198194021865` und `1198976803736`. Beide Rechner zeichneten je vier Bilder auf und gaben die Modelle bei der Rückkehr in die Lobby frei. Die einzelnen Aufnahmen erlauben keine Aussage über den Bewegungsverlauf. Auf beiden Rechnern folgte erst nach `SteamAPI_Shutdown` je eine Sendemeldung mit Fehler 10035. Die Logs und Originalaufnahmen liegen unter `.work/manual-ghost-2026-11-21-193302/`.
 
-Für das gemeldete Ruckeln beim Fahren liegt der Sendeabstand jetzt bei 25 ms. Der Empfänger interpoliert aus mehreren aufeinanderfolgenden Posen mit einem Zielpuffer von 100 ms. Ein Offline-Test mit 216 km/h, schwankenden Paketabständen und Paketverlust prüfte gleichmäßige Vorwärtsbewegung und den Wechsel vom Auto zur Fahrerfigur.
+Beim Ruckeln half erst die Kombination aus höher aufgelöster Uhr, getrennten Sperren für Transport und Darstellung sowie Positionsvorhersage nach dem Vorbild von Chloes Renn-KI. Der Sendeabstand für Autos beträgt mindestens 25 ms. Beim Empfänger gilt ein Zielpuffer von 100 ms und höchstens 80 ms Vorhersage. Neue Posen korrigieren eine laufende Vorhersage über 100 ms. Die Prüfung bei 216 km/h deckte schwankende Paketabstände, Paketverlust und die Korrektur ohne sofortigen Rücksprung ab. Der anschließende manuelle Zwei-PC-Test bewertete die Bewegung als deutlich besser und gelegentlich noch ruckelig.
+
+Die entfernte Zeile `stunt ghost: car stream` meldete je Mitspieler in rund zwei Sekunden die angenommenen Pakete, berechneten Fahrzeugposen, Vorhersagen, am Vorhersagelimit gehaltenen Posen und die größte Empfangslücke in Millisekunden. Für eine erneute Diagnose liefert der Vergleich die Zustandsfelder und den Wiedergabeablauf. Die Release-Version protokolliert weiterhin die Ghost-Eventkennung und allgemeine Steam-Fehler. [Renderpfad und Bewegung](Reverse-Engineering.md#stunt-ghosts-im-nativen-renderer)
+
+Am 21.11.2026 wurde das bereinigte Plugin mit SHA-256 `AFE5B043396C4897DBF64D3BF80C642ABB06358E580E218157BBCC640EE11601` auf Host und Laptop installiert und nach den Tests erneut hashgeprüft. Auf dem inaktiven Desktop des Hosts bestanden vier Läufe. Die Logs liegen unter `.work/t/flatout/`.
+
+| Lauf | Geprüft |
+|---|---|
+| `e8527c4a966d` | Hauptmenü, Optionen, Karriere und Carnage, Einzelrennen mit zwei KI-Fahrern und Steam-Lobby mit drei KI-Fahrern samt Lobbyaustritt |
+| `69fa4e817ae3` | Wrecking, Deathmatch und Survivor Derby mit drei KI-Fahrern und 60 Sekunden Zeitlimit. Steam High Jump erreichte den ersten von drei Versuchen und protokollierte den Ghost-Eventstart. |
+| `cd85d3ed7a10` | High Jump mit lokalem Ghost. Eigenes Fahrzeugmodell mit Skin und vier Rädern gerendert, Überlappung ohne Schaden, Posenaufzeichnung, Paketprüfung und Laden der Fahrzeugressourcen bestanden. |
+| `9d2cef8c6912` | Bowling. Pin und Stunt-Datensatz blieben über 18 Überlappungsframes unverändert. |
+
+Alle vier Läufe stellten die Installation hashgeprüft wieder her. Die Ghost-Übertragung zwischen zwei Steam-Teilnehmern wurde in dieser Runde nicht erneut geprüft.

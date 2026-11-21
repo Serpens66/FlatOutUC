@@ -48,12 +48,14 @@ pwsh -File custom_src/uninstall.ps1 -GameDir <Spielordner> [-RemoveUserData]
 
 | Wo | Pfad | Stand |
 |---|---|---|
-| Steam-Installation (dieser PC, Host) | `E:\ProgrammeE\Steam\steamapps\common\FlatOut Ultimate Carnage CE` (Branch `public`) | Am 21.11.2026 per `install.ps1` auf Lobby-Protokoll `chloecustom-183-steam-4` aktualisiert. 499 Paketdateien und 56 erhaltene Nutzerdaten geprüft. |
-| Client-PC (Laptop) | `\\LENOVO_SERP\common\FlatOut Ultimate Carnage CE` (Steam-Bibliothek des Clients, Netzwerkfreigabe, lokal unter `C:\Program Files (x86)\Steam\steamapps\common\…`) | Am 21.11.2026 per `install.ps1` über das Netzwerk auf Lobby-Protokoll `chloecustom-183-steam-4` aktualisiert. 499 Paketdateien und 55 erhaltene Nutzerdaten geprüft. Die Freigabe braucht Schreibrechte ("Ändern"). Die Diagnose-Werkzeuge `ChloeCustom_diag.bat/.ps1` und `ChloeCustom_trace.bat/.ps1` liegen zusätzlich im Spielordner. Start über Steam. |
+| Steam-Installation (dieser PC, Host) | `E:\ProgrammeE\Steam\steamapps\common\FlatOut Ultimate Carnage CE` (Branch `public`) | Am 21.11.2026 per `install.ps1` auf das Custom-Paket ohne Chloe-Achievements aktualisiert (Lobby-Protokoll `chloecustom-183-steam-4`). 495 Paketdateien und 9 erhaltene Dateien in den Nutzerdatenordnern per SHA-256 geprüft. |
+| Client-PC (Laptop) | `\\LENOVO_SERP\common\FlatOut Ultimate Carnage CE` (Steam-Bibliothek des Clients, Netzwerkfreigabe, lokal unter `C:\Program Files (x86)\Steam\steamapps\common\…`) | Am 21.11.2026 per `install.ps1` über das Netzwerk auf das Custom-Paket ohne Chloe-Achievements aktualisiert (Lobby-Protokoll `chloecustom-183-steam-4`). 495 Paketdateien und 8 erhaltene Dateien in den Nutzerdatenordnern per SHA-256 geprüft. Die Freigabe braucht Schreibrechte ("Ändern"). Die Diagnose-Werkzeuge `ChloeCustom_diag.bat/.ps1` und `ChloeCustom_trace.bat/.ps1` liegen zusätzlich im Spielordner. Start über Steam. |
 
 Am 20.11.2026 wurden die Derby-Korrekturen und die neuen Profilvorgaben auf Host und Laptop installiert. Die drei aktualisierten Paketdateien wurden auf beiden Rechnern per SHA-256 mit dem Build verglichen.
 
 Am 21.11.2026 erhielten Host und Laptop das reguläre `ChloeSteamNet.asi` mit standardmäßig aktiven Stunt-Ghosts für Autos und Fahrerfiguren. Die installierten Plugins sind bytegleich mit der Steam-Build-Ausgabe. Das Update bestand aus dieser einen Datei.
+
+Das Bewegungsupdate für Ghost-Autos wurde am 21.11.2026 auf Host und Laptop getestet. Die Bewegung war im manuellen Steam-Stunt deutlich ruhiger, gelegentliches Ruckeln blieb sichtbar. Für den Release-Build wurden künstliche Steam-Mitspieler, automatische Aufnahmen und Paketstatistiken aus `ChloeSteamNet.asi` entfernt. Beide Rechner brauchen denselben Release-Stand. [Testnachweise und frühere Diagnose](Spieltests.md#stunt-ghosts)
 
 
 ## Starten

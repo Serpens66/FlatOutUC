@@ -61,6 +61,22 @@ Mod-spezifisches steht in [Modpack.md](Modpack.md).
 - `data/global/overlay/ai_damage_meter.dds` + `.bed`: Gesichter in der Schadensanzeige im Rennen (`ai_face_N`).
 - `data/scripts/loadingscreens/ai1..ai11.bed`: Ladebildschirme der AI-Fahrer, `Background = "data/menu/loading_aiN.tga"`. Die Bilder liegen in `data.bfs`.
 
+## Deathmatch-Derby und Power-ups
+
+Die aufnehmbaren Power-ups gehören zum Deathmatch-Derby im Carnage-Modus und im ursprünglichen Online-Multiplayer. Das klassische Schrott-Derby folgt weiterhin dem Last-Man-Standing-Prinzip ohne diese Pickups. [Offizielles Handbuch, englische Fassung](https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/12360/manuals/Manual-Global.pdf#page=6)
+
+| Power-up | Wirkung |
+|---|---|
+| Power Ram | Dreifacher ausgeteilter Rammschaden. |
+| Power Armor | Verdreifacht die Widerstandsfähigkeit. |
+| Infinitro | Vorübergehend unbegrenzt Nitro. |
+| Repair | Repariert das Fahrzeug vollständig. |
+| Bomb | Löst eine Explosion aus, die gegnerische Fahrzeuge beschädigt. |
+| Mass Driver | Erhöht die Fahrzeugmasse. Eigene Rammstöße wirken stärker, gegnerische schwächer. |
+| Score Doubler | Verdoppelt die erzielten Punkte. Zusammen mit dem Frag-Streak-Bonus zählen Abschüsse vierfach. |
+
+Die Effekte stehen in den Vanilla-Ladebildschirmtexten `alte portraits/data FOUC/language/language0.dat`, IDs 1101–1114 (siehe `language/languages.bed`).
+
 ## Skins
 
 - Spieler-Skins sind `data/cars/car_N/skinK.dds`. Zu jeder Skin gehören 5 Dateien: `skinK.dds`, `_damaged`, `_damaged_normal`, `_normal`, `_specular`. Fehlt eine davon, endet die Zählung der Skins dort.

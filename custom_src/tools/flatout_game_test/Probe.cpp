@@ -9,10 +9,10 @@
 #include <cmath>
 #include <share.h>
 #include "StuntPosePreview.h"
-#include "../../ChloeSteamNet/StuntGhostRender.h"
-#include "../../ChloeSteamNet/StuntGhostSession.h"
+#define FLATOUT_GHOST_RENDER_TEST
 #include "../../ChloeSteamNet/StuntGhostAssets.h"
-#include "../../ChloeSteamNet/StuntFrameCapture.h"
+#include "../../ChloeSteamNet/StuntGhostSession.h"
+#include "StuntFrameCapture.h"
 
 // Only staged by Invoke-FlatOutGameTest.ps1 after checking the executable hash.
 // Offsets and layouts are from nya-common-fouc's DeviceD3d, GameFlow,
@@ -21,14 +21,12 @@ static void(__thiscall* originalEndScene)(void*);
 static wchar_t logPath[1024];
 static HANDLE leaveRace;
 static HANDLE captureFrame;
-static HANDLE ejectStunt;
 static PVOID exceptionObserver;
 static bool verifyMusic;
 static bool forceTournamentTie;
 static bool verifyDerbyGrid;
 static bool verifyDerbyImpact;
 static bool recordStuntPose;
-static bool confirmStuntGhostResults;
 static bool verifyStuntGhostProps, verifyStuntGhostAsset;
 static uintptr_t drawDerbyNitro;
 
@@ -297,34 +295,6 @@ static void PostGameEvent(int type, int argument) {
     }
 }
 
-static void RunPeerStuntLaunch(uintptr_t flow, ULONGLONG now) {
-    static ULONGLONG launchAt = 0;
-    static bool launched = false;
-    if (!ejectStunt || launched || *reinterpret_cast<const int*>(flow + 0x4A4) != 2 ||
-        *reinterpret_cast<const int*>(flow + 0x514) != 2 || *reinterpret_cast<const int*>(flow + 0x4CC) != 47 ||
-        *reinterpret_cast<const int*>(flow + 0x2738) != 8) return;
-    const auto host = *reinterpret_cast<const uintptr_t*>(flow + 0x2820);
-    if (!host) return;
-    const auto players = *reinterpret_cast<const uintptr_t* const*>(host + 0x14);
-    if (!players || players == *reinterpret_cast<const uintptr_t* const*>(host + 0x18) || !players[0]) return;
-    const auto player = players[0];
-    if (*reinterpret_cast<const int*>(player + 0x2C8) != 1) return;
-    const auto car = *reinterpret_cast<const uintptr_t*>(player + 0x294);
-    if (!car || *reinterpret_cast<const int*>(car + 0x3590)) return;
-    if (!launchAt) {
-        if (WaitForSingleObject(ejectStunt, 0) != WAIT_OBJECT_0) return;
-        const auto matrix = reinterpret_cast<const float*>(car + 0x1C0);
-        const auto velocity = reinterpret_cast<float*>(car + 0x290);
-        velocity[0] = matrix[8] * 25.0f;
-        velocity[2] = matrix[10] * 25.0f;
-        launchAt = now + 200;
-    } else if (now >= launchAt) {
-        *reinterpret_cast<float*>(player + 0x484) = 0.5f;
-        PostGameEvent(0x1774, *reinterpret_cast<const int*>(player + 0x2C4));
-        launched = true;
-    }
-}
-
 static bool CaptureFrame(void* self) {
     static unsigned frameId = 0;
     wchar_t path[_countof(logPath) + 24];
@@ -411,6 +381,37 @@ static bool VerifyGhostPlayback() {
     return measured == 56;
 }
 
+static bool VerifyGhostPrediction() {
+    using namespace stunt_ghost;
+    MotionTrack track;
+    track.Begin(100, 1);
+    CarPacket car{{100, 1, 0, 1, 1, 2, 3, {0, 0, 0}, {0, 0, 0, 1}}, {60, 0, 0}};
+    for (unsigned now = 0; now <= 150; now += 25) {
+        car.motion.sequence = now / 25 + 1;
+        car.motion.ms = now;
+        car.motion.position[0] = now * 0.06f;
+        if (!track.Receive(&car, sizeof(car), now)) return false;
+        Pose pose;
+        if (!track.SampleLive(now, pose)) return false;
+    }
+    // Hold back packets long enough to drain the interpolation buffer.
+    Pose pose;
+    if (!track.Sample(320, 250, pose) || std::abs(pose.position.x - 13.8f) > 0.01f) return false;
+    if (!track.SampleLive(250, pose) || !track.SampleLive(270, pose) || pose.position.x <= 9.0f) return false;
+    const float predicted = pose.position.x;
+    car.motion.sequence = 8;
+    car.motion.ms = 200;
+    car.motion.position[0] = 10.5f;
+    car.velocity[0] = 40;
+    if (!track.Receive(&car, sizeof(car), 270) || !track.SampleLive(270, pose) ||
+        std::abs(pose.position.x - predicted) > 0.01f || !track.SampleLive(280, pose) ||
+        pose.position.x <= predicted) return false;
+    car.motion.sequence = 9;
+    car.motion.ms = 225;
+    car.velocity[0] = 201;
+    return !track.Receive(&car, sizeof(car), 290) && !track.SampleLive(571, pose);
+}
+
 static bool VerifyGhostMotion() {
     using namespace stunt_ghost;
     MotionTrack track;
@@ -472,7 +473,7 @@ static bool VerifyGhostMotion() {
         session.Sample(2, 1, 2, 401, pose)) return false;
     session.Begin(101);
     return !session.Sample(1, 1, 2, 171, pose) && !session.Receive(1, &next, sizeof(next), 171) &&
-        VerifyGhostPlayback();
+        VerifyGhostPlayback() && VerifyGhostPrediction();
 }
 
 static const StuntRecord* LocalStuntRecord() {
@@ -762,10 +763,6 @@ static void __fastcall EndScene(void* self, void*) {
     static ULONGLONG lastSample = 0;
     ++frames;
     const auto now = GetTickCount64();
-    if (ejectStunt) {
-        const auto flow = *reinterpret_cast<const uintptr_t*>(0x9298FAC);
-        if (flow) RunPeerStuntLaunch(flow, now);
-    }
     if (recordStuntPose || verifyStuntGhostAsset) RecordStuntPose(self, now);
     if (verifyStuntGhostProps) CheckGhostAgainstBowlingPin(now);
     if (now - lastSample < 200) return;
@@ -853,18 +850,7 @@ static void __fastcall EndScene(void* self, void*) {
         }
         fclose(log);
     }
-    // Preserve a naturally finished result by requesting the normal menu transition.
-    // An active race instead takes the ordinary in-race quit path.
-    if (confirmStuntGhostResults && mode == 2 && state == 8 && track == 47 && time >= 5300) {
-        confirmStuntGhostResults = false;
-        const auto score = *reinterpret_cast<const uintptr_t*>(0x846514);
-        if (score && *reinterpret_cast<const uintptr_t*>(score) == 0x6E3E4C) {
-            // The controlled ejection need not reach the course's own score
-            // trigger. Set the native attempt-complete flag before confirming.
-            *reinterpret_cast<uint8_t*>(score + 0x245A) = 1;
-            PostGameEvent(0xBC2, 1);
-        }
-    }
+    // A finished attempt takes the normal menu transition. An active race uses the in-race quit path.
     if (mode == 2 && (state == 8 || state == 9) && WaitForSingleObject(leaveRace, 0) == WAIT_OBJECT_0)
         PostGameEvent(state == 9 ? 1005 : 0x2339, 0);
 }
@@ -886,7 +872,6 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID) {
         verifyDerbyImpact = GetEnvironmentVariableW(L"FOUC_TEST_DERBY_IMPACT", eventName, _countof(eventName)) != 0 &&
             !wcsstr(GetCommandLineW(), L"-flatouttestclient");
         recordStuntPose = GetEnvironmentVariableW(L"FOUC_TEST_STUNT_POSE", eventName, _countof(eventName)) != 0;
-        confirmStuntGhostResults = GetEnvironmentVariableW(L"FOUC_TEST_STUNT_GHOST_RESULTS", eventName, _countof(eventName)) != 0;
         verifyStuntGhostProps = GetEnvironmentVariableW(L"FOUC_TEST_STUNT_GHOST_PROPS", eventName, _countof(eventName)) != 0;
         verifyStuntGhostAsset = GetEnvironmentVariableW(L"FOUC_TEST_STUNT_GHOST_ASSET", eventName, _countof(eventName)) != 0;
         if (GetEnvironmentVariableW(L"FOUC_TEST_DERBY_HUD", eventName, _countof(eventName)))
@@ -895,8 +880,6 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID) {
             LogAttach(SetupTestController() ? L"test controller installed" : L"test controller unavailable");
         if (GetEnvironmentVariableW(L"FOUC_TEST_FRAME_EVENT", eventName, _countof(eventName)))
             captureFrame = OpenEventW(SYNCHRONIZE, FALSE, eventName);
-        if (GetEnvironmentVariableW(L"FOUC_TEST_EJECT_EVENT", eventName, _countof(eventName)))
-            ejectStunt = OpenEventW(SYNCHRONIZE, FALSE, eventName);
         if (!leaveRace || !captureFrame) {
             LogAttach(L"no exit signal available");
             return TRUE;

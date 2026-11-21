@@ -17,15 +17,14 @@ static __declspec(naked) void __stdcall DrawSkinnedQueue(void*) {
 
 class DriverAsset {
 public:
-    bool Show(size_t slot, const DriverPose& driver, float opacity) {
+    void Show(size_t slot, const DriverPose& driver, float opacity) {
         if (character_ != driver.character || skin_ != driver.skin) {
             Unload();
             character_ = driver.character;
             skin_ = driver.skin;
             ready_ = Load();
         }
-        if (!ready_) return false;
-        if (!Install()) return false;
+        if (!ready_ || !Install()) return;
 
         const auto rig = resource_[5];
         for (unsigned i = 0; i < kDriverJoints; ++i) {
@@ -38,27 +37,21 @@ public:
         *reinterpret_cast<uint32_t*>(material + 0x60) = 1;
         visible_ = true;
         assets_[slot] = this;
-        return true;
     }
 
     void Hide() { visible_ = false; }
 
-    bool Unload() {
-        if (character_ < 0) return false;
+    void Unload() {
+        if (character_ < 0) return;
         Hide();
         for (auto& asset : assets_) if (asset == this) asset = nullptr;
-        const bool loaded = resource_[5] != 0;
-        if (loaded) reinterpret_cast<void (__stdcall*)(uintptr_t*)>(0x5795E0)(resource_.data());
+        if (resource_[5]) reinterpret_cast<void (__stdcall*)(uintptr_t*)>(0x5795E0)(resource_.data());
         resource_ = {};
         surface_ = 0;
         ready_ = false;
         character_ = -1;
         skin_ = 0;
-        frames_ = 0;
-        return loaded;
     }
-
-    unsigned Frames() const { return frames_; }
 
 private:
     friend void DriverRenderHook();
@@ -147,7 +140,6 @@ private:
             for (auto* asset : assets_) {
                 if (!asset || !asset->visible_ || bucket.end == bucket.capacity) continue;
                 *bucket.end++ = {asset->surface_, &asset->palette_, 0, 0};
-                ++asset->frames_;
             }
         }
         DrawSkinnedQueue(queue);
@@ -160,7 +152,6 @@ private:
     alignas(16) std::array<Matrix, kDriverJoints> matrices_{};
     const Palette palette_{kDriverJoints, matrices_.data()};
     uintptr_t surface_ = 0;
-    unsigned frames_ = 0;
     int character_ = -1;
     uint16_t skin_ = 0;
     bool ready_ = false, visible_ = false;
