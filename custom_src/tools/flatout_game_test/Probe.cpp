@@ -112,37 +112,6 @@ static bool LogDerbyGrid(FILE* log, uintptr_t flow, int level) {
     return true;
 }
 
-static void ObserveSanJuanDerby(FILE* log, uintptr_t flow, int time) {
-    static float start[9][2]{};
-    static bool sampled = false, moved = false, collision = false;
-    if ((moved && collision) || time < 500) return;
-    const auto players = *reinterpret_cast<const uintptr_t**>(flow + 0x2824);
-    const auto end = *reinterpret_cast<const uintptr_t**>(flow + 0x2828);
-    if (!players || end - players != 9) return;
-    for (int i = 2; i < 9; ++i) {
-        if (!players[i] || !*reinterpret_cast<const uintptr_t*>(players[i] + 0x294)) return;
-    }
-    for (int i = 2; i < 9; ++i) {
-        const auto car = *reinterpret_cast<const uintptr_t*>(players[i] + 0x294);
-        const auto xyz = reinterpret_cast<const float*>(car + 0x1F0);
-        if (!sampled) {
-            start[i][0] = xyz[0];
-            start[i][1] = xyz[2];
-        }
-        const float dx = xyz[0] - start[i][0], dz = xyz[2] - start[i][1];
-        const float damage = *reinterpret_cast<const float*>(car + 0x7AB8);
-        if (!moved && dx * dx + dz * dz >= 25.0f) {
-            fprintf(log, "san-juan ai moved: slot %d at %d ms\n", i + 1, time);
-            moved = true;
-        }
-        if (!collision && damage > 0.001f) {
-            fprintf(log, "san-juan collision damage: slot %d, %.4f at %d ms\n", i + 1, damage, time);
-            collision = true;
-        }
-    }
-    sampled = true;
-}
-
 static void MeasureDerbyImpact(FILE* log, uintptr_t flow, int time) {
     static int start = -1;
     static bool reported = false;
@@ -749,7 +718,6 @@ static void __fastcall EndScene(void* self, void*) {
         if (verifyDerbyGrid && !gridLogged && mode == 2 && (state == 7 || state == 8) && rules == 3) {
             gridLogged = LogDerbyGrid(log, flow, track);
         }
-        if (verifyDerbyGrid && mode == 2 && state == 8 && rules == 3 && track == 175) ObserveSanJuanDerby(log, flow, time);
         if (verifyDerbyImpact && mode == 2 && state == 8 && rules == 3 && track == 31) MeasureDerbyImpact(log, flow, time);
         if (forceTournamentTie && state == 9 && rules == 3 && track == 31 && ApplyTournamentTie(flow)) {
             static bool tieLogged = false;

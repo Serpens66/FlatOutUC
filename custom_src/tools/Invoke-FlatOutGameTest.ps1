@@ -38,7 +38,7 @@ param(
     [Parameter(ParameterSetName = 'Run')]
     [switch]$LoopbackRace,
     [Parameter(ParameterSetName = 'Run')]
-    [ValidateSet(31, 32, 33, 34, 35, 36, 175)][int]$LoopbackDerbyLevel,
+    [ValidateRange(31, 36)][int]$LoopbackDerbyLevel,
     [Parameter(ParameterSetName = 'Run')]
     [ValidateRange(4, 7)][int]$LoopbackDerbyAI = 4,
     [Parameter(ParameterSetName = 'Run')]
@@ -47,8 +47,6 @@ param(
     [ValidateSet('UC', 'FO2')][string]$DerbyHud,
     [Parameter(ParameterSetName = 'Run')]
     [switch]$DerbyImpact,
-    [Parameter(ParameterSetName = 'Run')]
-    [string]$SanJuanTestPackage,
     [Parameter(ParameterSetName = 'Run')]
     [switch]$StuntPose,
     [Parameter(ParameterSetName = 'Run')]
@@ -76,11 +74,8 @@ $directories = @('Savegame', 'Profiles', 'Ghosts')
 $run = if ($RestoreRun) { $RestoreRun } else { [guid]::NewGuid().ToString('N').Substring(0, 12) }
 $luaRun = if ($ReuseSteamPeerArchive) { $ReuseSteamPeerArchive } else { $run }
 $work = Join-Path $runRoot $run
-$sanJuanFiles = @('foucpack_chloecustom_sanjuan_derby.bfs', 'foucpack_chloecustom_steam.bfs', 'ChloeSteamNet.asi')
 $videoFiles = @('ChloeSteamNet.asi', 'foucpack_chloecustom_stunt_video.bfs', 'Config/StuntVideoPreview.enabled')
 if ($StuntVideoPreviewPackage) { $files += $videoFiles }
-$sanJuanTest = $LoopbackDerbyLevel -eq 175
-if ($SanJuanTestPackage) { $files += $sanJuanFiles }
 $profileFiles = @('player{0:000}.sav', 'customsave{0:000}.sav', 'customsave{0:000}.ach', 'customsave{0:000}.cht') |
     ForEach-Object { 'Savegame/' + ($_ -f $ProfileSlot) }
 
@@ -137,7 +132,7 @@ function New-TestBfs {
     if ($CreateProfile) { $wanted += 'profilesmenu.bed' }
     if ($Scenario -eq 'LocalModes') { $wanted += @('arcadecareermenu.bed', 'partymodemenu.bed', 'mainmenu.bed') }
     if ($LoopbackDerbyLevel) { $wanted += @('chloemultiplayer_lobby_changeoptions.bed', 'chloemultiplayer_lobby_sessiondetails.bed') }
-    if ($sanJuanTest) { $wanted += 'multiplayerracemenu.bed' }
+    if ($LoopbackDerbyLevel) { $wanted += 'multiplayerracemenu.bed' }
     foreach ($archive in $archives) {
         $archive = $archive.Trim()
         if (-not $archive) { continue }
@@ -242,7 +237,7 @@ FlatOutTest_ChangeHostCar = ChangeCar
     foreach ($script in $wanted) {
         $source = Join-Path $resolved "data/scripts/$script"
         $body = [IO.File]::ReadAllText($source, $encoding)
-        if ($sanJuanTest -and $script -eq 'multiplayerracemenu.bed') {
+        if ($LoopbackDerbyLevel -and $script -eq 'multiplayerracemenu.bed') {
             $anchor = 'end --//USE_NETWORK'
             if ([regex]::Matches($body, [regex]::Escape($anchor)).Count -ne 1) { throw 'Cannot attach to the multiplayer track list.' }
             $menuCheck = @'
@@ -251,15 +246,13 @@ function FlatOutTest_CheckDerbyTracks()
     OnGameTypeChanged()
     SetSelectedItemByValue(Options, TrackType, TRACKTYPE_DERBY)
     OnTrackTypeChanged()
-    assert(table.concat(ValidTracks, ",") == "31,32,33,34,35,36,175", "unexpected multiplayer Derby track list")
+    assert(table.concat(ValidTracks, ",") == "31,32,33,34,35,36", "unexpected multiplayer Derby track list")
     FlatOutTest_CheckSingleDerbyTracks()
-    assert(Levels[172].ChloeCustomHidden and Levels[173].ChloeCustomHidden and Levels[174].ChloeCustomHidden)
-    assert(Levels[175].IsMultiplayerOnly and Levels[175].MusicPlaylist == nil)
 end
 '@
             $body = $body.Replace($anchor, "$menuCheck`n$anchor")
         }
-        if ($sanJuanTest -and $script -eq 'singleracemenu.bed') {
+        if ($LoopbackDerbyLevel -and $script -eq 'singleracemenu.bed') {
             $body += @'
 
 function FlatOutTest_CheckSingleDerbyTracks()
@@ -465,7 +458,6 @@ function Invoke-TestProcess {
     $secondLog = Join-Path $work 'probe-second.log'
     $firstFrameAtSecondLaunch = 0
     $loopbackRacePassed = $false
-    $sanJuanFinished = { $_[1] -eq 2 -and $_[2] -eq 9 -and $_[3] -ge 59800 -and $_[4] -eq 175 -and $_[12] -eq 60000 }
     try {
         Assert-GameIdle
         $argument = if ($Scenario -eq 'SteamPeer') { '-flatouttesthost' } else { '' }
@@ -490,7 +482,7 @@ function Invoke-TestProcess {
         $stepTime = 0
         $capturedStall = $false
         $budget = if ($Scenario -in 'Skins', 'Modes', 'LocalModes', 'Tournament', 'SteamPeer') { 1800 } else { 150 }
-        $stepBudget = if ($Scenario -eq 'Tournament' -or $sanJuanTest) { 100 } else { 40 }
+        $stepBudget = if ($Scenario -eq 'Tournament') { 100 } else { 40 }
         $modeProofs = [Collections.Generic.List[int]]::new()
         $modeFailures = [Collections.Generic.List[string]]::new()
         $lastMode = 0
@@ -586,15 +578,9 @@ function Invoke-TestProcess {
                         $loopbackRacePassed = $true
                         Write-ProgressLine "Both loopback processes simulated track $expectedLevel with $expectedOthers other drivers."
                         [void]$captureFrame.Set()
-                        if (-not $sanJuanTest) {
-                            [void]$clientLeaveRace.Set()
-                            [void]$leaveRace.Set()
-                        }
+                        [void]$clientLeaveRace.Set()
+                        [void]$leaveRace.Set()
                     }
-                }
-                if ($sanJuanTest -and $loopbackRacePassed) {
-                    if ($samples | Where-Object $sanJuanFinished | Select-Object -First 1) { [void]$leaveRace.Set() }
-                    if (Get-ProbeSamples $secondLog | Where-Object $sanJuanFinished | Select-Object -First 1) { [void]$clientLeaveRace.Set() }
                 }
                 if ($Scenario -in 'Modes', 'LocalModes', 'Tournament' -and $lastStep -match '^mode begin (\d+) (\S+) (\d+) (\d+) (\d+) (\d+) (\d+) (-?\d+) (\d+)$') {
                     $step = [int]$Matches[1]
@@ -811,7 +797,7 @@ function Invoke-TestProcess {
                         $positions = @($cars | ForEach-Object { ($_ -split ',')[0] })
                         $coordinates = @($cars | ForEach-Object { ($_ -split ',', 2)[1] })
                         $number = $LoopbackDerbyAI + 2
-                        $unique = if ($sanJuanTest) { $number } else { [Math]::Min(8, $number) }
+                        $unique = [Math]::Min(8, $number)
                         if ([int]$parts[1] -ne $LoopbackDerbyLevel -or [Math]::Abs([double]$parts[2] - [double]$LoopbackDamage) -gt 0.0001 -or
                             $cars.Count -ne $number -or ($positions[0..($unique - 1)] | Sort-Object -Unique).Count -ne $unique -or
                             ($coordinates[0..($unique - 1)] | Sort-Object -Unique).Count -ne $unique) {
@@ -824,22 +810,7 @@ function Invoke-TestProcess {
                         throw 'Host and client did not receive the first and second grid slots respectively.'
                     }
                     foreach ($grid in $grids) { Write-ProgressLine $grid }
-                    if ($sanJuanTest) {
-                        $required += 'san-juan-menu 7 multiplayer 6 single-player'
-                        $hostGrid = ($grids[0].Split(' ') | Select-Object -Skip 3 | Sort-Object) -join ' '
-                        $clientGrid = ($grids[1].Split(' ') | Select-Object -Skip 3 | Sort-Object) -join ' '
-                        if ($hostGrid -ne $clientGrid) { throw 'San Juan start slots or coordinates differ between processes.' }
-                        foreach ($path in $probeLog, $secondLog) {
-                            $finished = Get-ProbeSamples $path | Where-Object $sanJuanFinished | Select-Object -First 1
-                            if (-not $finished) { throw "San Juan did not finish at the one-minute limit in $path." }
-                            Write-ProgressLine "San Juan finished at $($finished[3]) ms with the configured $($finished[12]) ms limit."
-                        }
-                        foreach ($proof in 'san-juan ai moved', 'san-juan collision damage') {
-                            $sample = Select-String -LiteralPath $probeLog -SimpleMatch $proof | Select-Object -First 1
-                            if (-not $sample) { throw "Missing San Juan proof: $proof" }
-                            Write-ProgressLine $sample.Line
-                        }
-                    }
+                    $required += 'derby-menu 6 multiplayer 6 single-player'
                     if ($DerbyImpact) {
                         $impact = Get-Content -LiteralPath $probeLog | Select-String '^derby impact (\S+) (\S+) (\S+)$' | Select-Object -First 1
                         if (-not $impact) { throw 'The controlled Derby impact did not complete.' }
@@ -965,7 +936,6 @@ try {
     Assert-GameIdle
     if ($RestoreRun) {
         $rollback = Get-Content -LiteralPath (Join-Path $work 'rollback.json') -Raw | ConvertFrom-Json
-        if ($rollback.Files -contains $sanJuanFiles[0]) { $files += $sanJuanFiles }
         if ($rollback.Files -contains $videoFiles[1]) { $files += $videoFiles }
         Restore-FlatOutTestState $GameDir $work $files $directories
         $status = 'PASS'
@@ -988,16 +958,8 @@ try {
             throw 'BLOCKED: LoopbackRace requires a loopback client profile.'
         }
         if ($LoopbackDerbyLevel -and -not $LoopbackRace) { throw 'BLOCKED: Derby grid testing requires LoopbackRace.' }
-        if ($SanJuanTestPackage -and -not $sanJuanTest) { throw 'BLOCKED: SanJuanTestPackage requires LoopbackDerbyLevel 175.' }
         if ($ReuseSteamPeerArchive -and -not $stuntVideoPeer) { throw 'BLOCKED: ReuseSteamPeerArchive requires the Steam video peer scenario.' }
-        if ($SanJuanTestPackage) {
-            $SanJuanTestPackage = (Resolve-Path -LiteralPath $SanJuanTestPackage).ProviderPath
-            foreach ($name in $sanJuanFiles) {
-                if (-not (Test-Path -LiteralPath (Get-TestPath $SanJuanTestPackage $name) -PathType Leaf)) { throw "Missing test package file: $name" }
-            }
-        }
         if ($StuntVideoPreviewPackage) {
-            if ($SanJuanTestPackage) { throw 'BLOCKED: Select only one test package.' }
             $StuntVideoPreviewPackage = (Resolve-Path -LiteralPath $StuntVideoPreviewPackage).ProviderPath
             foreach ($name in $videoFiles) {
                 if (-not (Test-Path -LiteralPath (Get-TestPath $StuntVideoPreviewPackage $name) -PathType Leaf)) {
@@ -1090,11 +1052,6 @@ try {
                 Copy-Item -LiteralPath (Get-TestPath $StuntVideoPreviewPackage $name) -Destination (Get-TestPath $GameDir $name) -Force
             }
         }
-        if ($SanJuanTestPackage) {
-            foreach ($name in $sanJuanFiles) {
-                Copy-Item -LiteralPath (Get-TestPath $SanJuanTestPackage $name) -Destination (Get-TestPath $GameDir $name) -Force
-            }
-        }
         foreach ($profileFile in $stagedProfileFiles) {
             Copy-Item -LiteralPath $profileFile.Source -Destination $profileFile.Target
         }
@@ -1137,9 +1094,6 @@ try {
         $testArchives = @('FlatOutGameTest.bfs')
         if ($StuntVideoPreviewPackage -and $videoFiles[1] -notin (Get-Content -LiteralPath $patchPath).Trim()) {
             $testArchives = @($videoFiles[1]) + $testArchives
-        }
-        if ($SanJuanTestPackage -and $sanJuanFiles[0] -notin (Get-Content -LiteralPath $patchPath).Trim()) {
-            $testArchives = @($sanJuanFiles[0]) + $testArchives
         }
         [IO.File]::AppendAllText($patchPath, "`n" + ($testArchives -join "`n"))
         Invoke-TestProcess

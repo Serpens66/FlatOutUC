@@ -33,7 +33,7 @@
 // ------------------------------------------------------------------------------------------------------------
 // constants
 
-static const char*    kProtocol      = "chloecustom-183-steam-3"; // both players need San Juan Derby and its grid assignment
+static const char*    kProtocol      = "chloecustom-183-steam-4"; // both players need the same set of arenas
 static const char*    kKeyProtocol   = "chloecustommp";
 static const char*    kKeyName       = "name";
 static const char*    kKeyHost       = "host";
@@ -693,19 +693,17 @@ static bool ReplaceCall(uint8_t* site, uintptr_t original, uintptr_t replacement
 
 static uint8_t* gChloeMP;
 static constexpr uintptr_t kChloeMPBase = 0x62840000;
+static constexpr int kDerbyGridSize = 8;
 static const auto gNativeGrid = reinterpret_cast<void(__stdcall*)(uint8_t*)>(0x469F50);
 
-static int DerbyGridSize(int level) {
-	if (level == 175) return 24; // San Juan Derby, startpoints.bed
-	return level >= 31 && level <= 36 ? 8 : 0;
-}
+static bool IsDerbyArena(int level) { return level >= 31 && level <= 36; }
 
 // The MP packet already transmits one dense slot per human. Fill the packet in roster order for Derby.
 // Chloe takes the return value modulo count and marks the chosen slot as used.
 static int __stdcall ChooseDerbyRosterSlot(const uint8_t* used, int count) {
 	const int rules = *reinterpret_cast<const int*>(gChloeMP + (0x62D5D0C4 - kChloeMPBase));
 	const int level = *reinterpret_cast<const int*>(gChloeMP + (0x62D5D0CC - kChloeMPBase));
-	if (rules == 3 && DerbyGridSize(level)) {
+	if (rules == 3 && IsDerbyArena(level)) {
 		for (int slot = 0; slot < count; ++slot) if (!used[slot]) return slot;
 	}
 	return reinterpret_cast<int(*)()>(gChloeMP + (0x629259D8 - kChloeMPBase))();
@@ -723,9 +721,8 @@ static __declspec(naked) void DerbyRosterStub() {
 // Called after Player objects exist but before the vanilla placement routine reads nStartPosition.
 static void __stdcall AssignDerbyGrid(uint8_t* flow) {
 	const int level = *reinterpret_cast<int*>(flow + 0x4CC);
-	const int gridSize = DerbyGridSize(level);
 	if (gChloeMP && *reinterpret_cast<int*>(gChloeMP + (0x62D58CF8 - kChloeMPBase)) &&
-			*reinterpret_cast<int*>(flow + 0x514) == 3 && gridSize) {
+			*reinterpret_cast<int*>(flow + 0x514) == 3 && IsDerbyArena(level)) {
 		auto begin = *reinterpret_cast<uint8_t***>(flow + 0x2824);
 		auto end = *reinterpret_cast<uint8_t***>(flow + 0x2828);
 		const int count = int(end - begin);
@@ -735,7 +732,7 @@ static void __stdcall AssignDerbyGrid(uint8_t* flow) {
 			for (int i = 0; i < count; ++i) {
 				// Index 0 is local. The following human proxies are in roster order excluding local.
 				const int slot = i == 0 ? local : i <= local ? i - 1 : i;
-				*reinterpret_cast<int*>(begin[i] + 0x2CC) = slot % gridSize + 1;
+				*reinterpret_cast<int*>(begin[i] + 0x2CC) = slot % kDerbyGridSize + 1;
 			}
 			Log("derby grid: level %d, cars %d, human drivers %d, local grid slot %d", level, count, humans, local + 1);
 			return;
@@ -2338,7 +2335,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
 			Log("unknown Fouc.exe, plugin disabled");
 			return TRUE;
 		}
-		if (VideoPreviewEnabled()) kProtocol = "chloecustom-183-steam-3-stunt-video-preview";
+		if (VideoPreviewEnabled()) kProtocol = "chloecustom-183-steam-4-stunt-video-preview";
 		Log("ChloeSteamNet loaded (protocol %s)", kProtocol);
 		PlaceScriptHook();
 		PlaceInstantActionFilter();

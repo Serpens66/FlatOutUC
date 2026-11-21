@@ -27,7 +27,6 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $src  = Join-Path $root 'FlatOutUCChloeCollection_1.83_custom'
 $dst  = Join-Path $root 'FlatOutUCChloeCollection_1.83_custom_steam'
-$original = Join-Path $root 'FlatOutUCChloeCollection_1.83'
 $hardlinkThreshold = 50MB   # same rule as build.ps1: large BFS are hardlinked, never edit them in place
 if ($TestOutputDir) {
     $dst = [IO.Path]::GetFullPath($TestOutputDir)
@@ -117,21 +116,10 @@ function Invoke-BfsTool([string[]]$Arguments) {
 
 $overrideArchive = 'foucpack_chloecustom_steam.bfs'
 $overridePath = Join-Path $dst $overrideArchive
-$sanJuanArchive = 'foucpack_chloecustom_sanjuan_derby.bfs'
-$sanJuanPath = Join-Path $dst $sanJuanArchive
-# Keep the Derby stage, shared DDS textures and its HUD map with the original storage flags.
-$exclude = '^(?!data/tracks/sanjuan/(?:sanjuan1/d/|textures/[^/]+\.dds$)|data/global/map/map_sanjuan1d\.dds$)'
-Invoke-BfsTool @('filter', (Join-Path $original 'foucpack_gcp_maps_extras.bfs'), $sanJuanPath, $exclude)
-Invoke-BfsTool @('verify', $sanJuanPath)
 $work = [IO.Directory]::CreateTempSubdirectory('fouc_steam_').FullName
 try {
     $overlay = Join-Path $work 'overlay'
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'steam_overrides') -Destination $overlay -Recurse
-    $levelsScript = 'data/scripts/levels.bed'
-    Invoke-BfsTool @('extract', (Join-Path $src 'foucpack_gcp_misc.bfs'), $overlay, $levelsScript)
-    $levelsPath = Join-Path $overlay $levelsScript
-    $levels = [IO.File]::ReadAllText($levelsPath, [Text.Encoding]::Latin1)
-    [IO.File]::WriteAllText($levelsPath, $levels + "`r`n-- San Juan Derby is bundled only in the Steam package.`r`nLevels[LevelIndex.SanJuan4].ChloeCustomHidden = nil`r`nLevels[LevelIndex.SanJuan4].MusicPlaylist = nil`r`n", [Text.Encoding]::Latin1)
     $music = Join-Path $work 'base-music'
     Invoke-BfsTool @('extract', (Join-Path $src 'foucpack_gcp_music.bfs'), $music, 'data/music/playlist_')
     $playlistDir = Join-Path $overlay 'data/music'
@@ -211,7 +199,7 @@ try {
     Remove-Item -LiteralPath $work -Recurse -Force
 }
 $patchFile = Join-Path $dst 'patch'   # small file, copied (not hardlinked) in step 1
-$patch = @(Get-Content $patchFile | Where-Object { $_ }) + $sanJuanArchive + $overrideArchive
+$patch = @(Get-Content $patchFile | Where-Object { $_ }) + $overrideArchive
 [IO.File]::WriteAllText($patchFile, ($patch -join "`n"))   # no trailing newline, like the original
 
 # 4. Steam-only plugins (ChloeSteamNet.asi)

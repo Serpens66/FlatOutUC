@@ -1031,7 +1031,6 @@ EnsureLoaded()	-- the menu scripts were reloaded: restore the tournament (also d
 dofile("data/menu/backdrops2.bed")
 dofile("data/menu/garage_elements_2.bed")
 dofile("data/menu/track_images.bed")
-dofile("data/menu/event_type_icons_4.bed")
 dofile("data/menu/game_mode_selector.bed")
 dofile("data/menu/cup_next_race_elements.bed")
 
@@ -1575,7 +1574,6 @@ function menu_chloecustom_buildtournament.create(self)
 	self:addResource("backdrops2.tga", backdrops2, backdrops2_size)
 	self:addResource("garage_elements_2.tga", garage_elements_2, garage_elements_2_size)
 	self:addResource("track_images.tga", track_images, track_images_size)
-	self:addResource("event_type_icons_4.tga", event_type_icons_4, event_type_icons_4_size)
 	self:addResource("game_mode_selector_ws.tga", game_mode_selector, game_mode_selector_size)
 	self:addResource("cup_next_race_elements.tga", cup_next_race_elements, cup_next_race_elements_size)
 
