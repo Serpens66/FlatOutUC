@@ -9,8 +9,6 @@
 #include <cmath>
 #include <share.h>
 #include "StuntPosePreview.h"
-#include "../../ChloeSteamNet/StuntVideo.h"
-#include "../../ChloeSteamNet/StuntAudio.h"
 
 // Only staged by Invoke-FlatOutGameTest.ps1 after checking the executable hash.
 // Offsets and layouts are from nya-common-fouc's DeviceD3d, GameFlow,
@@ -19,14 +17,12 @@ static void(__thiscall* originalEndScene)(void*);
 static wchar_t logPath[1024];
 static HANDLE leaveRace;
 static HANDLE captureFrame;
-static HANDLE advanceStunt;
 static PVOID exceptionObserver;
 static bool verifyMusic;
 static bool forceTournamentTie;
 static bool verifyDerbyGrid;
 static bool verifyDerbyImpact;
 static bool recordStuntPose;
-static bool verifyStuntVideo;
 static uintptr_t drawDerbyNitro;
 
 // Give the renderer a repeatable half-full nitro bar with the flame active.
@@ -181,21 +177,11 @@ static DWORD WINAPI TestControllerState(DWORD index, XINPUT_STATE* input) {
     const auto score = *reinterpret_cast<const uintptr_t*>(0x846514);
     if (!flow || *reinterpret_cast<const int*>(flow + 0x4A4) != 2 ||
             *reinterpret_cast<const int*>(flow + 0x514) != 2 ||
+            *reinterpret_cast<const int*>(flow + 0x2738) != 8 ||
             !score || *reinterpret_cast<const uintptr_t*>(score) != 0x6E3E4C) return ERROR_SUCCESS;
-    const int state = *reinterpret_cast<const int*>(flow + 0x2738);
-    const auto now = GetTickCount64();
-    static ULONGLONG continueUntil = 0;
-    if ((state == 8 || state == 9) && advanceStunt) {
-        if (WaitForSingleObject(advanceStunt, 0) == WAIT_OBJECT_0) continueUntil = now + 200;
-        if (now < continueUntil) {
-            input->Gamepad.wButtons = XINPUT_GAMEPAD_A;
-            return ERROR_SUCCESS;
-        }
-    }
-    if (state != 8) return ERROR_SUCCESS;
-    if (advanceStunt) return ERROR_SUCCESS;
     static int previousAttempt = -1;
     static ULONGLONG attemptStart;
+    const auto now = GetTickCount64();
     const auto attempt = *reinterpret_cast<const int*>(score + 0x34);
     if (attempt != previousAttempt) {
         previousAttempt = attempt;
@@ -396,256 +382,12 @@ static bool CheckStuntReplay(void* self, stunt_preview::Replay& replay, uint32_t
         std::equal(before.begin(), before.end(), scoreFields);
 }
 
-static bool ResetStuntVideoDevice(const stunt_video::Frame& frame) {
-    using namespace stunt_video;
-    auto module = GetModuleHandleW(L"d3d9.dll");
-    if (!module) return false;
-    auto create = reinterpret_cast<IDirect3D9*(WINAPI*)(UINT)>(
-        reinterpret_cast<uintptr_t>(GetProcAddress(module, "Direct3DCreate9")));
-    if (!create) return false;
-    const auto window = CreateWindowExW(WS_EX_NOACTIVATE, L"STATIC", L"FlatOut video reset test",
-        WS_POPUP, 0, 0, 640, 360, nullptr, nullptr, GetModuleHandleW(nullptr), nullptr);
-    if (!window) return false;
-    bool passed = false;
-    {
-        ComPtr<IDirect3D9> d3d;
-        d3d.Attach(create(D3D_SDK_VERSION));
-        ComPtr<IDirect3DDevice9> device;
-        D3DPRESENT_PARAMETERS params{};
-        params.Windowed = TRUE;
-        params.hDeviceWindow = window;
-        params.BackBufferWidth = 640;
-        params.BackBufferHeight = 360;
-        params.BackBufferFormat = D3DFMT_X8R8G8B8;
-        params.SwapEffect = D3DSWAPEFFECT_DISCARD;
-        params.PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;
-        if (d3d && SUCCEEDED(d3d->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, window,
-            D3DCREATE_SOFTWARE_VERTEXPROCESSING | D3DCREATE_FPU_PRESERVE, &params, &device))) {
-            Frame before, after;
-            before.quality = after.quality = frame.quality;
-            if (Draw(device.Get(), frame) && Capture(device.Get(), before)) {
-                params.BackBufferWidth = 800;
-                params.BackBufferHeight = 600;
-                passed = SUCCEEDED(device->Reset(&params)) && Draw(device.Get(), frame) &&
-                    Capture(device.Get(), after) && before.width == 1280 && before.height == 720 &&
-                    after.width == 960 && after.height == 720;
-            }
-        }
-    }
-    DestroyWindow(window);
-    return passed;
-}
-
-static bool VerifyStuntTransport() {
-    using namespace stunt_stream;
-    constexpr uint64_t driver = 1;
-    Chain chain{1, {}};
-    if (chain.Next(driver, driver)) return false;
-    for (uint64_t count = 1; count <= 3; ++count) {
-        chain.viewers.push_back(count + 1);
-        unsigned sourceCopies = 0, delivered = 0;
-        for (auto next = chain.Next(driver, driver); next; next = chain.Next(driver, next)) {
-            sourceCopies += chain.Previous(driver, next) == driver;
-            ++delivered;
-        }
-        if (sourceCopies != 1 || delivered != count) return false;
-    }
-    chain = {2, {3, 4}};
-    if (chain.Next(driver, driver) != 3 || chain.Previous(driver, 3) != driver ||
-        chain.Next(driver, 3) != 4 || chain.Previous(driver, 2)) return false;
-    const auto adapt = [](unsigned upload, unsigned download, unsigned expected) {
-        Adaptation controller;
-        // Account for the video fragments and 50 audio packets each second.
-        for (uint64_t time = 500; time <= 17000; time += 500) {
-            const auto& quality = Levels[controller.level];
-            const unsigned wireKbps = quality.videoKbps * 106 / 100 + quality.audioKbps + 22;
-            controller.Observe(wireKbps > (std::min)(upload, download), time);
-        }
-        if (controller.level != expected) return false;
-        for (uint64_t time = 17500; time <= 65000; time += 500) controller.Observe(false, time);
-        return controller.level == 4;
-    };
-    if (!adapt(1000, 3100, 2) || !adapt(3100, 1000, 2) ||
-        !adapt(256, 3100, 0) || !adapt(3100, 256, 0)) return false;
-    Packet picture{1, driver, 2};
-    picture.type = stunt_stream::Picture;
-    picture.sequence = 1;
-    picture.width = 960;
-    picture.height = 540;
-    picture.quality = 2;
-    picture.size = FragmentBytes + 1;
-    std::array<uint8_t, FragmentBytes> bytes{};
-    Assembly assembly;
-    if (!Valid(picture, bytes.size()) || assembly.Add(picture, bytes.data(), bytes.size(), 100)) return false;
-    picture.fragment = 1;
-    if (assembly.Add(picture, bytes.data(), 1, 351)) return false; // expired first fragment
-    picture.sequence = 2;
-    if (assembly.Add(picture, bytes.data(), 1, 352) || assembly.Add(picture, bytes.data(), 1, 353)) return false;
-    picture.fragment = 0;
-    return assembly.Add(picture, bytes.data(), bytes.size(), 354) && assembly.packet.sequence == 2;
-}
-
-#ifdef STUNT_STREAM_OPUS
-static bool VerifyOpusRoundTrip() {
-    using namespace stunt_audio;
-    Encoder encoder;
-    for (const unsigned channels : {2u, 1u}) {
-        std::array<float, Samples * 2> input;
-        for (unsigned i = 0; i < Samples; ++i)
-            input[i * 2] = input[i * 2 + 1] = std::sin(static_cast<float>(i) * 0.08f) * 0.25f;
-        const auto packet = encoder.Encode(input, channels);
-        int error = 0;
-        auto* decoder = opus_decoder_create(Rate, channels, &error);
-        if (error || !decoder) return false;
-        std::array<float, Samples * 2> output{};
-        const int decoded = opus_decode_float(decoder, packet.data(), static_cast<opus_int32>(packet.size()),
-            output.data(), Samples, 0);
-        opus_decoder_destroy(decoder);
-        float peak = 0;
-        for (float value : output) peak = (std::max)(peak, std::abs(value));
-        if (decoded != static_cast<int>(Samples) || peak < 0.1f || packet.size() != (channels == 2 ? 160u : 80u)) return false;
-    }
-    return true;
-}
-#endif
-
-static void VerifyStuntVideo(void* renderer, uint32_t elapsed, uint32_t airborne, uintptr_t host) {
-    using namespace stunt_video;
-    static unsigned streams = 0, shown = 0;
-    static bool finished = false;
-    static uint64_t waitingSince = 0, lastCapture = 0, copyMicros = 0;
-    static uint32_t received = 0, sent = 0, milestone = 0, copies = 0;
-    static stunt_stream::Assembly assembly;
-    if (!verifyStuntVideo || finished) return;
-#ifdef STUNT_STREAM_OPUS
-    static auto* effects = new stunt_audio::Capture;
-    static bool audioStarted = false, audioAttempted = false;
-    static unsigned audioBlocks = 0;
-    static float effectsPeak = 0;
-    if (!audioAttempted && elapsed >= 300) {
-        audioAttempted = true;
-        audioStarted = effects->Start(*reinterpret_cast<void**>(0x7640FC), stunt_audio::EffectGroups());
-    }
-    if (audioStarted) {
-        std::array<float, stunt_audio::Samples * 2> pcm;
-        uint32_t stamp = 0;
-        if (effects->ReadBlock(pcm, stamp, GetTickCount64())) {
-            ++audioBlocks;
-            for (float value : pcm) effectsPeak = (std::max)(effectsPeak, std::abs(value));
-        }
-    }
-#endif
-    static Codec* codec = new Codec();
-    auto device = *reinterpret_cast<IDirect3DDevice9**>(static_cast<char*>(renderer) + 0x60);
-    const uint64_t now = GetTickCount64();
-    const unsigned target = shown % 2 + 1;
-    const uint64_t event = shown < 2 ? 40 : 41;
-    auto report = [&](bool success) {
-#ifdef STUNT_STREAM_OPUS
-        if (audioStarted) effects->Stop();
-        const bool audioCodec = VerifyOpusRoundTrip();
-        success = success && audioCodec && audioStarted && audioBlocks;
-#endif
-        if (FILE* log = _wfsopen(logPath, L"a", _SH_DENYNO)) {
-            fprintf(log, "stunt video loopback %s (%u snapshots, %u frames displayed, %u captured, mean copy %llu us)\n",
-                success ? "complete" : "failed", shown, streams, copies, copies ? copyMicros / copies : 0);
-#ifdef STUNT_STREAM_OPUS
-            fprintf(log, "stunt audio: Opus %s, FMOD tap %s, %u blocks, peak %.6f\n",
-                audioCodec ? "passed" : "failed", audioStarted ? "attached" : "unavailable", audioBlocks, effectsPeak);
-#endif
-            fclose(log);
-        }
-        finished = true;
-    };
-    if (milestone && now - waitingSince > 900) { report(false); return; }
-    if (elapsed >= 120 && now - lastCapture >= 42) {
-        const bool phase = shown == 0 ? elapsed >= 350 : shown == 1 ? airborne >= 180 :
-            shown == 2 ? airborne >= 960 : airborne >= 3280;
-        lastCapture = now;
-        Frame captured{event, target, ++sent, 0, 0, {}};
-        captured.quality = 4;
-        captured.key = !received || elapsed / 1000 != (elapsed - 42) / 1000;
-        LARGE_INTEGER before{}, after{}, frequency{};
-        QueryPerformanceFrequency(&frequency);
-        QueryPerformanceCounter(&before);
-        if (!Capture(device, captured)) { report(false); return; }
-        QueryPerformanceCounter(&after);
-        copyMicros += static_cast<uint64_t>((after.QuadPart - before.QuadPart) * 1000000 / frequency.QuadPart);
-        ++copies;
-        if (phase && !milestone) {
-            milestone = captured.sequence;
-            waitingSince = now;
-            if (FILE* log = _wfsopen(logPath, L"a", _SH_DENYNO)) {
-                fprintf(log, "stunt video phase %u capture at %u ms\n", shown + 1, elapsed);
-                fclose(log);
-            }
-        }
-        codec->Submit(false, std::move(captured));
-    }
-    if (auto encoded = codec->Take(false)) {
-        using namespace stunt_stream;
-        if (encoded->event != event || encoded->subscription != target || encoded->sequence <= received) return;
-        stunt_stream::Packet packet{encoded->event, 1, encoded->subscription};
-        packet.type = stunt_stream::Picture;
-        packet.sequence = encoded->sequence;
-        packet.size = static_cast<uint32_t>(encoded->bytes.size());
-        packet.width = static_cast<uint16_t>(encoded->width);
-        packet.height = static_cast<uint16_t>(encoded->height);
-        packet.quality = encoded->quality;
-        packet.key = encoded->key;
-        for (size_t offset = 0; offset < packet.size; offset += FragmentBytes, ++packet.fragment) {
-            const auto length = (std::min)(FragmentBytes, packet.size - offset);
-            const auto* payload = encoded->bytes.data() + offset;
-            if (!Valid(packet, length)) { report(false); return; }
-            if (assembly.Add(packet, payload, length, now)) {
-                received = packet.sequence;
-                encoded->bytes = std::move(assembly.data);
-                codec->Submit(true, std::move(*encoded));
-            }
-        }
-    }
-    if (auto decoded = codec->Take(true)) {
-        if (decoded->event != event || decoded->subscription != target) return;
-        ++streams;
-        const auto score = *reinterpret_cast<uintptr_t*>(0x846514);
-        if (!score || *reinterpret_cast<uintptr_t*>(score) != 0x6E3E4C) { report(false); return; }
-        const auto fields = reinterpret_cast<const int*>(score + 0x30);
-        std::array<int, 5> saved;
-        std::copy_n(fields, saved.size(), saved.begin());
-        const int timer = *reinterpret_cast<int*>(host + 0x2099C);
-        static const auto caption = MakeCaption(L"ZUGUCKEN   [V / X]");
-        const bool snapshot = milestone && decoded->sequence >= milestone;
-        if (!Draw(device, *decoded) || (snapshot && (!Draw(device, caption, true) || !CaptureFrame(renderer))) ||
-            *reinterpret_cast<int*>(host + 0x2099C) != timer || !std::equal(saved.begin(), saved.end(), fields)) {
-            report(false);
-            return;
-        }
-        if (snapshot) {
-            if (decoded->width != 1280 || decoded->height != 720) { report(false); return; }
-            milestone = 0;
-            if (++shown == 4) {
-                const bool reset = ResetStuntVideoDevice(*decoded);
-                const bool transport = VerifyStuntTransport();
-                if (FILE* log = _wfsopen(logPath, L"a", _SH_DENYNO)) {
-                    fprintf(log, "stunt video device reset %s\n", reset ? "passed" : "failed");
-                    fprintf(log, "stunt video routing and capped link fixtures %s\n", transport ? "passed" : "failed");
-                    fclose(log);
-                }
-                report(streams >= 20 && reset && transport);
-                return;
-            }
-            return;
-        }
-    }
-}
-
 static void RecordStuntPose(void* device, ULONGLONG now) {
     static ULONGLONG started = 0, last = 0, launched = 0;
-    static bool complete = false, launchSent = false, moving = false;
+    static bool complete = false, launchSent = false;
     static unsigned carFrames = 0, driverFrames = 0;
-    static int recordedAttempt = 0;
-    static const bool peer = GetEnvironmentVariableW(L"FOUC_TEST_STUNT_VIDEO_PEER_HOST", nullptr, 0) != 0;
     static stunt_preview::Replay replay;
+    if (complete || now - last < 50) return;
     const auto flow = *reinterpret_cast<uintptr_t*>(0x9298FAC);
     if (!flow || *reinterpret_cast<int*>(flow + 0x4A4) != 2 || *reinterpret_cast<int*>(flow + 0x514) != 2 ||
         *reinterpret_cast<int*>(flow + 0x4CC) != 47 || *reinterpret_cast<int*>(flow + 0x2738) != 8) return;
@@ -658,38 +400,18 @@ static void RecordStuntPose(void* device, ULONGLONG now) {
     const auto car = *reinterpret_cast<uintptr_t*>(player + 0x294);
     if (!car) return;
     const auto matrix = reinterpret_cast<const float*>(car + 0x1C0);
-    if (peer) {
-        const auto score = *reinterpret_cast<uintptr_t*>(0x846514);
-        if (!score || *reinterpret_cast<uintptr_t*>(score) != 0x6E3E4C) return;
-        const auto attempt = *reinterpret_cast<int*>(score + 0x34);
-        if (attempt < 1 || attempt > 2) return;
-        if (recordedAttempt != attempt) {
-            recordedAttempt = attempt;
-            started = last = launched = 0;
-            complete = launchSent = moving = false;
-            carFrames = driverFrames = 0;
-        }
-    }
-    if (started) VerifyStuntVideo(device, static_cast<uint32_t>(now - started),
-        launched ? static_cast<uint32_t>(now - launched) : 0, host);
-    if (now - last < 50) return;
     last = now;
-    if (complete) return;
     if (!started) {
         started = now;
         replay.Begin(1);
-    }
-    const auto elapsed = static_cast<uint32_t>(now - started);
-    const uint32_t startDelay = peer ? 5000 : 0;
-    if (!moving && elapsed >= startDelay) {
-        moving = true;
         // Give the local test car an initial speed along its own forward axis. No global input is used.
         auto velocity = reinterpret_cast<float*>(car + 0x290);
         velocity[0] = matrix[8] * 25.0f;
         velocity[2] = matrix[10] * 25.0f;
         CaptureFrame(device);
     }
-    if (!launchSent && elapsed >= startDelay + 1100) {
+    const auto elapsed = static_cast<uint32_t>(now - started);
+    if (!launchSent && elapsed >= 1100) {
         launchSent = true;
         // The same native action as releasing the launch control. The test sets the middle of the launch meter.
         *reinterpret_cast<float*>(player + 0x484) = 0.5f;
@@ -700,7 +422,7 @@ static void RecordStuntPose(void* device, ULONGLONG now) {
     swprintf_s(path, L"%ls.stunt.csv", logPath);
     FILE* file;
     if (_wfopen_s(&file, path, L"a")) return;
-    if (!carFrames && recordedAttempt < 2) fputs("ms,object,x,y,z,qx,qy,qz,qw\n", file);
+    if (!carFrames) fputs("ms,object,x,y,z,qx,qy,qz,qw\n", file);
     stunt_preview::Frame frame{};
     frame.ms = elapsed;
     const auto rotation = reinterpret_cast<const float*>(car + 0x280);
@@ -770,20 +492,12 @@ static void __fastcall EndScene(void* self, void*) {
     const int activeRules = *reinterpret_cast<int*>(flow + 0x514);
     static ULONGLONG introStarted = 0;
     static int introState = 0;
-    static const bool videoPeer = GetEnvironmentVariableW(L"FOUC_TEST_STUNT_VIDEO_PEER_HOST", nullptr, 0) != 0;
-    static const bool videoHost = GetEnvironmentVariableW(L"FOUC_TEST_STUNT_VIDEO_HOST_PROMPT", nullptr, 0) != 0;
     if (mode == 2 && (state == 2 || state == 6)) {
         if (introState != state) {
             introState = state;
             introStarted = now;
         }
-        const auto score = *reinterpret_cast<uintptr_t*>(0x846514);
-        const bool firstStuntPrompt = state == 6 && activeRules == 2 && score &&
-            *reinterpret_cast<uintptr_t*>(score) == 0x6E3E4C && *reinterpret_cast<int*>(score + 0x34) == 1;
-        const auto confirmDelay = firstStuntPrompt && videoHost ? 2500u : 600u;
-        const bool confirm = firstStuntPrompt && videoPeer ?
-            WaitForSingleObject(advanceStunt, 0) == WAIT_OBJECT_0 : now - introStarted >= confirmDelay;
-        if (introStarted && confirm) {
+        if (introStarted && now - introStarted >= 600) {
             // GameFlow uses the same confirm action for the track intro and
             // the explicit start prompt before a stunt or offline derby.
             PostGameEvent(0x1389, 0x0b);
@@ -803,7 +517,7 @@ static void __fastcall EndScene(void* self, void*) {
         stunt = *reinterpret_cast<int*>(flow + 0x520);
         const auto score = *reinterpret_cast<uintptr_t*>(0x846514);
         const auto host = *reinterpret_cast<uintptr_t*>(flow + 0x2820);
-        if (host && (state == 6 || state == 7 || state == 8 || state == 9)) {
+        if (host && (state == 7 || state == 8 || state == 9)) {
             time = *reinterpret_cast<int*>(host + 0x2099C);
             track = *reinterpret_cast<int*>(host + 0x2098C);
             const auto begin = *reinterpret_cast<uintptr_t*>(host + 0x14);
@@ -874,9 +588,6 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID) {
         verifyDerbyImpact = GetEnvironmentVariableW(L"FOUC_TEST_DERBY_IMPACT", eventName, _countof(eventName)) != 0 &&
             !wcsstr(GetCommandLineW(), L"-flatouttestclient");
         recordStuntPose = GetEnvironmentVariableW(L"FOUC_TEST_STUNT_POSE", eventName, _countof(eventName)) != 0;
-        verifyStuntVideo = GetEnvironmentVariableW(L"FOUC_TEST_STUNT_VIDEO", eventName, _countof(eventName)) != 0;
-        if (GetEnvironmentVariableW(L"FOUC_TEST_STUNT_ADVANCE_EVENT", eventName, _countof(eventName)))
-            advanceStunt = OpenEventW(SYNCHRONIZE, FALSE, eventName);
         if (GetEnvironmentVariableW(L"FOUC_TEST_DERBY_HUD", eventName, _countof(eventName)))
             LogAttach(InstallDerbyHudFixture() ? L"Derby HUD fixture installed" : L"Derby HUD fixture unavailable");
         if (GetEnvironmentVariableW(L"FOUC_TEST_STUNT_INPUT", eventName, _countof(eventName)))

@@ -221,7 +221,7 @@ t = replace(t, '\t\tif value == TRUE then\r\n\t\t\tChloeNet_Disconnect()\r\n',
 t = replace(t, '\tEnterMenu("menu_chloemultiplayer_lobby")\r\nend\r\n\r\nlocal function ChangeTrack()',
             '\tEnterMenu("menu_chloemultiplayer_lobby")\r\nend\r\nChloeCustomTourney_SetEvents = SetEvents -- ChloeCustom Tourney\r\n\r\nlocal function ChangeTrack()')
 t = replace(t, 'local function StartRace()\r\n\tChloeNet_Host_StartGame()\r\n',
-            'local function StartRace()\r\n\tif ChloeCustomTourney_OnStartRace then ChloeCustomTourney_OnStartRace() end -- ChloeCustom Tourney\r\n\tif ChloeSteam_PrepareStuntVideo then ChloeSteam_PrepareStuntVideo(ChloeNet_GetLevelId()) end -- ChloeCustom StuntVideo\r\n\tChloeNet_Host_StartGame()\r\n')
+            'local function StartRace()\r\n\tif ChloeCustomTourney_OnStartRace then ChloeCustomTourney_OnStartRace() end -- ChloeCustom Tourney\r\n\tChloeNet_Host_StartGame()\r\n')
 t = replace(t, '\tGUI:InitMenuButtons(menu_chloemultiplayer_lobby.items)\r\n\tGUI:ShowMenuButtons(true)\r\n',
             '\tif ChloeCustomTourney_AddLobbyButtons then ChloeCustomTourney_AddLobbyButtons(menu_chloemultiplayer_lobby) end -- ChloeCustom Tourney\r\n'
             '\tGUI:InitMenuButtons(menu_chloemultiplayer_lobby.items)\r\n\tGUI:ShowMenuButtons(true)\r\n')
