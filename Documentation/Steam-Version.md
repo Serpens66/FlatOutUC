@@ -7,7 +7,7 @@ Allgemeines zur Mod steht in [Modpack.md](Modpack.md), zum Basisspiel in [Vanill
 
 - `FlatOutUCChloeCollection_1.83_custom_steam/` ist unsere Custom-Version für die **aktuelle Steam-Version** des Spiels (ZOOM-Platform-Update, Branch `public`, Build 26753292). Sie enthält die FO2-Inhalte und die QoL-Plugins für **Chloes Multiplayer über Steam**.
 - Die Mod-Autorin unterstützt diese Spielversion ausdrücklich nicht (Lizenz MPL 2.0). Die Anpassung ist von uns.
-- Die normale Custom-Version (`FlatOutUCChloeCollection_1.83_custom/`) braucht weiterhin den Branch `gfwl` und hat keinen Steam-Multiplayer.
+- Unterstützt wird nur noch diese Steam-Version. Die frühere Custom-Version für den Branch `gfwl` (`FlatOutUCChloeCollection_1.83_custom/`) wurde am 26.11.2026 entfernt. `build.ps1` erzeugt nur noch die Zwischenstufe in `.work/build/base`.
 
 ## Warum es funktioniert
 
@@ -16,7 +16,7 @@ Allgemeines zur Mod steht in [Modpack.md](Modpack.md), zum Basisspiel in [Vanill
 - `custom_src/build_steam.ps1` passt das Paket an:
   1. Der ASI-Loader der Mod (`xlive.dll`) heißt jetzt `winmm.dll`, ZOOMs `xlive.dll` bleibt. `dinput8.dll` geht nicht, die lädt `Fouc.exe` beim Start nicht.
   2. In allen `*_gcp.asi` ist die ZOOM-Erkennung (`IsFOUCZOOMVersion`) herausgepatcht. Ohne den Patch verweigern die Plugins den Start.
-  3. `foucpack_chloecustom_steam.bfs` (am Ende von `patch`) bringt die Vanilla-Fonts zurück. ZOOMs Fonts sind ~1 GB groß, `Fouc.exe` hat nur 2 GB Adressraum (nicht Large Address Aware), und das Spiel stürzt sonst ab (z. B. beim Öffnen von Carnage Mode). Der Build übernimmt außerdem sechs Playlists aus dem Custom-Build und leitet darin die 20 in `custom_src/steam_songs.txt` aufgeführten Titel auf ihren Steam-Pfad `Data/Songs` um.
+  3. `foucpack_chloecustom_steam.bfs` (am Ende von `patch`) bringt die Vanilla-Fonts zurück. ZOOMs Fonts sind ~1 GB groß, `Fouc.exe` hat nur 2 GB Adressraum (nicht Large Address Aware), und das Spiel stürzt sonst ab (z. B. beim Öffnen von Carnage Mode). Der Build übernimmt außerdem sechs Playlists aus der Zwischenstufe und leitet darin die 20 in `custom_src/steam_songs.txt` aufgeführten Titel auf ihren Steam-Pfad `Data/Songs` um.
   4. Dasselbe Archiv enthält `chloemultiplayer.bed` mit der Spielliste (siehe unten) und `chloecustom_instant_action.bed`. Sofortaktion begrenzt die native Zufallsauswahl auf installierte, freigeschaltete Autos mit mindestens einem Skin. So kann das Spiel kein aus dem Modpack entferntes Fahrzeug wählen.
   5. `ChloeSteamNet.asi` (eigenes Plugin) leitet Chloes Multiplayer über Steam.
   6. `steam_appid.txt` (12360) erlaubt den Start außerhalb der Steam-Bibliothek.
@@ -25,8 +25,7 @@ Allgemeines zur Mod steht in [Modpack.md](Modpack.md), zum Basisspiel in [Vanill
 
 ```
 pwsh -File custom_src/ChloeSteamNet/build.ps1   # nur nach Änderungen am Plugin (Ergebnis: custom_src/plugins_steam/ChloeSteamNet.asi)
-pwsh -File custom_src/build.ps1
-pwsh -File custom_src/build_steam.ps1
+pwsh -File custom_src/build_steam.ps1          # ruft zuerst build.ps1 auf (Zwischenstufe .work/build/base), -SkipBase nutzt eine vorhandene
 ```
 
 Ergebnis: `FlatOutUCChloeCollection_1.83_custom_steam/` (499 Dateien inkl. `DisplayFix.asi` und `ChloeSteamNet.asi`, ~2,6 GB; Autos teilweise neu komprimiert, Live-Texturen unkomprimiert, Musikauswahl, Stand 19.11.2026).
@@ -132,7 +131,7 @@ Wie das Vanilla-Turnier, aber in Chloes MP: mehrere Events nacheinander, Punkte 
 - Bei Gleichständen kann das Spiel Rangnummern überspringen. Die Turnierwertung benutzt die Reihenfolge der Ergebnisanzeige (`PostRace.PlayerVisualPosition`), damit jeder Fahrer auch bei Punktegleichstand einen Platz in der Turnierwertung erhält.
 - **Stunt-Wertung (19.11.2026):** Jeder spielt die Versuche im eigenen Tempo. Ein PC, der vor den anderen fertig ist, kennt deren letzte Versuche noch nicht. Deshalb wertet der Host Stunt-Events erst, wenn alle zurück in der Lobby sind: Jeder PC schickt beim Betreten der Lobby seine Spieler-Reihenfolge aus der Ergebnisliste plus die Zahl der Datensätze, die ihm beim Erstellen der Endwertung fehlten (`ScoreManagerStunt` [9], Hook in `ChloeSteamNet.asi`). Der Host nimmt die vollständigste Reihenfolge: leere werden übersprungen, dann die wenigsten fehlenden Datensätze, die meisten Namen, der Text (eindeutig). Gewertet wird, sobald eine lückenlose Reihenfolge mit allen Stunt-Spielern da ist oder von jedem Stunt-Spieler eine (gezählt nach der längsten Liste, Spieler, die erst während des Stunts beigetreten sind, zählen nicht), spätestens 15 s nachdem der Letzte zurück ist. Bis dahin zeigt die Lobby "WAITING FOR STUNT RESULTS", START RACE ist ausgeblendet und der Host hat den Knopf **COUNT STUNT NOW** (mit Rückfrage, z. B. wenn ein Spieler im Rennen hängt; keine automatische Wertung, damit langsame Spieler nicht abgeschnitten werden). Clients lesen vor dem Senden den aktuellen Turnierstand aus den Lobbydaten, damit die Event-Nummer stimmt. Wertung, Wertungsbildschirm und nächstes Event nur, wenn die Lobby frei ist: kein Dialog offen (STOP TOURNAMENT, COUNT STUNT NOW, Lobby verlassen, Flag `ChloeCustomTourney_DialogOpen`) und Lobby-Modus `LOBBY` (keine Spielerauswahl/Kick/Ban, Parameter von `ChloeCustomTourney_LobbyUpdate`). Empfangene Stunt-Datensätze werden nur bei Änderung geloggt. Lua: `ChloeSteam_GetLastStuntMissing()`, `ChloeSteam_SendStuntResult("id:event|fehlend|name-hex,…")` (Client → Host, Nachrichtentyp `R`, 60 s lang jede Sekunde wiederholt), `ChloeSteam_GetStuntResults()`, `ChloeSteam_ClearStuntResults()`. Log "stunt ranking sent", "stunt event … counted from … ranking(s)". Offline mit Lua 5.0 und Platzhaltern geprüft (Warten, vollständige Reihenfolge des Clients, Abschluss nach Wartezeit, Neuladen der Skripte, START RACE ausgeblendet). Im Spiel noch ungetestet.
 - **Anzeige für alle:** Info-Zeile "TOURNAMENT: EVENT 2 OF 6", Spalte **PTS (PING)** in der Spielerliste, Knopf **STANDINGS** (Tabelle mit Platz, Name, AI-Kennzeichen, Punkte, Punkte im letzten Event). **Nach jedem Event** öffnet sich bei allen einmal der Wertungsbildschirm (wie der Vanilla-Bildschirm nach einem Turnierrennen: Platz, Name, AI-Kennzeichen, Punkte des Events, Gesamtpunkte, eigene Zeile hervorgehoben, nächste Strecke), CONTINUE führt in die Lobby. Beim Host kommt er direkt nach dem Rennen, beim Client, sobald der Host gewertet hat. Nach dem letzten Event mit "WINNER: …".
-- Nur im Steam-Paket. Im GFWL-Paket fehlen die Funktionen, die Lobby sieht dort aus wie vorher.
+- Die Funktionen stammen aus `ChloeSteamNet.asi`. Ohne das Plugin sieht die Lobby aus wie bei Chloe.
 
 Technik:
 - Skript `custom_src/steam_overrides/data/scripts/chloecustom_tournament.bed` (geladen am Ende von `chloemultiplayer.bed`): Zustand `ChloeCustomTourney`, Wertung, Abgleich, Tabelle (`menu_chloecustom_tourney_standings`) und Editor (`menu_chloecustom_buildtournament`, aus Chloes Breitbild-Version von `multiplayerbuildtournament.bed` in `foucpack_gcp_misc.bfs`, die schon Chloes `GAMETYPE_*` nutzt; eigene Namen, damit das Original unberührt bleibt). Das nächste Event setzt der Host aus dem Lobby-`update` mit Chloes `SetEvents`, dabei wird nur deren `EnterMenu("menu_chloemultiplayer_lobby")` unterdrückt (kein Neubetreten der laufenden Lobby).

@@ -1,11 +1,13 @@
-# Builds FlatOutUCChloeCollection_1.83_custom from the untouched original + custom_src.
-# Usage (from anywhere):  pwsh -File "custom_src/build.ps1"
+# Stage 1 of the Steam build: applies custom_src to the untouched original Chloe Collection 1.83.
+# The result in .work/build/base is only an intermediate step (ignored by git); build_steam.ps1 runs this
+# script and turns the result into FlatOutUCChloeCollection_1.83_custom_steam. Only the Steam version is supported.
+# Usage (from anywhere):  pwsh -File "custom_src/build_steam.ps1"
 # Re-running is safe: the target folder is rebuilt from scratch.
 $ErrorActionPreference = 'Stop'
 
 $root     = Split-Path -Parent $PSScriptRoot
 $src      = Join-Path $root 'FlatOutUCChloeCollection_1.83'
-$dst      = Join-Path $root 'FlatOutUCChloeCollection_1.83_custom'
+$dst      = Join-Path $root '.work/build/base'
 $custom   = $PSScriptRoot
 $bfsTool  = Join-Path $root 'tools/BfsTool/BfsTool.cs'
 $work     = Join-Path ([IO.Path]::GetTempPath()) 'fouc_custom_build'
@@ -93,7 +95,7 @@ function Invoke-BfsTool([string[]]$toolArgs) {
 }
 
 if (Test-Path $dst) { Get-ChildItem $dst -Force | Remove-Item -Recurse -Force }
-else { New-Item -ItemType Directory $dst | Out-Null }
+else { New-Item -ItemType Directory -Force $dst | Out-Null }
 if (Test-Path $work) { Remove-Item $work -Recurse -Force }
 New-Item -ItemType Directory $work | Out-Null
 

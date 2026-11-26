@@ -68,7 +68,7 @@ Alle Archive sind 4096-Byte-ausgerichtet. Chloes Archive nutzen die Flags `00`/`
 
 So nach jeder Änderung wiederholen, um Probleme wie den Skin-Absturz früh zu finden:
 
-1. **Installation = Build:** Alle 853 Dateien laut Manifest sind byte-identisch mit `FlatOutUCChloeCollection_1.83_custom`.
+1. **Installation = Build:** Alle 853 Dateien laut Manifest sind byte-identisch mit dem Build (damals `FlatOutUCChloeCollection_1.83_custom`, heute `FlatOutUCChloeCollection_1.83_custom_steam`).
 2. **Archiv-Integrität** (`BfsTool verify` für jedes Archiv in `patch`): Jede Datei ist 4096-ausgerichtet, liegt innerhalb der Archivdatei und lässt sich entpacken. Größen und CRCs stimmen, es gibt keine doppelten Pfade. Ergebnis: 0 Fehler in allen 9 Archiven.
 3. **Gefilterte Archive** (`BfsTool entries`): `cars`, `carskins` und `maps` sind Eintrag für Eintrag (Flags, Größen, CRC, SHA1 der gespeicherten Daten) identisch mit dem Original, abzüglich genau der ausgeschlossenen Pfade (2497 / 466 / 2115 entfernt).
 4. **Neu gepackte Archive:** Entpacktes `misc` = Original-misc + `misc_overrides`. Nur die 7 geänderten Skripte weichen ab. Entpacktes `twobei_portraits` = `custom_src/portraits`.

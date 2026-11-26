@@ -1,7 +1,7 @@
 dofile("data/scripts/chloemultiplayer_customization.bed")
 
 -- ChloeCustom: values that must survive the reload of the menu scripts after every race (Fouc.exe runs main.bed
--- again). Steam package: kept in ChloeSteamNet.asi. GFWL package: only a global (lost after a race).
+-- again). Kept in ChloeSteamNet.asi; without that plugin only a global (lost after a race).
 ChloeCustom_PersistentFallback = ChloeCustom_PersistentFallback or { }
 function ChloeCustom_GetPersistent(key)
 	if ChloeSteam_StoreGet ~= nil then

@@ -1,5 +1,5 @@
 # Builds ChloeSteamNet.asi (32-bit DLL) with the Visual Studio 2022 Build Tools and stores it in custom_src/plugins_steam,
-# from where build_steam.ps1 copies it into the Steam package (not into the GFWL package).
+# from where build_steam.ps1 copies it into the Steam package (the only supported package).
 #   pwsh -File custom_src/ChloeSteamNet/build.ps1
 param(
     [string]$OutputDir = (Join-Path (Split-Path -Parent $PSScriptRoot) 'plugins_steam')

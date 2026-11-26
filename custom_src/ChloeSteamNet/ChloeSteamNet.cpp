@@ -1489,6 +1489,38 @@ static void ScriptHook(void* L, void* fn, int n) {
 // start position is set to the stunt's start point each frame (like Chloe's time trial does for player 0).
 // Use GHOST MODE so that the players do not block each other.
 
+// Chloe's Carnage HUD (arcadescoring.h) caches the "MedalPlatinum"/gold medal HUD elements in two globals when an
+// arcade HUD is created, and never clears them. ArcadePlatinums() hides the platinum medal through that pointer in
+// every later arcade-style race (Carnage race, Speedtrap, Beat the Bomb ...), also when that race's HUD did not set it:
+// after the first HUD is freed this writes into freed memory (heap corruption or a crash at
+// FlatOutUCChloeCollection_gcp.asi+0xD18E1, found with the multiplayer track sweep). Both pointers are cleared whenever
+// a race is left, the next arcade HUD sets them again. Addresses are read from her code and checked.
+static void ClearChloeMedalPointers() {
+	static uint8_t** platinum = nullptr;
+	static uint8_t** gold = nullptr;
+	static bool resolved = false;
+	if (!resolved) {
+		resolved = true;
+		auto mod = (uint8_t*)GetModuleHandleA("FlatOutUCChloeCollection_gcp.asi");
+		if (mod) {
+			auto nt = (IMAGE_NT_HEADERS*)(mod + ((IMAGE_DOS_HEADER*)mod)->e_lfanew);
+			uintptr_t lo = (uintptr_t)mod, hi = lo + nt->OptionalHeader.SizeOfImage;
+			const uint8_t* platLoad = mod + 0xD18D8;   // mov eax, [pArcadePlatinumImage]
+			const uint8_t* goldLoad = mod + 0xD1832;   // mov ecx, [pArcadeGoldImage]
+			uintptr_t p = 0, g = 0;
+			if (platLoad[0] == 0xA1) memcpy(&p, platLoad + 1, 4);
+			if (goldLoad[0] == 0x8B && goldLoad[1] == 0x0D) memcpy(&g, goldLoad + 2, 4);
+			if (p > lo && p + 4 <= hi && g > lo && g + 4 <= hi && p == g + 4) {
+				platinum = (uint8_t**)p;
+				gold = (uint8_t**)g;
+				Log("Carnage medal pointer fix active");
+			}
+		}
+		if (!platinum) Log("Carnage medal pointer fix unavailable: unexpected FlatOutUCChloeCollection_gcp.asi");
+	}
+	if (platinum) { *platinum = nullptr; *gold = nullptr; }
+}
+
 static const uintptr_t kEndSceneSlot = 0x677448;   // same hook point as NyaFO2Hooks::PlaceD3DHooks
 static HRESULT(__thiscall* gEndSceneOrig)(void*) = nullptr;
 static bool gStuntLogged = false;
@@ -1505,6 +1537,11 @@ static void FixStuntStartPositions() {
 	if (!gf) return;
 	int gameState = *(int*)(gf + 0x4A4), rules = *(int*)(gf + 0x514), level = *(int*)(gf + 0x4CC);   // PreRace.nLevel
 	auto host = *(uint8_t**)(gf + 0x2820);
+	static int raceState = -1;
+	if (gameState != raceState) {
+		if (raceState == 2) ClearChloeMedalPointers();   // race left, its HUD is gone
+		raceState = gameState;
+	}
 	static int lastState = -1, lastLevel = -1;
 	if (gameState != lastState || level != lastLevel) {   // diagnostics, once per change
 		lastState = gameState; lastLevel = level;

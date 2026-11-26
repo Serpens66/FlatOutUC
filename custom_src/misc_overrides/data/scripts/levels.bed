@@ -4865,7 +4865,7 @@ Levels[LevelIndex.Rally4G].AlwaysUseStartingGhost = true
 Levels[LevelIndex.Rally4H].AlwaysUseStartingGhost = true
 Levels[LevelIndex.Rally5G].AlwaysUseStartingGhost = true
 Levels[LevelIndex.Rally5H].AlwaysUseStartingGhost = true
--- custom (FlatOutUCChloeCollection_1.83_custom): hide every track that is not from FlatOut 2 / Ultimate Carnage
+-- ChloeCustom: hide every track that is not from FlatOut 2 / Ultimate Carnage
 -- IDs 1-58 are the FO2/FOUC tracks (incl. 46 = FO2 garage test track), everything above is addon content
 for k,v in pairs(Levels) do
 	if type(k) == "number" and k > 58 and type(v) == "table" then

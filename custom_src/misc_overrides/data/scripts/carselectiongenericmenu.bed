@@ -145,7 +145,7 @@ function IsValidCarIncludeTemp350NoProps(car_idx)
 	return true
 end
 
--- custom (FlatOutUCChloeCollection_1.83_custom): only FlatOut 2 / Ultimate Carnage cars
+-- ChloeCustom: only FlatOut 2 / Ultimate Carnage cars
 -- data folders car_1..car_99 are vanilla, car_201..car_299 are the FlatOut 2 variants
 function ChloeCustom_IsFO2Car(car_idx)
 	local car=db.FlatOut2.Cars:GetProperty("Car",car_idx)

@@ -11,6 +11,7 @@ Der Runner startet die installierte Steam-Variante von Chloe Custom auf einem in
     pwsh -File custom_src/tools/Invoke-FlatOutGameTest.ps1 -Scenario All
     pwsh -File custom_src/tools/Invoke-FlatOutGameTest.ps1 -Scenario Skins
     pwsh -File custom_src/tools/Invoke-FlatOutGameTest.ps1 -Scenario Modes
+    pwsh -File custom_src/tools/Invoke-FlatOutGameTest.ps1 -Scenario Modes -TrackSweep
     pwsh -File custom_src/tools/Invoke-FlatOutGameTest.ps1 -Scenario LocalModes
     pwsh -File custom_src/tools/Invoke-FlatOutGameTest.ps1 -Scenario Tournament
     pwsh -File custom_src/tools/Invoke-FlatOutGameTest.ps1 -Scenario Tournament -MixedTournament
@@ -30,6 +31,7 @@ Mit `-Scenario Smoke -ProfileSlot 2 -CreateProfile Testprofil` legt das Spiel in
 | `All` | Die Einzelspieler- und Hostprüfungen in einem Spielprozess. |
 | `Skins` | Steam-Lobby mit Fahrzeugklasse „Alle“, Markieren jeder Basis- und Wechselvariante und jeder angebotenen Lackierung im echten Vorschau-Menü. Pro Skin werden Start und Abschluss mit Auto-ID, Datenordner und Skin-Nummer protokolliert. |
 | `Modes` | Steam-Host mit neun Rennregeln, drei Derby-Varianten und den zwölf Stunts. Prüft Konfiguration, laufende Simulation und Lobby-Rückkehr. Bei Derby wird das Zeitlimit am ScoreManager gemessen. Bei Stunt werden erwartete und tatsächliche Startposition sowie der Versuch geprüft. |
+| `Modes -TrackSweep` | Steam-Host mit jeder Multiplayer-Strecke (Level 1–58 ohne Werkstatt-Teststrecke) und jeder FO2-Streckenvariante in ihrer eigenen Regel: Rennen mit drei KI-Fahrern, Derby reihum Wrecking/Deathmatch/Survivor mit drei KI-Fahrern, Stunt ohne KI. Dabei rotiert das eigene Auto durch alle Autos der Klasse „Alle“ (Basisautos und FO2-Varianten) und alle Stuntautos, die Lackierung wechselt mit. Danach folgen die modusspezifischen Streckenlisten des MP-Menüs (`AllowReversed`, `AllowArcadeRace`, `AllowSpeedtrap`, `AllowBeatTheBomb`) mit je drei KI-Fahrern. Übrige Autos fahren Zusatzfälle auf Midwest Ranch 1 bzw. High Jump. Geprüft werden Level, Regel, KI-Anzahl und das tatsächlich geladene Auto (Probe) sowie die Rückkehr in die Lobby. Das Laufprotokoll listet alle Fälle mit Auto-ID, Datenordner und Skin-Anzahl. |
 | `LocalModes` | Einzelrennen, Spezialspielregeln, Beispiele aus Karriere und Carnage sowie Party-Modus und Sofortaktion. Pro Fall werden Start, laufende Simulation und Menü-Rückkehr geprüft. |
 | `Tournament` | Zwei Deathmatch-Derbys bis zum jeweils eingestellten Zeitlimit. Prüft Rückkehr, Punktevergabe, Zwischenstand und Abschluss des Turniers. |
 | `Tournament -MixedTournament` | Zeit-Knockout, Deathmatch-Derby und High Jump. Prüft natürliche Eventabschlüsse sowie Zwischen- und Endwertung. Die native Probe liefert dem Spielprozess Steuerwerte für High Jump. |
@@ -82,6 +84,12 @@ Die Start-, Timeout- und Wiederherstellungsprüfungen mit temporären Testdateie
 - 20.11.2026, Lauf `d20d162fe521`: Das gemischte Turnier lief mit Zeit-Knockout, Deathmatch-Derby und High Jump bis zur Endwertung. Die drei High-Jump-Versuche endeten durch Zeitablauf. Das Spiel erzeugte alle drei Rundendatensätze und zählte die lokale Rangliste mit null fehlenden Datensätzen. Die Wertungen ergaben 29, 58 und 80 Punkte. Der Runner bewertet den Wechsel zum nächsten Stuntversuch als Fortschritt.
 - Am 20.11.2026 bestand das gemischte Turnier auch mit erzwungenem Gleichstand im Derby (`db68e2ba6a6d`, `-Scenario Tournament -MixedTournament -ForceTournamentTie`). Im Derby erschienen alle vier Fahrer in der Wertung. Die Prüfungen bestätigten 29, 58 und 80 Punkte nach den drei Events sowie das Schließen der Steam-Lobby.
 - Am 20.11.2026 bestand der Kontrolllauf `All` im neu gebauten Steam-Paket (`af83b0c4247a`). Der Runner bestätigte die Menüprüfungen, das Einzelrennen mit „Lei Bing“ und zwei KI-Fahrern sowie das Steam-Host-Rennen mit drei KI-Fahrern.
+
+- 25.11.2026, Lauf `479c54668970` (`Modes -TrackSweep`, damals 124 Fälle): alle 57 MP-Strecken und 57 FO2-Varianten sowie Zusatzfälle bestanden. Alle 100 Autos der Klasse „Alle“ (Basis und FO2-Varianten) und alle 5 Stuntautos fuhren je mindestens ein Rennen, die Probe bestätigte jeweils das geladene Auto. Die 124 Renderaufnahmen wurden als Übersicht gesichtet, ohne Auffälligkeiten.
+- 25.11.2026, Lauf `a48a5efc5f89`: alle 24 MP-Modi (`Modes`) bestanden erneut.
+- 25.11.2026, Lauf `6797cd9ecc44`: Bei den Spezialstrecken stürzte das Spiel in Fall 151 (Pinegrove 1, Speedtrap) nach vorherigen Carnage-Rennen in `FlatOutUCChloeCollection_gcp.asi+0xD18E1` ab. Ursache: Chloes Carnage-HUD (`arcadescoring.h`) merkt sich die Medaillen-Elemente `pArcadePlatinumImage`/`pArcadeGoldImage` und setzt sie nie zurück, `ArcadePlatinums()` schreibt in späteren Arcade-Rennen über den veralteten Zeiger (`bVisible = false`). Isoliert (`-ModeFrom 151 -ModeThrough 151`) lief der Fall, der Fehler hängt vom vorherigen Rennen ab. Fix in `ChloeSteamNet.asi` (`ClearChloeMedalPointers`, beide Zeiger beim Verlassen eines Rennens auf null). Danach bestand Lauf `3d7c47dd14f0` mit den Fällen 115–175 (Rückwärts, Carnage, Speedtrap, Beat the Bomb).
+- 26.11.2026, Lauf `0554e1d87724`: der komplette Sweep mit 175 Fällen bestand in einem einzigen Spielprozess mit dem korrigierten Plugin (Version `1.83-custom.2`, nur auf diesem PC installiert). Danach bestanden `All` und `Tournament -MixedTournament`.
+- 26.11.2026, Lauf `4e346ad723eb`: `All` bestand mit dem Build ohne GFWL-Zwischenpaket (`build_steam.ps1` ruft `build.ps1` auf, Zwischenstufe `.work/build/base`). Gegenüber dem vorigen Build änderten sich nur Kommentare in `Config/Music.toml`, `foucpack_gcp_misc.bfs` und `foucpack_gcp_multiplayer.bfs`.
 
 ## Befund zu den Steam-Soundtracks
 

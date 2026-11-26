@@ -2,6 +2,8 @@
 
 A free, unofficial adaptation of **Chloe’s Collection 1.83** for the current Windows Steam version of **FlatOut: Ultimate Carnage Collector’s Edition**. It builds on Chloe’s quality-of-life improvements and multiplayer, with a focus on Ultimate Carnage and FlatOut 2 content. [Original mod and credits](https://gaycoderprincess.github.io/project/chloe-collection) · [Chloe’s main plugin source](https://github.com/gaycoderprincess/FlatOutUCChloeCollection)
 
+Current version: see [VERSION](VERSION) and the [changelog](CHANGELOG.md).
+
 ## What’s different (to chloe modpack)
 
 - **Steam multiplayer:** Host with **Create Game** and find Steam lobbies with **Join Game** in Chloe’s multiplayer menu. Steam lobbies work without manual port forwarding. You can race against AI, run tournaments, and try experimental stunt events with synchronized scores and visible, non-colliding ghosts of other players.

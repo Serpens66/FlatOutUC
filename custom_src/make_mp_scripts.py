@@ -77,7 +77,7 @@ AI_DRIVER_NAMES = ['JACK BENTON', 'KATIE JACKSON', 'SOFIA MARTINEZ', 'SALLY TAYL
 def add_ai_driver_rows(t):
     """Steam package (ChloeSteamNet.asi): the host chooses the AI drivers. Two rows instead of AI COUNT
     (the option list does not scroll): AI SLOT 1..12 selects the slot, AI DRIVER the driver of that slot.
-    Without ChloeSteam_SetAIDriver (GFWL package) the rows stay hidden and AI COUNT works as before."""
+    Without ChloeSteam_SetAIDriver (ChloeSteamNet.asi missing) the rows stay hidden and AI COUNT works as before."""
     slot_row = ('\t{ -- ChloeCustom: AI slot (AI drivers, Steam package)\r\n\t\tL("AI SLOT"),\r\n'
                 '\t\t{' + ', '.join('L"%d"' % i for i in range(1, 13)) + '},\r\n'
                 '\t\t{' + ', '.join(str(i) for i in range(1, 13)) + '},\r\n'
@@ -151,7 +151,7 @@ t = load('chloemultiplayer_lobby.bed')
 t = replace(t, 'dofile("data/scripts/chloemultiplayer_customization.bed")\r\n', crlf('''dofile("data/scripts/chloemultiplayer_customization.bed")
 
 -- ChloeCustom: values that must survive the reload of the menu scripts after every race (Fouc.exe runs main.bed
--- again). Steam package: kept in ChloeSteamNet.asi. GFWL package: only a global (lost after a race).
+-- again). Kept in ChloeSteamNet.asi; without that plugin only a global (lost after a race).
 ChloeCustom_PersistentFallback = ChloeCustom_PersistentFallback or { }
 function ChloeCustom_GetPersistent(key)
 \tif ChloeSteam_StoreGet ~= nil then
@@ -218,7 +218,7 @@ t = replace(t, '\t\tif value == TRUE then\r\n\t\t\tChloeNet_Disconnect()\r\n',
             '\t\tif value == TRUE then\r\n\t\t\tChloeCustom_SetPersistent("hostdefaults", nil) -- ChloeCustom\r\n\t\t\tChloeCustom_SetPersistent("ghostbeforestunt", nil)\r\n'
             '\t\t\tif ChloeCustomTourney_Reset then ChloeCustomTourney_Reset() end -- ChloeCustom Tourney\r\n\t\t\tChloeNet_Disconnect()\r\n')
 # tournament mode (Steam package: chloecustom_tournament.bed from steam_overrides, loaded by chloemultiplayer.bed).
-# In the GFWL package the ChloeCustomTourney_* functions do not exist, so every hook is skipped.
+# Without the tournament script the ChloeCustomTourney_* functions do not exist, so every hook is skipped.
 t = replace(t, '\tEnterMenu("menu_chloemultiplayer_lobby")\r\nend\r\n\r\nlocal function ChangeTrack()',
             '\tEnterMenu("menu_chloemultiplayer_lobby")\r\nend\r\nChloeCustomTourney_SetEvents = SetEvents -- ChloeCustom Tourney\r\n\r\nlocal function ChangeTrack()')
 t = replace(t, 'local function StartRace()\r\n\tChloeNet_Host_StartGame()\r\n',

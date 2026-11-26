@@ -1,8 +1,8 @@
-# Packages the existing Steam build. Run build.ps1 and build_steam.ps1 first when rebuilding game data.
+# Packages the existing Steam build. Run build_steam.ps1 first when rebuilding game data.
 #Requires -Version 7.3
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][ValidatePattern('^[0-9][0-9A-Za-z._-]*$')][string]$CodeVersion,
+    [ValidatePattern('^[0-9][0-9A-Za-z._-]*$')][string]$CodeVersion,
     [switch]$CodeOnly,
     [string]$OutputDir = (Join-Path $PSScriptRoot '../.work/steam-release')
 )
@@ -11,6 +11,17 @@ $ErrorActionPreference = 'Stop'
 $mod = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../FlatOutUCChloeCollection_1.83_custom_steam'))
 $out = [IO.Path]::GetFullPath($OutputDir)
 if (-not (Test-Path -LiteralPath (Join-Path $mod 'ChloeSteamNet.asi') -PathType Leaf)) { throw 'Build the Steam package first.' }
+$version = (Get-Content -Raw (Join-Path $PSScriptRoot '../VERSION')).Trim()
+if (-not $CodeVersion) { $CodeVersion = $version }
+if ($CodeVersion -ne $version) { throw "CodeVersion $CodeVersion differs from VERSION $version." }
+$builtVersion = Join-Path $mod 'ChloeCustom_version.txt'
+if (-not (Test-Path -LiteralPath $builtVersion) -or (Get-Content -Raw $builtVersion).Trim() -ne $version) {
+    throw "The Steam build is not version $version. Run build_steam.ps1 again."
+}
+$changelog = Join-Path $PSScriptRoot '../CHANGELOG.md'
+if (-not (Select-String -LiteralPath $changelog -Pattern ('^## \[' + [regex]::Escape($version) + '\]') -Quiet)) {
+    throw "CHANGELOG.md has no entry for $version."
+}
 if ($out -eq $mod -or $out.StartsWith($mod + '\', [StringComparison]::OrdinalIgnoreCase)) { throw 'Choose an output directory outside the mod build.' }
 [void][IO.Directory]::CreateDirectory($out)
 
@@ -93,6 +104,7 @@ Write-ReleaseZip $codePath $code @{
     'README-Steam.txt' = Join-Path $PSScriptRoot 'steam_release/README-Steam.txt'
     'LICENSE' = Join-Path $PSScriptRoot '../LICENSE'
     'THIRD-PARTY-NOTICES.md' = Join-Path $PSScriptRoot '../THIRD-PARTY-NOTICES.md'
+    'CHANGELOG.md' = $changelog
     'LICENSE_UltimateASILoader.txt' = Join-Path $PSScriptRoot 'DisplayFix/package/LICENSE_UltimateASILoader.txt'
     'Setup/install.ps1' = Join-Path $PSScriptRoot 'install.ps1'
     'Setup/uninstall.ps1' = Join-Path $PSScriptRoot 'uninstall.ps1'

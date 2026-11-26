@@ -487,7 +487,8 @@ function Invoke-TestProcess {
         $lastStep = ''
         $stepTime = 0
         $capturedStall = $false
-        $budget = if ($Scenario -in 'Skins', 'Modes', 'LocalModes', 'Tournament', 'SteamPeer') { 1800 } else { 150 }
+        $budget = if ($Scenario -eq 'Modes' -and $TrackSweep) { 9000 }
+            elseif ($Scenario -in 'Skins', 'Modes', 'LocalModes', 'Tournament', 'SteamPeer') { 1800 } else { 150 }
         $stepBudget = if ($Scenario -eq 'Tournament') { 100 } else { 40 }
         $modeProofs = [Collections.Generic.List[int]]::new()
         $modeFailures = [Collections.Generic.List[string]]::new()
@@ -588,7 +589,7 @@ function Invoke-TestProcess {
                         [void]$leaveRace.Set()
                     }
                 }
-                if ($Scenario -in 'Modes', 'LocalModes', 'Tournament' -and $lastStep -match '^mode begin (\d+) (\S+) (\d+) (\d+) (\d+) (\d+) (\d+) (-?\d+) (\d+)$') {
+                if ($Scenario -in 'Modes', 'LocalModes', 'Tournament' -and $lastStep -match '^mode begin (\d+) (\S+) (\d+) (\d+) (\d+) (\d+) (\d+) (-?\d+) (\d+)(?: (\d+))?$') {
                     $step = [int]$Matches[1]
                     $label = $Matches[2]
                     $track = [int]$Matches[3]
@@ -598,6 +599,7 @@ function Invoke-TestProcess {
                     $position = [int]$Matches[7]
                     $expectedAi = [int]$Matches[8]
                     $alternateRules = [int]$Matches[9]
+                    $expectedCar = if ($Matches[10]) { [int]$Matches[10] } else { -1 }
                     if ($step -ne $lastModeStart -and $samples.Count) {
                         $lastModeStart = $step
                         $modeFirstFrame = $samples[-1][0]
@@ -621,6 +623,7 @@ function Invoke-TestProcess {
                             ($_[4] -eq $track -or ($track -eq 0 -and $_[4] -in (1..58))) -and
                             ($_[7] -eq 1 -or ($label -eq 'Party-Stunt' -and $_[7] -eq 2)) -and
                             ($expectedAi -lt 0 -or $_[8] -eq $expectedAi) -and
+                            ($expectedCar -lt 0 -or $_[5] -eq $expectedCar) -and
                             $_[9] -eq 0 -and $_[10] -in ($rules, $alternateRules) -and $_[11] -eq $derby -and
                             (-not $minutes -or $_[12] -eq $minutes * 60000) -and
                             (-not $position -or ($_[13] -eq $position -and $_[14] -eq $position -and $_[15] -ge 1 -and $_[16] -ge $_[15]))
@@ -910,7 +913,8 @@ try {
         if (($MixedTournament -or $ForceTournamentTie) -and $Scenario -ne 'Tournament') {
             throw 'BLOCKED: Tournament options require the Tournament scenario.'
         }
-        if (($TrackSweep -or $FullCarnage) -and ($Scenario -ne 'LocalModes' -or ($TrackSweep -and $FullCarnage))) {
+        if (($TrackSweep -or $FullCarnage) -and ($Scenario -notin 'LocalModes', 'Modes' -or ($TrackSweep -and $FullCarnage) -or
+            ($Scenario -eq 'Modes' -and $FullCarnage))) {
             throw 'BLOCKED: Select at most one expanded LocalModes sweep.'
         }
         if ($ParallelLaunch -and ($Scenario -ne 'Smoke' -or $CreateProfile)) {

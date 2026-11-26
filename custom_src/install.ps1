@@ -1,10 +1,10 @@
-# Installs FlatOutUCChloeCollection_1.83_custom into the Steam game folder and records every file it writes,
+# Installs FlatOutUCChloeCollection_1.83_custom_steam into the Steam game folder and records every file it writes,
 # so uninstall.ps1 can remove the mod again without touching the game files.
 #   pwsh -File custom_src/install.ps1 [-GameDir <path>] [-WhatIf]
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [string]$GameDir = 'E:\ProgrammeE\Steam\steamapps\common\FlatOut Ultimate Carnage CE',
-    [string]$ModDir = (Join-Path (Split-Path -Parent $PSScriptRoot) 'FlatOutUCChloeCollection_1.83_custom')
+    [string]$ModDir = (Join-Path (Split-Path -Parent $PSScriptRoot) 'FlatOutUCChloeCollection_1.83_custom_steam')
 )
 $ErrorActionPreference = 'Stop'
 
@@ -18,9 +18,9 @@ if (Get-Process -Name 'Fouc', 'launcher' -ErrorAction SilentlyContinue | Where-O
 }
 $exeSize = (Get-Item (Join-Path $GameDir 'Fouc.exe')).Length
 if ($exeSize -ne 4242504) {
-    throw "Fouc.exe has $exeSize bytes, expected 4242504 (GFWL version). In Steam: Properties > Betas > 'gfwl' (old gfwl version)."
+    throw "Fouc.exe has $exeSize bytes, expected 4242504 (current Steam version, branch public)."
 }
-if (-not (Test-Path (Join-Path $modDir 'patch'))) { throw "Build missing: run custom_src/build.ps1 first" }
+if (-not (Test-Path (Join-Path $modDir 'patch'))) { throw "Build missing: run custom_src/build_steam.ps1 first" }
 
 # an older install of this script is removed first
 if (Test-Path $manifest) {

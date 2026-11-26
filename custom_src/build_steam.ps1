@@ -1,8 +1,8 @@
-# Builds FlatOutUCChloeCollection_1.83_custom_steam from FlatOutUCChloeCollection_1.83_custom (run build.ps1 first).
-# This variant is for the current Steam version of FOUC (branch 'public', ZOOM Platform update with Steam multiplayer).
+# Builds FlatOutUCChloeCollection_1.83_custom_steam. Runs build.ps1 first (stage 1, intermediate output in
+# .work/build/base), unless -SkipBase reuses an existing stage-1 build. This package is for the current Steam version of FOUC (branch 'public', ZOOM Platform update with Steam multiplayer).
 #   pwsh -File custom_src/build_steam.ps1
 #
-# Why this works: the new Steam Fouc.exe is byte-identical to the GFWL one, so all plugin addresses stay valid.
+# Why this works: the new Steam Fouc.exe is byte-identical to the old GFWL one Chloe's plugins were written for, so all plugin addresses stay valid.
 # Differences handled here:
 #   1. The new version ships ZOOM's xlive.dll (GFWL -> Steam bridge). The mod's xlive.dll is only the
 #      Ultimate ASI Loader, so it is renamed to winmm.dll and ZOOM's xlive.dll stays.
@@ -20,12 +20,12 @@
 #      traffic over Steam (SteamNetworkingMessages, no port forwarding) and creates/lists the Steam lobbies.
 #      (The earlier variant with the game's own Live/Steam multiplayer is kept in custom_src/steam_live_mp_unused.)
 #   5. steam_appid.txt lets Fouc.exe start from a folder outside the Steam library (test copy).
-param([string]$BfsToolDll, [string]$TestOutputDir, [string]$SteamPluginDir)
+param([string]$BfsToolDll, [string]$TestOutputDir, [string]$SteamPluginDir, [switch]$SkipBase)
 
 $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
-$src  = Join-Path $root 'FlatOutUCChloeCollection_1.83_custom'
+$src  = Join-Path $root '.work/build/base'
 $dst  = Join-Path $root 'FlatOutUCChloeCollection_1.83_custom_steam'
 $hardlinkThreshold = 50MB   # same rule as build.ps1: large BFS are hardlinked, never edit them in place
 if ($TestOutputDir) {
@@ -36,7 +36,11 @@ if ($TestOutputDir) {
     }
 }
 
-if (-not (Test-Path (Join-Path $src 'patch'))) { throw "Build missing: run custom_src/build.ps1 first" }
+if (-not $SkipBase) {
+    & (Join-Path $PSScriptRoot 'build.ps1')
+    if (-not $?) { throw 'build.ps1 failed' }
+}
+if (-not (Test-Path (Join-Path $src 'patch'))) { throw "Stage-1 build missing in $src (run without -SkipBase)" }
 
 $ascii = [Text.Encoding]::ASCII
 $asiPatches = @(
@@ -68,7 +72,7 @@ if (Test-Path $dst) {
 }
 else { New-Item -ItemType Directory $dst | Out-Null }
 
-# 1. copy / hardlink the GFWL build
+# 1. copy / hardlink the stage-1 build
 Get-ChildItem $src -Recurse -File | ForEach-Object {
     if ($_.DirectoryName -eq $src -and $_.Name -like '*_gcp.asi') { return }
     $rel = [IO.Path]::GetRelativePath($src, $_.FullName)
@@ -210,5 +214,11 @@ Copy-Item (Join-Path $steamPlugins '*.asi') $dst -Force
 
 # 5. Steam app id for starting outside the Steam library
 [IO.File]::WriteAllText((Join-Path $dst 'steam_appid.txt'), '12360')
+
+# 6. Version of this adaptation (VERSION in the repository root, see CHANGELOG.md)
+$version = (Get-Content -Raw (Join-Path $PSScriptRoot '../VERSION')).Trim()
+if ($version -notmatch '^[0-9][0-9A-Za-z._-]*$') { throw "Invalid VERSION: $version" }
+[IO.File]::WriteAllText((Join-Path $dst 'ChloeCustom_version.txt'), $version)
+Write-Host "Version $version"
 
 Write-Host "Done: $dst"
