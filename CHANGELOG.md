@@ -4,6 +4,8 @@ All notable changes to the Steam release of FlatOut UC Chloe Collection Custom.
 Versions follow `<Chloe version>-custom.<n>`. The current development version is in [VERSION](VERSION).
 `custom_src/package_steam.ps1` refuses to package a version without an entry here.
 
+## [1.83-custom.3] – unreleased
+
 ## [1.83-custom.2] – 2026-11-26
 
 Code update. Uses the same Assets ZIP as 1.83-custom.1 (`FlatOutUC-Steam-Assets-13a694c6bbe99df4.zip`).
